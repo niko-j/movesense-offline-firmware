@@ -1,0 +1,44 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Flash firmware",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/flash.sh",
+            "problemMatcher": []
+        },
+        {
+            "label": "Build (debug)",
+            "type": "shell",
+            "command": "docker",
+            "args": [
+                "exec",
+                "-it",
+                "movesense-build-env",
+                "/movesense/scripts/build.sh",
+                "debug"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "Docker build env",
+            "type": "shell",
+            "command": "docker",
+            "args": [
+                "run",
+                "-it",
+                "--rm",
+                "-v",
+                "${workspaceFolder}:/movesense:delegated",
+                "--name",
+                "movesense-build-env",
+                "movesense/sensor-build-env:2.2"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}
