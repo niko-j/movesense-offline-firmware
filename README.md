@@ -4,10 +4,8 @@ An offline tracking firmware for Movesense Flash (SS2_NAND variant) sensor devic
 
 The firmware implements the following modules:
 
-- `OfflineConfigService`: A service for configuring the offline tracking data sources and behavior over BLE.
-- `OfflineLogService`: A service for transferring the gathered data over BLE.
-- `OfflineDataClient`: An application gathering and saving sensor data when the device is not connected.
-- `OfflineTracker`: The main application controlling the device states.
+- `OfflineTracker`: The main application controlling and monitoring the device.
+- TBD
 
 A separate tool application will be used for communicating with the services over BLE and for configuring the device.
 
@@ -30,24 +28,29 @@ A separate tool application will be used for communicating with the services ove
 docker pull movesense/sensor-build-env:2.2
 ```
 
-### Run the build environment
+### Docker Build Environment
+
+There's a VSCode task for running the build environment. You can also run the Docker container with command:
 
 ```sh
-docker run -it --rm -v `pwd`:/movesense:delegated movesense/sensor-build-env:2.2
+docker run -it --rm -v `pwd`:/movesense:delegated --name movesense-build-env movesense/sensor-build-env:2.2
 ```
 
-or run `scripts/run_docker.sh`
+### Building the Firmware
 
-### Build the project using the convenience script
+Either use the VSCode task `Build (debug)` or run the build script `/movesense/scripts/build.sh debug` in the container.
 
-Run inside the Docker container:
+### Flash the Firmware
 
-```sh
-cd movesense/build
-../scripts/build.sh debug ../src
-```
+You can flash the firmware using your mobile phone and the DFU package found in the `build` directory. 
 
-### Flashing
+If you have a jig, you can either run the VSCode task `Flash firmware` or run the script `./scripts/flash.sh`. The flashing scripts do not work on Windows, use nRF Command Line tools to program the device.
 
-Either use a mobile phone to upload the firmware to the device or use the `scripts/flash.sh` if you have a jig.
+## Modules
+
+Notes about the modules (subject to change).
+
+### OfflineTracker
+
+- Monitors the device and its sensors, manages power states.
 
