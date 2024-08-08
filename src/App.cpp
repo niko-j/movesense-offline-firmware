@@ -1,9 +1,13 @@
+#include "OfflineTracker.hpp"
 #include "movesense.h"
 
 MOVESENSE_APPLICATION_STACKSIZE(1024)
 
-MOVESENSE_PROVIDERS_BEGIN(0)
-MOVESENSE_PROVIDERS_END(0)
+MOVESENSE_PROVIDERS_BEGIN(1)
+
+MOVESENSE_PROVIDER_DEF(OfflineTracker)
+
+MOVESENSE_PROVIDERS_END(1)
 
 MOVESENSE_FEATURES_BEGIN()
 // Explicitly enable or disable Movesense framework core modules.
@@ -18,7 +22,7 @@ OPTIONAL_CORE_MODULE(BypassService, false)
 OPTIONAL_CORE_MODULE(SystemMemoryService, true)
 OPTIONAL_CORE_MODULE(DebugService, true)
 OPTIONAL_CORE_MODULE(BleStandardHRS, false)
-OPTIONAL_CORE_MODULE(BleNordicUART, false)
+OPTIONAL_CORE_MODULE(BleNordicUART, true)
 OPTIONAL_CORE_MODULE(CustomGattService, true)
 
 // NOTE: It is inadvisable to enable both Logbook/DataLogger and EepromService without
@@ -33,7 +37,7 @@ DEBUG_EEPROM_MEMORY_AREA(true, 0, 16384)
 LOGBOOK_EEPROM_MEMORY_AREA(16384, MEMORY_SIZE_FILL_REST);
 
 APPINFO_NAME("Offline Tracker");
-APPINFO_VERSION("0.1.0");
+APPINFO_VERSION("0.0.1");
 APPINFO_COMPANY("TUNI");
 
 // NOTE: SERIAL_COMMUNICATION & BLE_COMMUNICATION macros have been DEPRECATED

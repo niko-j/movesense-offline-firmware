@@ -23,3 +23,8 @@ executionContexts:
     numberOfResponses: 10
     stackSize: 768
     priority: normal
+
+apis:
+  OfflineTracker.*:
+    apiId: 101
+    defaultExecutionContext: application

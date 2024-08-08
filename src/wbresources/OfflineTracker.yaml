@@ -1,0 +1,29 @@
+swagger: '2.0'
+
+# Document metadata
+info:
+  version: "0.0.1"
+  title: Offline Tracker API
+  description: |
+    This file defines the API for offline mode.
+
+# Paths
+paths:
+  /Offline/Hello:
+    get:
+      description: |
+        Get a "Hello" value
+      responses:
+        200:
+          description: Hello value
+          schema:
+            $ref: '#/definitions/HelloValue'
+
+definitions:
+  HelloValue:
+    required:
+      - Greeting
+    properties:
+      Greeting:
+        description: Hello greeting
+        type: string
