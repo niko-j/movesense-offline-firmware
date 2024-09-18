@@ -1,0 +1,192 @@
+swagger: '2.0'
+
+info:
+  version: "0.0.1"
+  title: Offline Mode API
+  description: This file defines the API for offline mode.
+
+paths:
+  /Offline/State:
+    get:
+      description: Get offline mode state
+      responses:
+        200:
+          description: Current state
+          schema:
+            $ref: '#/definitions/OfflineState'
+
+  /Offline/State/Subscription:
+    post:
+      description: Subscribe to offline state change events
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: New state changed
+          schema:
+            $ref: '#/definitions/OfflineState'
+    delete:
+      description: Unsubscribe from offline state change events
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Config:
+    get:
+      description: Get offline mode settings
+      responses:
+        200:
+          description: Configuration data structure
+          schema:
+            $ref: '#/definitions/OfflineConfig'
+    put:
+      description: Set offline mode settings
+      parameters:
+          - name: config
+            in: body
+            description: New configuration for offline mode
+            required: true
+            schema:
+              $ref: '#/definitions/OfflineConfig'
+      responses:
+        200:
+          description: Configuration changed succesfully
+        400:
+          description: Invalid configuration
+
+  /Offline/Data:
+    get:
+      description: Get offline data blocks
+      responses:
+        100:
+          description: Block transferred, incomplete data
+          schema:
+            $ref: '#/definitions/OfflineData'
+        200:
+          description: Block transferred, the data is complete
+          schema:
+            $ref: '#/definitions/OfflineData'
+    delete:
+      description: Clear offline data blocks
+      responses:
+        200:
+          description: "Offline data cleared"
+
+  /Offline/Data/Subscription:
+    post:
+      description: Subscribe to receive compressed data blocks (for DataLogger)
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Compressed block of data
+          schema:
+            $ref: '#/definitions/OfflineData'
+    delete:
+      description: Unsubscribe from offline data blocks
+      responses:
+        200:
+          description: Operation completed successfully
+
+definitions:
+  OfflineConfig:
+    required:
+      - SampleRates
+      - WakeUpSources
+      - SleepDelay
+    properties:
+      SampleRates:
+        description: Array of samplerates for each sensor indexed by MeasurementSensors enum.
+        type: array
+        items:
+          type: integer
+          format: uint16
+          x-unit: Hz
+      WakeUpSources:
+        description: Wake up sources defined by WakeUpFlags
+        type: integer
+        format: uint8
+      SleepDelay:
+        description: Enter sleep mode automatically after set amount of time with no input
+        type: integer
+        format: uint16
+        x-unit: s
+
+  OfflineData:
+    required:
+      - Offset
+      - Bytes
+    properties:
+      Offset:
+        description: Data offset
+        type: integer
+        format: uint32
+      Bytes:
+        description: Data bytes
+        type: array
+        items:
+          type: integer
+          format: uint8
+
+  OfflineState:
+    type: integer
+    format: uint8
+    enum:
+    - name: "INIT"
+      description: Offline mode is initializing
+      value: 0
+    - name: "IDLE"
+      description: Offline mode is ready but not active
+      value: 1
+    - name: "ACTIVE"
+      description: Offline mode is currently active
+      value: 2
+    - name: "STORAGE_FULL"
+      description: Offline data storage is full
+      value: 3
+
+  WakeUpFlags:
+    type: integer
+    format: uint8
+    enum:
+    - name: 'AlwaysOn'
+      description: Sleep disabled if no flags present
+      value: 0
+    - name: 'HR'
+      description: Wake up on HR or when touching the pins.
+      value: 1
+    - name: 'Movement'
+      descrioton: Wake up from any movement
+      value: 2
+    - name: 'SingleTap'
+      description: Wake up from single tap
+      value: 4
+    - name: 'DoubleTap'
+      description: Wake up from double tap
+      value: 8
+
+  MeasurementSensors:
+    type: integer
+    format: uint8
+    enum:
+    - name: 'ECG'
+      description: ECG
+      value: 0
+    - name: 'HR'
+      description: Heartrate
+      value: 1
+    - name: 'ACC'
+      description: Acceleration
+      value: 2
+    - name: 'GYRO'
+      description: Gyroscope
+      value: 3
+    - name: 'MAGN'
+      description: Magnetometer
+      value: 4
+    - name: 'TEMP'
+      description: Temperature
+      value: 5
+    - name: 'COUNT'
+      description: Number of measurements
+      value: 6

@@ -1,13 +1,15 @@
-#include "OfflineTracker.hpp"
+#include "OfflineManager.hpp"
+#include "OfflineLogger.hpp"
+#include "OfflineGATTService.hpp"
 #include "movesense.h"
 
 MOVESENSE_APPLICATION_STACKSIZE(1024)
 
-MOVESENSE_PROVIDERS_BEGIN(1)
-
-MOVESENSE_PROVIDER_DEF(OfflineTracker)
-
-MOVESENSE_PROVIDERS_END(1)
+MOVESENSE_PROVIDERS_BEGIN(3)
+MOVESENSE_PROVIDER_DEF(OfflineManager)
+MOVESENSE_PROVIDER_DEF(OfflineLogger)
+MOVESENSE_PROVIDER_DEF(OfflineGATTService)
+MOVESENSE_PROVIDERS_END(3)
 
 MOVESENSE_FEATURES_BEGIN()
 // Explicitly enable or disable Movesense framework core modules.
@@ -22,7 +24,7 @@ OPTIONAL_CORE_MODULE(BypassService, false)
 OPTIONAL_CORE_MODULE(SystemMemoryService, true)
 OPTIONAL_CORE_MODULE(DebugService, true)
 OPTIONAL_CORE_MODULE(BleStandardHRS, false)
-OPTIONAL_CORE_MODULE(BleNordicUART, true)
+OPTIONAL_CORE_MODULE(BleNordicUART, false)
 OPTIONAL_CORE_MODULE(CustomGattService, true)
 
 // NOTE: It is inadvisable to enable both Logbook/DataLogger and EepromService without

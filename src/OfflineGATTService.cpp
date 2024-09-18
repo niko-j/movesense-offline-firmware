@@ -1,0 +1,451 @@
+#include "OfflineGATTService.hpp"
+
+#include "app-resources/resources.h"
+#include "comm_ble/resources.h"
+#include "comm_ble_gattsvc/resources.h"
+
+#include "common/core/dbgassert.h"
+
+#include "DebugLogger.hpp"
+
+const char* const OfflineGATTService::LAUNCHABLE_NAME = "OfflineGATT";
+
+enum Commands
+{
+    READ_CONFIG,
+    READ_LOGDATA,
+    RESET_LOGDATA,
+};
+
+struct OfflineConfigRaw
+{
+    uint16_t sample_rates[6];
+    uint8_t wakeup_sources;
+    uint16_t sleep_delay;
+};
+
+/* UUID string: 0000b000-0000-1000-8000-00805f9b34fb */
+constexpr uint8_t OfflineGattServiceUuid[] = { 0x00, 0xB0 };
+constexpr uint8_t commandCharUuid[] = { 0x01, 0xB0 };
+constexpr uint8_t configCharUuid[] = { 0x02, 0xB0 };
+constexpr uint8_t dataCharUuid[] = { 0x03, 0xB0 };
+
+OfflineGATTService::OfflineGATTService()
+    : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
+    , LaunchableModule(LAUNCHABLE_NAME, WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
+    , offlineSvcHandle(0)
+    , commandCharHandle(0)
+    , configCharHandle(0)
+    , dataCharHandle(0)
+    , commandCharResource(wb::ID_INVALID_RESOURCE)
+    , configCharResource(wb::ID_INVALID_RESOURCE)
+    , dataCharResource(wb::ID_INVALID_RESOURCE)
+    , dataPartCounter(0)
+    , dataClientReference(0)
+{
+
+}
+
+OfflineGATTService::~OfflineGATTService()
+{
+
+}
+
+bool OfflineGATTService::initModule()
+{
+    mModuleState = WB_RES::ModuleStateValues::INITIALIZED;
+    return true;
+}
+
+void OfflineGATTService::deinitModule()
+{
+    mModuleState = WB_RES::ModuleStateValues::UNINITIALIZED;
+}
+
+bool OfflineGATTService::startModule()
+{
+    DebugLogger::info("Starting GATT service");
+    configGattSvc();
+    mModuleState = WB_RES::ModuleStateValues::STARTED;
+    DebugLogger::info("Started GATT service");
+    return true;
+}
+
+void OfflineGATTService::stopModule()
+{
+    asyncUnsubscribe(commandCharResource);
+    asyncUnsubscribe(configCharResource);
+    asyncUnsubscribe(dataCharResource);
+
+    releaseResource(commandCharResource);
+    releaseResource(configCharResource);
+    releaseResource(dataCharResource);
+
+    commandCharResource = wb::ID_INVALID_RESOURCE;
+    configCharResource = wb::ID_INVALID_RESOURCE;
+    dataCharResource = wb::ID_INVALID_RESOURCE;
+
+    mModuleState = WB_RES::ModuleStateValues::STOPPED;
+}
+
+void OfflineGATTService::onGetResult(
+    whiteboard::RequestId requestId,
+    whiteboard::ResourceId resourceId,
+    whiteboard::Result resultCode,
+    const whiteboard::Value& result)
+{
+    DebugLogger::verbose("%s: onGetResult %d, status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
+    switch (resourceId.localResourceId)
+    {
+    case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE::LID:
+    {
+        DebugLogger::info("Reading characteristics handles");
+
+        const WB_RES::GattSvc& svc = result.convertTo<const WB_RES::GattSvc&>();
+
+        uint16_t svcHandle = svc.handle.getValue();
+        DebugLogger::info("Characteristics for service %d", svcHandle);
+
+        uint16_t commandUUID = *reinterpret_cast<const uint16_t*>(commandCharUuid);
+        uint16_t configUUID = *reinterpret_cast<const uint16_t*>(configCharUuid);
+        uint16_t dataUUID = *reinterpret_cast<const uint16_t*>(dataCharUuid);
+
+        for (size_t i = 0; i < svc.chars.size(); i++)
+        {
+            const WB_RES::GattChar& c = svc.chars[i];
+            if (c.uuid.size() != 2)
+                continue;
+
+            uint16_t uuid16 = *reinterpret_cast<const uint16_t*>(&(c.uuid[0]));
+
+            if (uuid16 == commandUUID)
+                commandCharHandle = c.handle.hasValue() ? c.handle.getValue() : 0;
+            else if (uuid16 == configUUID)
+                configCharHandle = c.handle.hasValue() ? c.handle.getValue() : 0;
+            else if (uuid16 == dataUUID)
+                dataCharHandle = c.handle.hasValue() ? c.handle.getValue() : 0;
+        }
+
+        if (!commandCharHandle || !configCharHandle || !dataCharHandle)
+        {
+            DebugLogger::error("Failed to get characteristics handles");
+            ASSERT(false);
+            return;
+        }
+
+        DebugLogger::info("Received characteristics handles!");
+
+        asyncSubsribeHandleResource(commandCharHandle, commandCharResource);
+        asyncSubsribeHandleResource(configCharHandle, configCharResource);
+        asyncSubsribeHandleResource(dataCharHandle, dataCharResource);
+        break;
+    }
+    case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
+    {
+        if (resultCode == wb::HTTP_CODE_OK)
+        {
+            const auto& conf = result.convertTo<const WB_RES::OfflineConfig&>();
+            sendOfflineConfig(conf);
+        }
+        break;
+    }
+    case WB_RES::LOCAL::OFFLINE_DATA::LID:
+    {
+        const auto& data = result.convertTo<const WB_RES::OfflineData&>();
+
+        if (resultCode == wb::HTTP_CODE_CONTINUE)
+        {
+            asyncGet(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
+        }
+
+        if (resultCode < 400)
+        {
+            sendOfflineData(&data.bytes[0], data.bytes.size());
+        }
+        break;
+    }
+    default:
+    {
+        DebugLogger::warning("Unhandled GET result (%d) for resource: %d", resultCode, resourceId.localResourceId);
+        break;
+    }
+    }
+}
+
+void OfflineGATTService::onPutResult(
+    whiteboard::RequestId requestId,
+    whiteboard::ResourceId resourceId,
+    whiteboard::Result resultCode,
+    const whiteboard::Value& result)
+{
+    DebugLogger::verbose("%s: onPutResult %d, status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
+    switch (resourceId.localResourceId)
+    {
+    default:
+    {
+        DebugLogger::warning("Unhandled PUT result (%d) for resource: %d",
+            resultCode, resourceId.localResourceId);
+        break;
+    }
+    }
+}
+
+void OfflineGATTService::onPostResult(
+    whiteboard::RequestId requestId,
+    whiteboard::ResourceId resourceId,
+    whiteboard::Result resultCode,
+    const whiteboard::Value& result)
+{
+    DebugLogger::verbose("%s: onPostResult %d, status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
+    switch (resourceId.localResourceId)
+    {
+    case WB_RES::LOCAL::COMM_BLE_GATTSVC::LID:
+    {
+        if (resultCode == wb::HTTP_CODE_CREATED)
+        {
+            offlineSvcHandle = (int32_t)result.convertTo<uint16_t>();
+            DebugLogger::info("Offline GATT service created. Handle: %d", offlineSvcHandle);
+
+            // Get handles for characteristics
+            asyncGet(
+                WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE(),
+                AsyncRequestOptions::ForceAsync,
+                offlineSvcHandle);
+        }
+        else
+        {
+            DebugLogger::error("Failed to create Offline GATT service: %d", resultCode);
+        }
+        break;
+    }
+    default:
+    {
+        DebugLogger::warning("Unhandled POST result (%d) for resource: %d",
+            resultCode, resourceId.localResourceId);
+        break;
+    }
+    }
+}
+
+void OfflineGATTService::onSubscribeResult(
+    wb::RequestId requestId,
+    wb::ResourceId resourceId,
+    wb::Result resultCode,
+    const wb::Value& result)
+{
+    DebugLogger::verbose("%s: onSubscribeResult %d, status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+}
+
+void OfflineGATTService::onNotify(
+    wb::ResourceId resourceId,
+    const wb::Value& value,
+    const wb::ParameterList& parameters)
+{
+    DebugLogger::verbose("%s: onNotify %d", LAUNCHABLE_NAME, resourceId);
+
+    switch (resourceId.localResourceId)
+    {
+    case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
+    {
+        WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::SUBSCRIBE::ParameterListRef parameterRef(parameters);
+        const auto& handle = parameterRef.getCharHandle();
+        const auto& data = value.convertTo<const WB_RES::Characteristic&>();
+
+        if (handle == commandCharHandle)
+        {
+            uint8_t len = data.bytes.size();
+            uint8_t cmd = data.bytes[0];
+
+            if (dataClientReference > 0)
+            {
+                // TODO: Error response
+                DebugLogger::info("Client is busy");
+                return;
+            }
+
+            if (len > 1)
+            {
+                dataClientReference = data.bytes[1];
+            }
+
+            DebugLogger::info("Received command: %d ref: %d", cmd, dataClientReference);
+
+            switch (cmd)
+            {
+            case Commands::READ_CONFIG:
+            {
+                asyncGet(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync);
+                break;
+            }
+            case Commands::READ_LOGDATA:
+            {
+                asyncGet(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
+                break;
+            }
+            case Commands::RESET_LOGDATA:
+            {
+                asyncDelete(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
+                break;
+            }
+            default:
+            {
+                DebugLogger::warning("Unhandled command: %u", cmd);
+                break;
+            }
+            }
+        }
+        else if (handle == configCharHandle)
+        {
+            if (data.bytes.size() == sizeof(OfflineConfigRaw))
+            {
+                OfflineConfigRaw configRaw = {};
+                memcpy(&configRaw, &data.bytes[0], sizeof(OfflineConfigRaw));
+
+                WB_RES::OfflineConfig config = {
+                    .sampleRates = wb::MakeArray<uint16_t>(configRaw.sample_rates, 6),
+                    .wakeUpSources = configRaw.wakeup_sources,
+                    .sleepDelay = configRaw.sleep_delay,
+                };
+
+                asyncPut(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync, config);
+            }
+            else
+            {
+                DebugLogger::error("Unexpected config size: %u", data.bytes.size());
+            }
+        }
+        break;
+    }
+    default:
+    {
+        DebugLogger::warning("Unhandled notification from resource: %d", resourceId.localResourceId);
+        break;
+    }
+    }
+}
+
+void OfflineGATTService::configGattSvc()
+{
+    constexpr uint8_t CHARACTERISTICS_COUNT = 3;
+    WB_RES::GattSvc offlineSvc;
+    WB_RES::GattChar offlineChars[CHARACTERISTICS_COUNT];
+
+    WB_RES::GattChar& offlineCommandChar = offlineChars[0];
+    WB_RES::GattProperty commmandCharProps[] = {
+        WB_RES::GattProperty::WRITE
+    };
+
+    WB_RES::GattChar& offlineConfigChar = offlineChars[1];
+    WB_RES::GattProperty configCharProps[] = {
+        WB_RES::GattProperty::INDICATE, WB_RES::GattProperty::WRITE
+    };
+
+    WB_RES::GattChar& offlineDataChar = offlineChars[2];
+    WB_RES::GattProperty dataCharProps[] = {
+        WB_RES::GattProperty::INDICATE
+    };
+
+    offlineCommandChar.props = wb::MakeArray<WB_RES::GattProperty>(commmandCharProps, 1);
+    offlineCommandChar.uuid = wb::MakeArray<uint8_t>(commandCharUuid, sizeof(commandCharUuid));
+
+    offlineConfigChar.props = wb::MakeArray<WB_RES::GattProperty>(configCharProps, 2);
+    offlineConfigChar.uuid = wb::MakeArray<uint8_t>(configCharUuid, sizeof(configCharUuid));
+
+    offlineDataChar.props = wb::MakeArray<WB_RES::GattProperty>(dataCharProps, 1);
+    offlineDataChar.uuid = wb::MakeArray<uint8_t>(dataCharUuid, sizeof(dataCharUuid));
+
+    offlineSvc.uuid = wb::MakeArray<uint8_t>(OfflineGattServiceUuid, sizeof(OfflineGattServiceUuid));
+    offlineSvc.chars = wb::MakeArray<WB_RES::GattChar>(offlineChars, CHARACTERISTICS_COUNT);
+
+    asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions(NULL, 0, true), offlineSvc);
+}
+
+bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whiteboard::ResourceId& resourceOut)
+{
+    resourceOut = whiteboard::ID_INVALID_RESOURCE;
+
+    char path[32] = {};
+    snprintf(path, sizeof(path), "/Comm/Ble/GattSvc/%d/%d", offlineSvcHandle, charHandle);
+
+    whiteboard::Result res = getResource(path, resourceOut);
+    if (whiteboard::IsErrorResult(res))
+    {
+        DebugLogger::error("Failed to find resource for handle %d", charHandle);
+        return false;
+    }
+
+    DebugLogger::verbose("%s: subscribing to resource %d", LAUNCHABLE_NAME, resourceOut);
+    asyncSubscribe(resourceOut, AsyncRequestOptions::ForceAsync);
+    return true;
+}
+
+void OfflineGATTService::sendOfflineData(const uint8_t* data, uint32_t size)
+{
+    uint32_t sent = 0;
+    do
+    {
+        uint8_t offset = 0;
+        memset(dataBuffer, 0, sizeof(dataBuffer));
+
+        memcpy(dataBuffer, &dataPartCounter, sizeof(dataPartCounter));
+        offset += sizeof(dataPartCounter);
+
+        memcpy(dataBuffer + offset, &dataClientReference, sizeof(dataClientReference));
+        offset += sizeof(dataClientReference);
+
+        uint8_t partSize = WB_MIN(size, PAYLOAD_SIZE);
+        memcpy(dataBuffer + offset, data + sent, partSize);
+
+        sent += partSize;
+        offset += partSize;
+
+        WB_RES::Characteristic chVal = {
+            .bytes = wb::MakeArray<uint8_t>(dataBuffer, offset),
+            .notifications = true
+        };
+        asyncPut(dataCharResource, AsyncRequestOptions::Empty, chVal);
+
+    } while (sent < size);
+}
+
+void OfflineGATTService::sendOfflineConfig(const WB_RES::OfflineConfig& config)
+{
+    uint8_t offset = 0;
+    memset(dataBuffer, 0, sizeof(dataBuffer));
+
+    memcpy(dataBuffer, &dataPartCounter, sizeof(dataPartCounter));
+    offset += sizeof(dataPartCounter);
+
+    memcpy(dataBuffer + offset, &dataClientReference, sizeof(dataClientReference));
+    offset += sizeof(dataClientReference);
+
+    OfflineConfigRaw raw = {
+        .sample_rates = {
+            config.sampleRates[0],
+            config.sampleRates[1],
+            config.sampleRates[2],
+            config.sampleRates[3],
+            config.sampleRates[4],
+            config.sampleRates[5],
+        },
+        .wakeup_sources = config.wakeUpSources,
+        .sleep_delay = config.sleepDelay,
+    };
+
+    memcpy(dataBuffer + offset, &raw, sizeof(OfflineConfigRaw));
+    offset += sizeof(OfflineConfigRaw);
+
+    WB_RES::Characteristic chVal = {
+        .bytes = wb::MakeArray<uint8_t>(dataBuffer, offset),
+        .notifications = true
+    };
+    asyncPut(configCharResource, AsyncRequestOptions::Empty, chVal);
+}
+

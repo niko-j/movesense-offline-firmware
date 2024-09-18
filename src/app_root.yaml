@@ -25,6 +25,6 @@ executionContexts:
     priority: normal
 
 apis:
-  OfflineTracker.*:
+  OfflineMode.*:
     apiId: 101
     defaultExecutionContext: application
