@@ -29,7 +29,7 @@ echo "Generating files..."
 cmake -G Ninja \
     -DMOVESENSE_CORE_LIBRARY=$MOVESENSE_CORELIB_PATH/ \
     -DCMAKE_TOOLCHAIN_FILE=$MOVESENSE_CORELIB_PATH/toolchain/gcc-nrf52.cmake \
-    -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+    -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DHWCONFIG=SS2_NAND \
     ../src || abort "cmake failed"
 
