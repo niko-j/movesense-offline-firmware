@@ -70,9 +70,7 @@ private:
     whiteboard::ResourceId configCharResource;
     whiteboard::ResourceId dataCharResource;
 
-    uint32_t dataPartCounter;
-    uint8_t dataClientReference;
-
     // Part counter (4) + client reference (1) + payload
     uint8_t dataBuffer[4+1+PAYLOAD_SIZE];
+    uint8_t dataClientReference;
 };

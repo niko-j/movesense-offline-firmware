@@ -17,13 +17,6 @@ enum Commands
     RESET_LOGDATA,
 };
 
-struct OfflineConfigRaw
-{
-    uint16_t sample_rates[6];
-    uint8_t wakeup_sources;
-    uint16_t sleep_delay;
-};
-
 /* UUID string: 0000b000-0000-1000-8000-00805f9b34fb */
 constexpr uint8_t OfflineGattServiceUuid[] = { 0x00, 0xB0 };
 constexpr uint8_t commandCharUuid[] = { 0x01, 0xB0 };
@@ -40,7 +33,6 @@ OfflineGATTService::OfflineGATTService()
     , commandCharResource(wb::ID_INVALID_RESOURCE)
     , configCharResource(wb::ID_INVALID_RESOURCE)
     , dataCharResource(wb::ID_INVALID_RESOURCE)
-    , dataPartCounter(0)
     , dataClientReference(0)
 {
 
@@ -248,7 +240,7 @@ void OfflineGATTService::onNotify(
     const wb::Value& value,
     const wb::ParameterList& parameters)
 {
-    DebugLogger::verbose("%s: onNotify %d", LAUNCHABLE_NAME, resourceId);
+    DebugLogger::verbose("%s: onNotify %d", LAUNCHABLE_NAME, resourceId.localResourceId);
 
     switch (resourceId.localResourceId)
     {
@@ -303,17 +295,14 @@ void OfflineGATTService::onNotify(
         }
         else if (handle == configCharHandle)
         {
-            if (data.bytes.size() == sizeof(OfflineConfigRaw))
+            if (data.bytes.size() == 12 + 1 + 2)
             {
-                OfflineConfigRaw configRaw = {};
-                memcpy(&configRaw, &data.bytes[0], sizeof(OfflineConfigRaw));
-
                 WB_RES::OfflineConfig config = {
-                    .sampleRates = wb::MakeArray<uint16_t>(configRaw.sample_rates, 6),
-                    .wakeUpSources = configRaw.wakeup_sources,
-                    .sleepDelay = configRaw.sleep_delay,
+                    .sampleRates = wb::Array<uint16_t>((const uint16_t*) &data.bytes[0], 6),
+                    .wakeUpSources = data.bytes[12],
+                    .sleepDelay = *reinterpret_cast<const uint16_t*>(&data.bytes[13]),
                 };
-
+                
                 asyncPut(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync, config);
             }
             else
@@ -344,12 +333,13 @@ void OfflineGATTService::configGattSvc()
 
     WB_RES::GattChar& offlineConfigChar = offlineChars[1];
     WB_RES::GattProperty configCharProps[] = {
-        WB_RES::GattProperty::INDICATE, WB_RES::GattProperty::WRITE
+        WB_RES::GattProperty::NOTIFY,
+        WB_RES::GattProperty::WRITE
     };
 
     WB_RES::GattChar& offlineDataChar = offlineChars[2];
     WB_RES::GattProperty dataCharProps[] = {
-        WB_RES::GattProperty::INDICATE
+        WB_RES::GattProperty::NOTIFY
     };
 
     offlineCommandChar.props = wb::MakeArray<WB_RES::GattProperty>(commmandCharProps, 1);
@@ -364,7 +354,7 @@ void OfflineGATTService::configGattSvc()
     offlineSvc.uuid = wb::MakeArray<uint8_t>(OfflineGattServiceUuid, sizeof(OfflineGattServiceUuid));
     offlineSvc.chars = wb::MakeArray<WB_RES::GattChar>(offlineChars, CHARACTERISTICS_COUNT);
 
-    asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions(NULL, 0, true), offlineSvc);
+    asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
 }
 
 bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whiteboard::ResourceId& resourceOut)
@@ -389,13 +379,16 @@ bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whitebo
 void OfflineGATTService::sendOfflineData(const uint8_t* data, uint32_t size)
 {
     uint32_t sent = 0;
+    uint32_t part = 0;
     do
     {
+        DebugLogger::info("Sending data... %u bytes sent / %u bytes total", sent, size);
+
         uint8_t offset = 0;
         memset(dataBuffer, 0, sizeof(dataBuffer));
 
-        memcpy(dataBuffer, &dataPartCounter, sizeof(dataPartCounter));
-        offset += sizeof(dataPartCounter);
+        memcpy(dataBuffer, &part, sizeof(part));
+        offset += sizeof(part);
 
         memcpy(dataBuffer + offset, &dataClientReference, sizeof(dataClientReference));
         offset += sizeof(dataClientReference);
@@ -406,46 +399,56 @@ void OfflineGATTService::sendOfflineData(const uint8_t* data, uint32_t size)
         sent += partSize;
         offset += partSize;
 
-        WB_RES::Characteristic chVal = {
-            .bytes = wb::MakeArray<uint8_t>(dataBuffer, offset),
-            .notifications = true
-        };
-        asyncPut(dataCharResource, AsyncRequestOptions::Empty, chVal);
+        WB_RES::Characteristic value;
+        value.bytes = wb::MakeArray<uint8_t>(dataBuffer, offset);
+        asyncPut(dataCharResource, AsyncRequestOptions::Empty, value);
 
     } while (sent < size);
+
+    dataClientReference = 0; // Request completed
 }
 
 void OfflineGATTService::sendOfflineConfig(const WB_RES::OfflineConfig& config)
 {
+    DebugLogger::info("Sending configuration");
+
+    uint32_t part = 0;
     uint8_t offset = 0;
     memset(dataBuffer, 0, sizeof(dataBuffer));
 
-    memcpy(dataBuffer, &dataPartCounter, sizeof(dataPartCounter));
-    offset += sizeof(dataPartCounter);
+    // Header
+
+    memcpy(dataBuffer, &part, sizeof(part));
+    offset += sizeof(part);
 
     memcpy(dataBuffer + offset, &dataClientReference, sizeof(dataClientReference));
     offset += sizeof(dataClientReference);
 
-    OfflineConfigRaw raw = {
-        .sample_rates = {
-            config.sampleRates[0],
-            config.sampleRates[1],
-            config.sampleRates[2],
-            config.sampleRates[3],
-            config.sampleRates[4],
-            config.sampleRates[5],
-        },
-        .wakeup_sources = config.wakeUpSources,
-        .sleep_delay = config.sleepDelay,
-    };
+    DebugLogger::verbose("Prepared header: part %u ref %u", part, dataClientReference);
 
-    memcpy(dataBuffer + offset, &raw, sizeof(OfflineConfigRaw));
-    offset += sizeof(OfflineConfigRaw);
+    // Payload
 
-    WB_RES::Characteristic chVal = {
-        .bytes = wb::MakeArray<uint8_t>(dataBuffer, offset),
-        .notifications = true
-    };
-    asyncPut(configCharResource, AsyncRequestOptions::Empty, chVal);
+    for(size_t i = 0; i < WB_RES::MeasurementSensors::COUNT; i++)
+    {
+        uint16_t value = i < config.sampleRates.size() ? config.sampleRates[i] : 0;
+        memcpy(dataBuffer + offset, &value, sizeof(uint16_t));
+        offset += sizeof(uint16_t);
+    }
+
+    memcpy(dataBuffer + offset, &config.wakeUpSources, sizeof(config.wakeUpSources));
+    offset += sizeof(config.wakeUpSources);
+
+    memcpy(dataBuffer + offset, &config.sleepDelay, sizeof(config.sleepDelay));
+    offset += sizeof(config.sleepDelay);
+
+    DebugLogger::verbose("Total data to send: %u", offset);
+
+    WB_RES::Characteristic value;
+    value.bytes = wb::MakeArray<uint8_t>(dataBuffer, offset);
+    asyncPut(configCharResource, AsyncRequestOptions::Empty, value);
+
+    DebugLogger::info("Config sent");
+
+    dataClientReference = 0; // Request completed
 }
 

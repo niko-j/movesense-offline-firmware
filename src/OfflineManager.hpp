@@ -66,7 +66,13 @@ private:
     void startRecording();
     void stopRecording();
 
+    struct Config
+    {
+        uint16_t sampleRates[WB_RES::MeasurementSensors::COUNT];
+        uint8_t wakeUpSources;
+        uint16_t sleepDelay;
+    } _config;
+
     WB_RES::OfflineState _state;
-    WB_RES::OfflineConfig _config;
     uint8_t _connections;
 };

@@ -12,6 +12,7 @@
 #include "ui_ind/resources.h"
 
 const char* const OfflineManager::LAUNCHABLE_NAME = "OfflineMan";
+constexpr uint8_t EEPROM_CONFIG_INDEX = 0;
 constexpr uint32_t EEPROM_CONFIG_ADDR = 0;
 constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0xA0;
 
@@ -62,7 +63,7 @@ bool OfflineManager::startModule()
     asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG(), AsyncRequestOptions::ForceAsync, logConfig);
     asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::ForceAsync, true);
 
-    //asyncReadConfigFromEEPROM();
+    asyncReadConfigFromEEPROM();
 
     // Subscribe to BLE peers (Halt offline recording when connected)
     asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::ForceAsync);
@@ -93,7 +94,12 @@ void OfflineManager::onGetRequest(
     {
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
     {
-        returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, _config);
+        WB_RES::OfflineConfig data = {
+            .sampleRates = wb::MakeArray(_config.sampleRates),
+            .wakeUpSources = _config.wakeUpSources,
+            .sleepDelay = _config.sleepDelay
+        };
+        returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, data);
         break;
     }
     default:
@@ -128,7 +134,13 @@ void OfflineManager::onPutRequest(
             return;
         }
 
-        _config = conf;
+        _config = {
+            .sampleRates = {},
+            .wakeUpSources = conf.wakeUpSources,
+            .sleepDelay = conf.sleepDelay,
+        };
+        memcpy(&_config.sampleRates, &conf.sampleRates[0], sizeof(_config.sampleRates));
+        
         asyncSaveConfigToEEPROM();
         onInitialized();
 
@@ -149,7 +161,8 @@ void OfflineManager::onGetResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::verbose("%s: onGetResult %d, status: %d", LAUNCHABLE_NAME, resourceId, resultCode);
+    DebugLogger::verbose("%s: onGetResult %d, status: %d", 
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 
     switch (resourceId.localResourceId)
     {
@@ -160,8 +173,16 @@ void OfflineManager::onGetResult(
             auto data = result.convertTo<const WB_RES::EepromData&>();
             if (data.bytes[0] == EEPROM_CONFIG_INIT_MAGIC)
             {
-                memcpy(&_config, &(data.bytes[1]), sizeof(WB_RES::OfflineConfig));
+                if(data.bytes.size() != 1 + sizeof(_config))
+                {
+                    DebugLogger::error("Offline mode configuration corrupted");
+                    return;
+                }
+
+                memcpy(&_config, &(data.bytes[1]), sizeof(_config));
+
                 onInitialized();
+                DebugLogger::info("Offline mode configuration restored");
             }
             else
             {
@@ -176,7 +197,8 @@ void OfflineManager::onGetResult(
     }
     default:
     {
-        DebugLogger::warning("Unhandled GET result (%d) for resource: %d", resultCode, resourceId.localResourceId);
+        DebugLogger::warning("Unhandled GET result (%d) for resource: %d", 
+            resultCode, resourceId.localResourceId);
         break;
     }
     }
@@ -329,27 +351,32 @@ void OfflineManager::onInitialized()
 
 void OfflineManager::asyncReadConfigFromEEPROM()
 {
-    uint8_t len = sizeof(WB_RES::OfflineConfig) + 1;
-    asyncGet(WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), AsyncRequestOptions::ForceAsync, 0, EEPROM_CONFIG_ADDR, len);
+    asyncGet(WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), AsyncRequestOptions::ForceAsync, 
+        EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, 1 + sizeof(_config));
 }
 
 void OfflineManager::asyncSaveConfigToEEPROM()
 {
-    constexpr uint8_t len = sizeof(WB_RES::OfflineConfig);
-    uint8_t data[len + 1] = { 0 };
+    // Guarding that we don't end up in an endless loop.
+    static uint16_t failsave = 0;
+    failsave++;
+    ASSERT(failsave < 1000);
+
+    uint8_t data[1 + sizeof(_config)] = {};
     data[0] = EEPROM_CONFIG_INIT_MAGIC;
-    memcpy(&data[1], &_config, len);
+    memcpy(data + 1, &_config, sizeof(_config));
 
-    WB_RES::EepromData eepromData = {
-        .bytes = wb::MakeArray(data)
-    };
+    WB_RES::EepromData eepromData = { .bytes = wb::MakeArray(data) };
 
-    asyncPut(WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), AsyncRequestOptions::ForceAsync, 0, EEPROM_CONFIG_ADDR, eepromData);
+    asyncPut(WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), AsyncRequestOptions::ForceAsync, 
+        EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, eepromData);
 }
 
 bool OfflineManager::validateConfig(const WB_RES::OfflineConfig& config)
 {
-    return true; // TODO: Implement validation
+    // TODO: Add more validations
+    bool sampleRatesDefined = config.sampleRates.size() == WB_RES::MeasurementSensors::COUNT;
+    return (sampleRatesDefined);
 }
 
 void OfflineManager::startRecording()
