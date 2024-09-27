@@ -1,4 +1,5 @@
 [submodule "movesense-device-lib"]
 	path = movesense-device-lib
 	url = https://bitbucket.org/movesense/movesense-device-lib.git
-	ignore = all
+	branch = master
+	ignore = dirty
