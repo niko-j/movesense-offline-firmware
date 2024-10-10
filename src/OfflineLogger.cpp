@@ -22,6 +22,8 @@ const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_DATA::LID,
+    WB_RES::LOCAL::OFFLINE_SESSIONS::LID,
+    WB_RES::LOCAL::OFFLINE_SESSIONS_SESSIONINDEX::LID
 };
 
 OfflineLogger::OfflineLogger()
@@ -58,14 +60,14 @@ void OfflineLogger::deinitModule()
 
 bool OfflineLogger::startModule()
 {
-    asyncSubscribe(WB_RES::LOCAL::OFFLINE_STATE(), AsyncRequestOptions::ForceAsync);
+    asyncSubscribe(WB_RES::LOCAL::OFFLINE_STATE());
     mModuleState = WB_RES::ModuleStateValues::STARTED;
     return true;
 }
 
 void OfflineLogger::stopModule()
 {
-    asyncUnsubscribe(WB_RES::LOCAL::OFFLINE_STATE(), AsyncRequestOptions::ForceAsync);
+    asyncUnsubscribe(WB_RES::LOCAL::OFFLINE_STATE());
     mModuleState = WB_RES::ModuleStateValues::STOPPED;
 }
 
@@ -172,7 +174,7 @@ void OfflineLogger::onNotify(
     const wb::Value& value,
     const wb::ParameterList& parameters)
 {
-    DebugLogger::verbose("%s: onNotify %d", LAUNCHABLE_NAME, resourceId);
+    DebugLogger::verbose("%s: onNotify %d", LAUNCHABLE_NAME, resourceId.localResourceId);
 
     switch (resourceId.localResourceId)
     {

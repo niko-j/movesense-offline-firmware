@@ -54,7 +54,55 @@ paths:
         400:
           description: Invalid configuration
 
-  /Offline/Data:
+  /Offline/Config/Subscription:
+    post:
+      description: Subscribe to offline configuration change events
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: New state changed
+          schema:
+            $ref: '#/definitions/OfflineConfig'
+    delete:
+      description: Unsubscribe from offline configuration change events
+      responses:
+        200:
+          description: Operation completed successfully
+        
+  /Offline/Sessions:
+    get:
+      description: Get list of offline session logs and information about them.
+      responses:
+        200:
+          description: List of session logs
+          schema:
+            $ref: "#/definitions/OfflineSessionList"
+    delete:
+      description: Clear offline session logs
+      responses:
+        200:
+          description: "Offline data cleared"
+
+  /Offline/Sessions/Subscription:
+    post:
+      description: Subscribe to receive session lists
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Compressed block of data
+          schema:
+            $ref: "#/definitions/OfflineSessionList"
+    delete:
+      description: Unsubscribe from session lists
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Sessions/{SessionIndex}:
+    parameters:
+      - $ref: '#/parameters/SessionIndex'
     get:
       description: Get offline data blocks
       responses:
@@ -66,11 +114,6 @@ paths:
           description: Block transferred, the data is complete
           schema:
             $ref: '#/definitions/OfflineData'
-    delete:
-      description: Clear offline data blocks
-      responses:
-        200:
-          description: "Offline data cleared"
 
   /Offline/Data/Subscription:
     post:
@@ -91,10 +134,13 @@ paths:
 definitions:
   OfflineConfig:
     required:
+      - WakeUpBehavior
       - SampleRates
-      - WakeUpSources
       - SleepDelay
     properties:
+      WakeUpBehavior:
+        description: Configure how the device wakes up
+        $ref: "#/definitions/WakeUpBehavior"
       SampleRates:
         description: Array of samplerates for each sensor indexed by MeasurementSensors enum.
         type: array
@@ -102,21 +148,46 @@ definitions:
           type: integer
           format: uint16
           x-unit: Hz
-      WakeUpSources:
-        description: Wake up sources defined by WakeUpFlags
-        type: integer
-        format: uint8
       SleepDelay:
         description: Enter sleep mode automatically after set amount of time with no input
         type: integer
         format: uint16
         x-unit: s
 
+  OfflineSession:
+    required:
+      - StartTime
+      - EndTime
+    properties:
+      StartTime:
+        description: Start timestamp (epoch)
+        type: integer
+        format: uint64
+      EndTime:
+        description: End timestamp (epoch)
+        type: integer
+        format: uint64
+  
+  OfflineSessionList:
+    required:
+      - Items
+    properties:
+      Items:
+        description: List of sessions
+        type: array
+        items:
+          $ref: "#/definitions/OfflineSession"
+
   OfflineData:
     required:
+      - SessionIndex
       - Offset
       - Bytes
     properties:
+      SessionIndex:
+        description: Session index
+        type: integer
+        format: uint32
       Offset:
         description: Data offset
         type: integer
@@ -141,11 +212,17 @@ definitions:
     - name: "ACTIVE"
       description: Offline mode is currently active
       value: 2
-    - name: "STORAGE_FULL"
+    - name: "ERROR_INVALID_CONFIG"
+      description: Offline mode configuration is invalid
+      value: 3 
+    - name: "ERROR_STORAGE_FULL"
       description: Offline data storage is full
-      value: 3
+      value: 4
+    - name: "ERROR_BATTERY_LOW"
+      description: "The battery is low. Writing to flash is no longer reliable."
+      value: 5
 
-  WakeUpFlags:
+  WakeUpBehavior:
     type: integer
     format: uint8
     enum:
@@ -158,12 +235,18 @@ definitions:
     - name: 'Movement'
       descrioton: Wake up from any movement
       value: 2
-    - name: 'SingleTap'
+    - name: 'SingleTapOn'
       description: Wake up from single tap
+      value: 3
+    - name: 'SingleTapOnOff'
+      description: Wake up and enter sleep from single tap
       value: 4
-    - name: 'DoubleTap'
+    - name: 'DoubleTapOn'
       description: Wake up from double tap
-      value: 8
+      value: 5
+    - name: 'DoubleTapOnOff'
+      description: Wake up and enter sleep from double tap
+      value: 6
 
   MeasurementSensors:
     type: integer
@@ -190,3 +273,11 @@ definitions:
     - name: 'COUNT'
       description: Number of measurements
       value: 6
+
+parameters:
+  SessionIndex:
+    name: SessionIndex
+    in: path
+    required: true
+    type: integer
+    format: uint32

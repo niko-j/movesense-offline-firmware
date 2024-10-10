@@ -3,6 +3,7 @@
 #include "app-resources/resources.h"
 #include "comm_ble/resources.h"
 #include "comm_ble_gattsvc/resources.h"
+#include "sbem_types.h"
 
 #include "common/core/dbgassert.h"
 
@@ -10,11 +11,13 @@
 
 const char* const OfflineGATTService::LAUNCHABLE_NAME = "OfflineGATT";
 
-enum Commands
+enum Commands : uint8_t
 {
-    READ_CONFIG,
-    READ_LOGDATA,
-    RESET_LOGDATA,
+    READ_CONFIG = 0x01,
+    REPORT_STATUS = 0x02,
+    GET_SESSIONS = 0x03,
+    GET_SESSION_LOG = 0x04,
+    CLEAR_SESSION_LOGS = 0x05
 };
 
 /* UUID string: 0000b000-0000-1000-8000-00805f9b34fb */
@@ -138,23 +141,29 @@ void OfflineGATTService::onGetResult(
     {
         if (resultCode == wb::HTTP_CODE_OK)
         {
-            const auto& conf = result.convertTo<const WB_RES::OfflineConfig&>();
-            sendOfflineConfig(conf);
+            DebugLogger::info("Sending config");
+            sendSbemValue(configCharResource, resourceId.localResourceId, result);
         }
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_DATA::LID:
+    case WB_RES::LOCAL::OFFLINE_SESSIONS::LID:
+    {
+        // TODO: Send sessions list
+        break;
+    }
+    case WB_RES::LOCAL::OFFLINE_SESSIONS_SESSIONINDEX::LID:
     {
         const auto& data = result.convertTo<const WB_RES::OfflineData&>();
 
         if (resultCode == wb::HTTP_CODE_CONTINUE)
         {
-            asyncGet(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
+            asyncGet(WB_RES::LOCAL::OFFLINE_SESSIONS_SESSIONINDEX(), AsyncRequestOptions::ForceAsync, data.sessionIndex);
         }
 
         if (resultCode < 400)
         {
-            sendOfflineData(&data.bytes[0], data.bytes.size());
+            // TODO: Send data
+            //sendOfflineData(&data.bytes[0], data.bytes.size());
         }
         break;
     }
@@ -276,16 +285,10 @@ void OfflineGATTService::onNotify(
                 asyncGet(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync);
                 break;
             }
-            case Commands::READ_LOGDATA:
-            {
-                asyncGet(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
-                break;
-            }
-            case Commands::RESET_LOGDATA:
-            {
-                asyncDelete(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
-                break;
-            }
+            case Commands::REPORT_STATUS:
+            case Commands::GET_SESSIONS:
+            case Commands::GET_SESSION_LOG:
+            case Commands::CLEAR_SESSION_LOGS:
             default:
             {
                 DebugLogger::warning("Unhandled command: %u", cmd);
@@ -295,11 +298,11 @@ void OfflineGATTService::onNotify(
         }
         else if (handle == configCharHandle)
         {
-            if (data.bytes.size() == 12 + 1 + 2)
+            if (data.bytes.size() == 15)
             {
                 WB_RES::OfflineConfig config = {
-                    .sampleRates = wb::Array<uint16_t>((const uint16_t*) &data.bytes[0], 6),
-                    .wakeUpSources = data.bytes[12],
+                    .wakeUpBehavior = static_cast<WB_RES::WakeUpBehavior::Type>(data.bytes[0]),
+                    .sampleRates = wb::Array<uint16_t>((const uint16_t*) &data.bytes[1], 6),
                     .sleepDelay = *reinterpret_cast<const uint16_t*>(&data.bytes[13]),
                 };
                 
@@ -376,79 +379,68 @@ bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whitebo
     return true;
 }
 
-void OfflineGATTService::sendOfflineData(const uint8_t* data, uint32_t size)
+void OfflineGATTService::resetBuffer()
+{
+    memset(dataBuffer, 0, sizeof(dataBuffer));
+}
+
+size_t OfflineGATTService::writeHeaderToBuffer(uint32_t offset, uint32_t total_bytes)
+{
+    memcpy(&dataBuffer[0], &offset, sizeof(uint32_t));
+    memcpy(&dataBuffer[4], &total_bytes, sizeof(uint32_t));
+    memcpy(&dataBuffer[8], &dataClientReference, sizeof(uint8_t));
+    return HEADER_SIZE;
+}
+
+size_t OfflineGATTService::writeRawDataToBuffer(const uint8_t* data, uint8_t length)
+{
+    size_t written = WB_MIN(length, PAYLOAD_SIZE);
+    memcpy(&dataBuffer[HEADER_SIZE], data, written);
+    return written;
+}
+
+size_t OfflineGATTService::writeSbemToBuffer(wb::LocalResourceId resourceId, const wb::Value& data, uint32_t offset)
+{
+    return writeToSbemBuffer(&dataBuffer[HEADER_SIZE], PAYLOAD_SIZE, offset, resourceId, data);
+}
+
+void OfflineGATTService::sendBuffer(wb::ResourceId characteristic, uint32_t len)
+{
+    WB_RES::Characteristic value;
+    value.bytes = wb::MakeArray<uint8_t>(dataBuffer, len);
+    asyncPut(characteristic, AsyncRequestOptions::Empty, value);
+}
+
+
+void OfflineGATTService::sendData(wb::ResourceId characteristic, const uint8_t* data, uint32_t size)
 {
     uint32_t sent = 0;
-    uint32_t part = 0;
     do
     {
-        DebugLogger::info("Sending data... %u bytes sent / %u bytes total", sent, size);
-
-        uint8_t offset = 0;
-        memset(dataBuffer, 0, sizeof(dataBuffer));
-
-        memcpy(dataBuffer, &part, sizeof(part));
-        offset += sizeof(part);
-
-        memcpy(dataBuffer + offset, &dataClientReference, sizeof(dataClientReference));
-        offset += sizeof(dataClientReference);
-
-        uint8_t partSize = WB_MIN(size, PAYLOAD_SIZE);
-        memcpy(dataBuffer + offset, data + sent, partSize);
-
-        sent += partSize;
-        offset += partSize;
-
-        WB_RES::Characteristic value;
-        value.bytes = wb::MakeArray<uint8_t>(dataBuffer, offset);
-        asyncPut(dataCharResource, AsyncRequestOptions::Empty, value);
-
+        resetBuffer();
+        size_t header = writeHeaderToBuffer(sent, size);
+        size_t payload = writeRawDataToBuffer(data + sent, size - sent);
+        sent += payload;
+        DebugLogger::info("Sending data (ref %u): %u bytes sent / %u bytes total", dataClientReference, sent, size);
+        sendBuffer(characteristic, header + payload);
     } while (sent < size);
 
     dataClientReference = 0; // Request completed
 }
 
-void OfflineGATTService::sendOfflineConfig(const WB_RES::OfflineConfig& config)
+void OfflineGATTService::sendSbemValue(wb::ResourceId characteristic, wb::LocalResourceId resourceId, const wb::Value& value)
 {
-    DebugLogger::info("Sending configuration");
-
-    uint32_t part = 0;
-    uint8_t offset = 0;
-    memset(dataBuffer, 0, sizeof(dataBuffer));
-
-    // Header
-
-    memcpy(dataBuffer, &part, sizeof(part));
-    offset += sizeof(part);
-
-    memcpy(dataBuffer + offset, &dataClientReference, sizeof(dataClientReference));
-    offset += sizeof(dataClientReference);
-
-    DebugLogger::verbose("Prepared header: part %u ref %u", part, dataClientReference);
-
-    // Payload
-
-    for(size_t i = 0; i < WB_RES::MeasurementSensors::COUNT; i++)
+    uint32_t sent = 0;
+    uint32_t size = getSbemLength(resourceId, value);
+    do
     {
-        uint16_t value = i < config.sampleRates.size() ? config.sampleRates[i] : 0;
-        memcpy(dataBuffer + offset, &value, sizeof(uint16_t));
-        offset += sizeof(uint16_t);
-    }
-
-    memcpy(dataBuffer + offset, &config.wakeUpSources, sizeof(config.wakeUpSources));
-    offset += sizeof(config.wakeUpSources);
-
-    memcpy(dataBuffer + offset, &config.sleepDelay, sizeof(config.sleepDelay));
-    offset += sizeof(config.sleepDelay);
-
-    DebugLogger::verbose("Total data to send: %u", offset);
-
-    WB_RES::Characteristic value;
-    value.bytes = wb::MakeArray<uint8_t>(dataBuffer, offset);
-    asyncPut(configCharResource, AsyncRequestOptions::Empty, value);
-
-    DebugLogger::info("Config sent");
+        resetBuffer();
+        size_t header = writeHeaderToBuffer(sent, size);
+        size_t payload = writeSbemToBuffer(resourceId, value, sent);
+        sent += payload;
+        DebugLogger::info("Sending SBEM value (ref %u): %u bytes from %u bytes total", dataClientReference, sent, size);
+        sendBuffer(characteristic, header + payload);
+    } while (sent < size);
 
     dataClientReference = 0; // Request completed
 }
-

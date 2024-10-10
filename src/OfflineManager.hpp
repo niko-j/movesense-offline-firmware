@@ -5,6 +5,8 @@
 #include <whiteboard/ResourceProvider.h>
 
 #include "app-resources/resources.h"
+#include "comm_ble/resources.h"
+#include "system_states/resources.h"
 
 class OfflineManager FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -56,23 +58,38 @@ private: /* wb::ResourceClient */
     virtual void onTimer(whiteboard::TimerId timerId) OVERRIDE;
 
 private:
-
-    void onInitialized();
     void asyncReadConfigFromEEPROM();
     void asyncSaveConfigToEEPROM();
-
-    bool validateConfig(const WB_RES::OfflineConfig& config);
 
     void startRecording();
     void stopRecording();
 
+    bool applyConfig(const WB_RES::OfflineConfig& config);
+    bool validateConfig(const WB_RES::OfflineConfig& config);
+
+    void enterSleep();
+    void setState(WB_RES::OfflineState state);
+
+    void sleepTimerTick();
+    void ledTimerTick();
+
+    void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
+    void handleSystemStateChange(const WB_RES::StateChange& stateChange);
+
     struct Config
     {
         uint16_t sampleRates[WB_RES::MeasurementSensors::COUNT];
-        uint8_t wakeUpSources;
+        WB_RES::WakeUpBehavior wakeUpBehavior;
         uint16_t sleepDelay;
     } _config;
 
     WB_RES::OfflineState _state;
     uint8_t _connections;
+
+    wb::TimerId _sleepTimer;
+    uint32_t _sleepTimerElapsed;
+
+    wb::TimerId _ledTimer;
+    uint32_t _ledTimerElapsed;
+    uint8_t _ledBlinks;
 };

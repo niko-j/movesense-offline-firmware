@@ -5,6 +5,9 @@
 
 #include "app-resources/resources.h"
 
+// Offset (4) + Total (4) + Reference (1) + payload
+#define HEADER_SIZE 9
+
 #define PAYLOAD_SIZE 128
 
 class OfflineGATTService FINAL : private wb::ResourceClient, public wb::LaunchableModule
@@ -56,9 +59,14 @@ private:
 
     bool asyncSubsribeHandleResource(int16_t charHandle, whiteboard::ResourceId& resourceOut);
 
-    void sendOfflineData(const uint8_t* data, uint32_t size);
-    void sendOfflineConfig(const WB_RES::OfflineConfig &config);
-    void recvOfflineConfig(const WB_RES::OfflineConfig &config);
+    void resetBuffer();
+    size_t writeHeaderToBuffer(uint32_t offset, uint32_t total_bytes);
+    size_t writeRawDataToBuffer(const uint8_t* data, uint8_t length);
+    size_t writeSbemToBuffer(wb::LocalResourceId resourceId, const wb::Value& data, uint32_t offset = 0);
+    void sendBuffer(whiteboard::ResourceId characteristic, uint32_t len);
+
+    void sendData(wb::ResourceId characteristic, const uint8_t* data, uint32_t size);
+    void sendSbemValue(wb::ResourceId characteristic, wb::LocalResourceId resourceId, const wb::Value &value);
 
     int16_t offlineSvcHandle;
 
@@ -70,7 +78,6 @@ private:
     whiteboard::ResourceId configCharResource;
     whiteboard::ResourceId dataCharResource;
 
-    // Part counter (4) + client reference (1) + payload
-    uint8_t dataBuffer[4+1+PAYLOAD_SIZE];
+    uint8_t dataBuffer[HEADER_SIZE + PAYLOAD_SIZE];
     uint8_t dataClientReference;
 };
