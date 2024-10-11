@@ -14,6 +14,7 @@
 #include "component_lsm6ds3/resources.h"
 #include "component_led/resources.h"
 #include "comm_ble/resources.h"
+#include "mem_logbook/resources.h"
 
 const char* const OfflineManager::LAUNCHABLE_NAME = "OfflineMan";
 
@@ -84,6 +85,9 @@ bool OfflineManager::startModule()
     asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 2); // Connectors
     asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 3); // Double tap
     asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 4); // Single tap
+
+    // Subscribe to logbook IsFull
+    asyncSubscribe(WB_RES::LOCAL::MEM_LOGBOOK_ISFULL());
 
     // Setup timers
     _sleepTimer = ResourceClient::startTimer(TIMER_TICK_SLEEP, true);
@@ -201,7 +205,8 @@ void OfflineManager::onGetResult(
                 memcpy(&_config, &data.bytes[1], sizeof(Config));
                 DebugLogger::info("Offline mode configuration restored");
 
-                setState(WB_RES::OfflineState::ACTIVE);
+                setState(WB_RES::OfflineState::IDLE);
+                startRecording();
             }
             else
             {
@@ -221,6 +226,8 @@ void OfflineManager::onGetResult(
         break;
     }
     }
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineManager::onPutResult(
@@ -263,6 +270,8 @@ void OfflineManager::onPutResult(
         break;
     }
     }
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineManager::onSubscribeResult(
@@ -294,6 +303,8 @@ void OfflineManager::onSubscribeResult(
         break;
     }
     }
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineManager::onNotify(
@@ -315,6 +326,14 @@ void OfflineManager::onNotify(
     {
         auto stateChange = value.convertTo<const WB_RES::StateChange&>();
         handleSystemStateChange(stateChange);
+        break;
+    }
+    case WB_RES::LOCAL::MEM_LOGBOOK_ISFULL::LID:
+    {
+        auto isFull = value.convertTo<bool>();
+        if(isFull)
+            setState(WB_RES::OfflineState::ERROR_STORAGE_FULL);
+            
         break;
     }
     default:
