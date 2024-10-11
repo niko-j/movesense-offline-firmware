@@ -5,6 +5,12 @@
 #include <whiteboard/ResourceProvider.h>
 
 #include "app-resources/resources.h"
+#include "meas_ecg/resources.h"
+#include "meas_hr/resources.h"
+#include "meas_acc/resources.h"
+#include "meas_gyro/resources.h"
+#include "meas_magn/resources.h"
+#include "meas_temp/resources.h"
 
 constexpr uint8_t MAX_MEASUREMENT_SUBSCRIPTIONS = 6;
 
@@ -27,9 +33,21 @@ private: /* wb::ResourceProvider */
         const wb::Request& request,
         const wb::ParameterList& parameters) OVERRIDE;
 
+    virtual void onPostRequest(
+        const whiteboard::Request& request,
+        const whiteboard::ParameterList& parameters) OVERRIDE;
+
     virtual void onDeleteRequest(
         const whiteboard::Request& request,
         const whiteboard::ParameterList& parameters) OVERRIDE;
+
+    virtual void onSubscribe(
+        const whiteboard::Request& rRequest, 
+        const whiteboard::ParameterList& rParameters) OVERRIDE;
+
+    virtual void onUnsubscribe(
+        const whiteboard::Request& rRequest, 
+        const whiteboard::ParameterList& rParameters) OVERRIDE;
 
 private: /* wb::ResourceClient */
     virtual void onGetResult(
@@ -68,8 +86,18 @@ private: /* wb::ResourceClient */
         const wb::ParameterList& parameters) OVERRIDE;
 
 private:
-    void startLogging(const WB_RES::OfflineConfig& config);
+    bool startLogging(const WB_RES::OfflineConfig& config);
     void stopLogging();
+
+    void recordECGSamples(const WB_RES::ECGData& data);
+    void recordHeartRateSamples(const WB_RES::HRData& data);
+    void recordAccelerationSamples(const WB_RES::AccData& data);
+    void recordGyroscopeSamples(const WB_RES::GyroData& data);
+    void recordMagnetometerSamples(const WB_RES::MagnData& data);
+    void recordTemperatureSamples(const WB_RES::TemperatureValue& data);
+
+    void storeDataBlock(const WB_RES::OfflineDataBlock& block);
+    bool eraseData();
 
     bool _isLogging;
     wb::ResourceId _measurements[MAX_MEASUREMENT_SUBSCRIPTIONS];

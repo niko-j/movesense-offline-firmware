@@ -1,6 +1,7 @@
 #include "movesense.h"
 
 #include "OfflineLogger.hpp"
+#include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
 
 #include "app-resources/resources.h"
@@ -21,9 +22,7 @@
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 
 static const wb::LocalResourceId sProviderResources[] = {
-    WB_RES::LOCAL::OFFLINE_DATA::LID,
-    WB_RES::LOCAL::OFFLINE_SESSIONS::LID,
-    WB_RES::LOCAL::OFFLINE_SESSIONS_SESSIONINDEX::LID
+    WB_RES::LOCAL::OFFLINE_DATA::LID
 };
 
 OfflineLogger::OfflineLogger()
@@ -61,6 +60,17 @@ void OfflineLogger::deinitModule()
 bool OfflineLogger::startModule()
 {
     asyncSubscribe(WB_RES::LOCAL::OFFLINE_STATE());
+
+    // Setup DataLogger to receive blocks from /Offline/Data resource
+    WB_RES::DataEntry entry = { .path = "/Offline/Data" };
+    WB_RES::DataLoggerConfig config = {};
+    config.dataEntries.dataEntry = wb::MakeArray<WB_RES::DataEntry>(&entry, 1);
+
+    asyncPut(
+        WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(), 
+        AsyncRequestOptions::Empty,
+        config);
+    
     mModuleState = WB_RES::ModuleStateValues::STARTED;
     return true;
 }
@@ -75,26 +85,127 @@ void OfflineLogger::onGetRequest(
     const wb::Request& request,
     const wb::ParameterList& parameters)
 {
+    DebugLogger::verbose("%s: onGetRequest()", LAUNCHABLE_NAME);
+
     if (mModuleState != WB_RES::ModuleStateValues::STARTED)
     {
         returnResult(request, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
         return;
     }
 
-    // TODO: Handle /Offline/Data streaming
+    switch (request.getResourceId().localResourceId)
+    {
+    default:
+    {
+        returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
+        break;
+    }
+    }
+}
+
+void OfflineLogger::onPostRequest(
+    const wb::Request& request,
+    const wb::ParameterList& parameters)
+{
+    DebugLogger::verbose("%s: onPostRequest()", LAUNCHABLE_NAME);
+
+    if (mModuleState != WB_RES::ModuleStateValues::STARTED)
+    {
+        returnResult(request, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
+        return;
+    }
+
+    switch (request.getResourceId().localResourceId)
+    {
+    case WB_RES::LOCAL::OFFLINE_DATA::LID:
+    {
+        // TODO: Remove this API after done testing data logging
+        const auto& data = WB_RES::LOCAL::OFFLINE_DATA::POST::ParameterListRef(parameters).getData();
+        storeDataBlock(data);
+        returnResult(request, wb::HTTP_CODE_OK);
+        break;
+    }
+    default:
+    {
+        returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
+        break;
+    }
+    }
 }
 
 void OfflineLogger::onDeleteRequest(
     const wb::Request& request,
     const wb::ParameterList& parameters)
 {
+    DebugLogger::verbose("%s: onDeleteRequest()", LAUNCHABLE_NAME);
+
     if (mModuleState != WB_RES::ModuleStateValues::STARTED)
     {
         returnResult(request, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
         return;
     }
 
-    // TODO: Handle clearing LogBook
+    switch (request.getResourceId().localResourceId)
+    {
+    case WB_RES::LOCAL::OFFLINE_DATA::LID:
+    {
+        if(eraseData())
+            returnResult(request, wb::HTTP_CODE_OK);
+        else
+            returnResult(request, wb::HTTP_CODE_BAD_REQUEST);
+        break;
+    }
+    default:
+    {
+        returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
+        break;
+    }
+    }
+}
+
+void OfflineLogger::onSubscribe(
+    const whiteboard::Request& request, 
+    const whiteboard::ParameterList& parameters)
+{
+    DebugLogger::verbose("%s: onSubscribe()", LAUNCHABLE_NAME);
+
+    if (mModuleState != WB_RES::ModuleStateValues::STARTED)
+    {
+        returnResult(request, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
+        return;
+    }
+
+    switch (request.getResourceId().localResourceId)
+    {
+    default:
+    {
+        returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
+        break;
+    }
+    }
+}
+
+void OfflineLogger::onUnsubscribe(
+    const whiteboard::Request& request, 
+    const whiteboard::ParameterList& parametes)
+{
+    DebugLogger::verbose("%s: onUnsubscribe()", LAUNCHABLE_NAME);
+
+    if (mModuleState != WB_RES::ModuleStateValues::STARTED)
+    {
+        returnResult(request, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
+        return;
+    }
+
+    switch (request.getResourceId().localResourceId)
+    {
+        // TODO: What if data is halfway transmission, do we cancel them? Can we?
+    default:
+    {
+        returnResult(request, wb::HTTP_CODE_OK);
+        break;
+    }
+    }
 }
 
 void OfflineLogger::onGetResult(
@@ -127,6 +238,8 @@ void OfflineLogger::onGetResult(
         break;
     }
     }
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onPutResult(
@@ -137,6 +250,8 @@ void OfflineLogger::onPutResult(
 {
     DebugLogger::verbose("%s: onPutResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onPostResult(
@@ -147,6 +262,8 @@ void OfflineLogger::onPostResult(
 {
     DebugLogger::verbose("%s: onPostResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onDeleteResult(
@@ -157,6 +274,8 @@ void OfflineLogger::onDeleteResult(
 {
     DebugLogger::verbose("%s: onDeleteResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onSubscribeResult(
@@ -167,6 +286,8 @@ void OfflineLogger::onSubscribeResult(
 {
     DebugLogger::verbose("%s: onSubscribeResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
+    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onNotify(
@@ -195,15 +316,39 @@ void OfflineLogger::onNotify(
         break;
     }
     case WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::LID:
+    {
+        auto data = value.convertTo<const WB_RES::ECGData&>();
+        recordECGSamples(data);
+        break;
+    }
     case WB_RES::LOCAL::MEAS_HR::LID:
+    {
+        auto data = value.convertTo<const WB_RES::HRData&>();
+        recordHeartRateSamples(data);
+        break;
+    }
     case WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::LID:
+    {
+        auto data = value.convertTo<const WB_RES::AccData&>();
+        recordAccelerationSamples(data);
+        break;
+    }
     case WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::LID:
+    {
+        auto data = value.convertTo<const WB_RES::GyroData&>();
+        recordGyroscopeSamples(data);
+        break;
+    }
     case WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::LID:
+    {
+        auto data = value.convertTo<const WB_RES::MagnData&>();
+        recordMagnetometerSamples(data);
+        break;
+    }
     case WB_RES::LOCAL::MEAS_TEMP::LID:
     {
-        // TODO: Collect samples in a buffer for compression.
-        // TODO: Compress blocks and save to DataLogger
-        DebugLogger::info("Received sample(s) from resource: %d", resourceId.localResourceId);
+        auto data = value.convertTo<const WB_RES::TemperatureValue&>();
+        recordTemperatureSamples(data);
         break;
     }
     default:
@@ -214,18 +359,20 @@ void OfflineLogger::onNotify(
     }
 }
 
-void OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
+bool OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
 {
     if (_isLogging)
-        return;
+        stopLogging();
 
-    _isLogging = true;
     uint8_t i = 0;
 
     if (config.sampleRates[WB_RES::MeasurementSensors::ECG])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID;
-        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, config.sampleRates[WB_RES::MeasurementSensors::ECG]);
+        asyncSubscribe(
+            _measurements[i], 
+            AsyncRequestOptions::Empty, 
+            config.sampleRates[WB_RES::MeasurementSensors::ECG]);
         i++;
     }
 
@@ -239,21 +386,30 @@ void OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
     if (config.sampleRates[WB_RES::MeasurementSensors::ACC])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID;
-        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, config.sampleRates[WB_RES::MeasurementSensors::ACC]);
+        asyncSubscribe(
+            _measurements[i],
+            AsyncRequestOptions::Empty, 
+            config.sampleRates[WB_RES::MeasurementSensors::ACC]);
         i++;
     }
 
     if (config.sampleRates[WB_RES::MeasurementSensors::GYRO])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::ID;
-        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, config.sampleRates[WB_RES::MeasurementSensors::GYRO]);
+        asyncSubscribe(
+            _measurements[i], 
+            AsyncRequestOptions::Empty, 
+            config.sampleRates[WB_RES::MeasurementSensors::GYRO]);
         i++;
     }
 
     if (config.sampleRates[WB_RES::MeasurementSensors::MAGN])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID;
-        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, config.sampleRates[WB_RES::MeasurementSensors::MAGN]);
+        asyncSubscribe(
+            _measurements[i], 
+            AsyncRequestOptions::Empty, 
+            config.sampleRates[WB_RES::MeasurementSensors::MAGN]);
         i++;
     }
 
@@ -263,12 +419,29 @@ void OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
         asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty);
         i++;
     }
+
+    _isLogging = (i > 0);
+
+    if(_isLogging)
+    {
+        asyncPut(
+            WB_RES::LOCAL::MEM_DATALOGGER_STATE(), 
+            AsyncRequestOptions::Empty,
+            WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+    }
+
+    return _isLogging;
 }
 
 void OfflineLogger::stopLogging()
 {
     if (!_isLogging)
         return;
+
+    asyncPut(
+        WB_RES::LOCAL::MEM_DATALOGGER_STATE(),
+        AsyncRequestOptions::Empty,
+        WB_RES::DataLoggerState::DATALOGGER_READY);
 
     _isLogging = false;
 
@@ -278,4 +451,54 @@ void OfflineLogger::stopLogging()
             asyncUnsubscribe(_measurements[i]);
         _measurements[i] = wb::ID_INVALID_RESOURCE;
     }
+}
+
+void OfflineLogger::recordECGSamples(const WB_RES::ECGData& data)
+{
+    // TODO: Process samples and encode it into a block
+    // TODO: Send block to DataLogger
+}
+
+void OfflineLogger::recordHeartRateSamples(const WB_RES::HRData& data)
+{
+    // TODO: Process samples and encode it into a block
+    // TODO: Send block Data Logger
+}
+
+void OfflineLogger::recordAccelerationSamples(const WB_RES::AccData& data)
+{
+    // TODO: Process samples and encode it into a block
+    // TODO: Send block Data Logger
+}
+
+void OfflineLogger::recordGyroscopeSamples(const WB_RES::GyroData& data)
+{
+    // TODO: Process samples and encode it into a block
+    // TODO: Send block Data Logger
+}
+
+void OfflineLogger::recordMagnetometerSamples(const WB_RES::MagnData& data)
+{
+    // TODO: Process samples and encode it into a block
+    // TODO: Send block Data Logger
+}
+
+void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& data)
+{
+    // TODO: Process samples and encode it into a block
+    // TODO: Send block Data Logger
+}
+
+void OfflineLogger::storeDataBlock(const WB_RES::OfflineDataBlock& block)
+{
+    updateResource(WB_RES::LOCAL::OFFLINE_DATA::LID, ResponseOptions::Empty, block);
+}
+
+bool OfflineLogger::eraseData()
+{
+    if(_isLogging)
+        return false;
+
+    asyncDelete(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES());
+    return true;
 }
