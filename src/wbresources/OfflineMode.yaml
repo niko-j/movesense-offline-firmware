@@ -69,62 +69,41 @@ paths:
       responses:
         200:
           description: Operation completed successfully
-        
-  /Offline/Sessions:
-    get:
-      description: Get list of offline session logs and information about them.
-      responses:
-        200:
-          description: List of session logs
-          schema:
-            $ref: "#/definitions/OfflineSessionList"
-    delete:
-      description: Clear offline session logs
-      responses:
-        200:
-          description: "Offline data cleared"
 
-  /Offline/Sessions/Subscription:
+  /Offline/Data:
     post:
-      description: Subscribe to receive session lists
-      responses:
-        200:
-          description: Operation completed successfully
-        x-notification:
-          description: Compressed block of data
+      description: (TESTING) Records given block of data
+      parameters:
+        - name: data
+          in: body
+          description: Block of data
+          required: true
           schema:
-            $ref: "#/definitions/OfflineSessionList"
-    delete:
-      description: Unsubscribe from session lists
+            $ref: '#/definitions/OfflineDataBlock'
       responses:
         200:
           description: Operation completed successfully
+        400:
+          description: Failed to record block of data
 
-  /Offline/Sessions/{SessionIndex}:
-    parameters:
-      - $ref: '#/parameters/SessionIndex'
-    get:
-      description: Get offline data blocks
+    delete:
+      description: Erase all recorded data
       responses:
-        100:
-          description: Block transferred, incomplete data
-          schema:
-            $ref: '#/definitions/OfflineData'
         200:
-          description: Block transferred, the data is complete
-          schema:
-            $ref: '#/definitions/OfflineData'
+          description: Operation completed successfully
+        400:
+          description: Operation is not permitted (data recording is active)
 
   /Offline/Data/Subscription:
     post:
-      description: Subscribe to receive compressed data blocks (for DataLogger)
+      description: Subscribe to receive data blocks
       responses:
         200:
           description: Operation completed successfully
         x-notification:
           description: Compressed block of data
           schema:
-            $ref: '#/definitions/OfflineData'
+            $ref: '#/definitions/OfflineDataBlock'
     delete:
       description: Unsubscribe from offline data blocks
       responses:
@@ -154,50 +133,45 @@ definitions:
         format: uint16
         x-unit: s
 
-  OfflineSession:
+  OfflineLog:
     required:
-      - StartTime
-      - EndTime
+      - Modified
+      - Size
     properties:
-      StartTime:
-        description: Start timestamp (epoch)
+      Modified:
+        description: Modified timestamp (epoch)
         type: integer
         format: uint64
-      EndTime:
-        description: End timestamp (epoch)
+      Size:
+        description: Log data size in bytes
         type: integer
-        format: uint64
+        format: uint32
   
-  OfflineSessionList:
+  OfflineLogList:
     required:
-      - Items
+      - Logs
+      - Complete
     properties:
-      Items:
-        description: List of sessions
+      Logs:
+        description: List of sessions logs
         type: array
         items:
-          $ref: "#/definitions/OfflineSession"
+          $ref: "#/definitions/OfflineLog"
+      Complete:
+        description: Indicate whether the data is complete
+        type: boolean
 
-  OfflineData:
+  OfflineDataBlock:
     required:
-      - SessionIndex
-      - Offset
-      - Bytes
+      - Data
     properties:
-      SessionIndex:
-        description: Session index
-        type: integer
-        format: uint32
-      Offset:
-        description: Data offset
-        type: integer
-        format: uint32
-      Bytes:
+      Data:
         description: Data bytes
         type: array
         items:
           type: integer
           format: uint8
+          
 
   OfflineState:
     type: integer
@@ -273,11 +247,3 @@ definitions:
     - name: 'COUNT'
       description: Number of measurements
       value: 6
-
-parameters:
-  SessionIndex:
-    name: SessionIndex
-    in: path
-    required: true
-    type: integer
-    format: uint32

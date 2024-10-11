@@ -4,11 +4,8 @@
 #include <whiteboard/ResourceClient.h>
 
 #include "app-resources/resources.h"
-
-// Offset (4) + Total (4) + Reference (1) + payload
-#define HEADER_SIZE 9
-
-#define PAYLOAD_SIZE 128
+#include "mem_logbook/resources.h"
+#include "OfflineInternalTypes.hpp"
 
 class OfflineGATTService FINAL : private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -26,22 +23,28 @@ private: /* wb::LaunchableModule*/
 
 private: /* wb::ResourceClient */
     virtual void onGetResult(
-        whiteboard::RequestId requestId,
-        whiteboard::ResourceId resourceId,
-        whiteboard::Result resultCode,
-        const whiteboard::Value& result) OVERRIDE;
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
 
     virtual void onPutResult(
-        whiteboard::RequestId requestId,
-        whiteboard::ResourceId resourceId,
-        whiteboard::Result resultCode,
-        const whiteboard::Value& result) OVERRIDE;
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
 
     virtual void onPostResult(
-        whiteboard::RequestId requestId,
-        whiteboard::ResourceId resourceId,
-        whiteboard::Result resultCode,
-        const whiteboard::Value& result) OVERRIDE;
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
+
+    virtual void onDeleteResult(
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
 
     virtual void onSubscribeResult(
         wb::RequestId requestId,
@@ -57,27 +60,39 @@ private: /* wb::ResourceClient */
 private:
     void configGattSvc();
 
-    bool asyncSubsribeHandleResource(int16_t charHandle, whiteboard::ResourceId& resourceOut);
+    void handleCommand(const OfflineCommandRequest& cmd);
 
-    void resetBuffer();
-    size_t writeHeaderToBuffer(uint32_t offset, uint32_t total_bytes);
-    size_t writeRawDataToBuffer(const uint8_t* data, uint8_t length);
-    size_t writeSbemToBuffer(wb::LocalResourceId resourceId, const wb::Value& data, uint32_t offset = 0);
-    void sendBuffer(whiteboard::ResourceId characteristic, uint32_t len);
+    bool asyncSubsribeHandleResource(int16_t charHandle, wb::ResourceId& resourceOut);
 
     void sendData(wb::ResourceId characteristic, const uint8_t* data, uint32_t size);
-    void sendSbemValue(wb::ResourceId characteristic, wb::LocalResourceId resourceId, const wb::Value &value);
+    void sendSbem(wb::ResourceId characteristic, wb::LocalResourceId resource, const wb::Value& value);
+    
+    void sendStatusResponse(wb::ResourceId characteristic, uint8_t requestRef, uint16_t status);
+    void sendPendingDataPacket(wb::ResourceId characteristic);
 
-    int16_t offlineSvcHandle;
+    bool asyncSendLog(uint32_t id);
+    void asyncReadLogData(const WB_RES::LogEntry& entry);
+    void asyncClearLogs();
 
-    int16_t commandCharHandle;
-    int16_t configCharHandle;
-    int16_t dataCharHandle;
+    struct LogDataTransmission
+    {
+        int32_t logIndex = -1;
+        uint32_t logSize = 0;
+        uint32_t sentBytes = 0;
+    } logDataTransmission;
 
-    whiteboard::ResourceId commandCharResource;
-    whiteboard::ResourceId configCharResource;
-    whiteboard::ResourceId dataCharResource;
+    struct Characteristic
+    {
+        wb::ResourceId resourceId = wb::ID_INVALID_RESOURCE;
+        int16_t handle = 0;
+    };
 
-    uint8_t dataBuffer[HEADER_SIZE + PAYLOAD_SIZE];
-    uint8_t dataClientReference;
+    int16_t serviceHandle;
+
+    Characteristic commandChar;
+    Characteristic configChar;
+    Characteristic dataChar;
+
+    OfflineDataPacket pendingDataPacket;
+    uint8_t pendingRequest;
 };
