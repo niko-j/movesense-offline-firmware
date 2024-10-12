@@ -7,6 +7,7 @@
 #include "app-resources/resources.h"
 #include "comm_ble/resources.h"
 #include "system_states/resources.h"
+#include "OfflineTypes.hpp"
 
 class OfflineManager FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -76,12 +77,7 @@ private:
     void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);
 
-    struct Config
-    {
-        uint16_t sampleRates[WB_RES::MeasurementSensors::COUNT];
-        WB_RES::WakeUpBehavior wakeUpBehavior;
-        uint16_t sleepDelay;
-    } _config;
+    OfflineConfig _config;
 
     WB_RES::OfflineState _state;
     uint8_t _connections;

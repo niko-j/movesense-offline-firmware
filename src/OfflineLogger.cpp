@@ -199,7 +199,6 @@ void OfflineLogger::onUnsubscribe(
 
     switch (request.getResourceId().localResourceId)
     {
-        // TODO: What if data is halfway transmission, do we cancel them? Can we?
     default:
     {
         returnResult(request, wb::HTTP_CODE_OK);
@@ -238,8 +237,6 @@ void OfflineLogger::onGetResult(
         break;
     }
     }
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onPutResult(
@@ -250,8 +247,6 @@ void OfflineLogger::onPutResult(
 {
     DebugLogger::verbose("%s: onPutResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onPostResult(
@@ -262,8 +257,6 @@ void OfflineLogger::onPostResult(
 {
     DebugLogger::verbose("%s: onPostResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onDeleteResult(
@@ -274,8 +267,6 @@ void OfflineLogger::onDeleteResult(
 {
     DebugLogger::verbose("%s: onDeleteResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onSubscribeResult(
@@ -286,8 +277,6 @@ void OfflineLogger::onSubscribeResult(
 {
     DebugLogger::verbose("%s: onSubscribeResult %d, status: %d", 
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineLogger::onNotify(
@@ -491,7 +480,7 @@ void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& dat
 
 void OfflineLogger::storeDataBlock(const WB_RES::OfflineDataBlock& block)
 {
-    updateResource(WB_RES::LOCAL::OFFLINE_DATA::LID, ResponseOptions::Empty, block);
+    updateResource(WB_RES::LOCAL::OFFLINE_DATA(), ResponseOptions::Empty, block);
 }
 
 bool OfflineLogger::eraseData()

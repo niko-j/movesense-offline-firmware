@@ -12,26 +12,17 @@
 
 const char* const OfflineGATTService::LAUNCHABLE_NAME = "OfflineGATT";
 
-enum Commands : uint8_t
-{
-    READ_CONFIG = 0x01,
-    REPORT_STATUS = 0x02,
-    GET_SESSIONS = 0x03,
-    GET_SESSION_LOG = 0x04,
-    CLEAR_SESSION_LOGS = 0x05
-};
-
-/* UUID string: 0000b000-0000-1000-8000-00805f9b34fb */
-constexpr uint8_t OfflineGattServiceUuid[] = { 0x00, 0xB0 };
-constexpr uint8_t commandCharUuid[] = { 0x01, 0xB0 };
-constexpr uint8_t configCharUuid[] = { 0x02, 0xB0 };
-constexpr uint8_t dataCharUuid[] = { 0x03, 0xB0 };
+/* UUID string: 0000b001-0000-1000-8000-00805f9b34fb */
+constexpr uint8_t OfflineGattServiceUuid[] = { 0x01, 0xB0 };
+constexpr uint8_t txUuid[] = { 0x02, 0xB0 };
+constexpr uint8_t rxUuid[] = { 0x03, 0xB0 };
 
 OfflineGATTService::OfflineGATTService()
     : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
     , LaunchableModule(LAUNCHABLE_NAME, WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
+    , logDataTransmission({})
     , serviceHandle(0)
-    , pendingRequest(0)
+    , pendingRequestId(0)
 {
 
 }
@@ -63,15 +54,13 @@ bool OfflineGATTService::startModule()
 
 void OfflineGATTService::stopModule()
 {
-    asyncUnsubscribe(commandChar.resourceId);
-    asyncUnsubscribe(configChar.resourceId);
-    asyncUnsubscribe(dataChar.resourceId);
+    asyncUnsubscribe(txChar.resourceId);
+    asyncUnsubscribe(rxChar.resourceId);
 
-    releaseResource(commandChar.resourceId);
-    releaseResource(configChar.resourceId);
-    releaseResource(dataChar.resourceId);
+    releaseResource(txChar.resourceId);
+    releaseResource(rxChar.resourceId);
 
-    commandChar = {}; configChar = {}; dataChar = {};
+    txChar = {}; rxChar = {};
     mModuleState = WB_RES::ModuleStateValues::STOPPED;
 }
 
@@ -88,16 +77,20 @@ void OfflineGATTService::onGetResult(
     {
     case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE::LID:
     {
-        DebugLogger::info("Reading characteristics handles");
+        if(resultCode != wb::HTTP_CODE_OK)
+        {
+            DebugLogger::info("Failed to subcribe GATT service handles");
+            return;
+        }
 
+        DebugLogger::info("Reading characteristics handles");
         const WB_RES::GattSvc& svc = result.convertTo<const WB_RES::GattSvc&>();
 
         uint16_t svcHandle = svc.handle.getValue();
         DebugLogger::info("Characteristics for service %d", svcHandle);
 
-        uint16_t commandUUID = *reinterpret_cast<const uint16_t*>(commandCharUuid);
-        uint16_t configUUID = *reinterpret_cast<const uint16_t*>(configCharUuid);
-        uint16_t dataUUID = *reinterpret_cast<const uint16_t*>(dataCharUuid);
+        uint16_t senderUuid = *reinterpret_cast<const uint16_t*>(txUuid);
+        uint16_t recvUuid = *reinterpret_cast<const uint16_t*>(rxUuid);
 
         for (size_t i = 0; i < svc.chars.size(); i++)
         {
@@ -107,15 +100,13 @@ void OfflineGATTService::onGetResult(
 
             uint16_t uuid16 = *reinterpret_cast<const uint16_t*>(&(c.uuid[0]));
 
-            if (uuid16 == commandUUID)
-                commandChar.handle = c.handle.hasValue() ? c.handle.getValue() : 0;
-            else if (uuid16 == configUUID)
-                configChar.handle = c.handle.hasValue() ? c.handle.getValue() : 0;
-            else if (uuid16 == dataUUID)
-                dataChar.handle = c.handle.hasValue() ? c.handle.getValue() : 0;
+            if (uuid16 == senderUuid)
+                txChar.handle = c.handle.hasValue() ? c.handle.getValue() : 0;
+            else if (uuid16 == recvUuid)
+                rxChar.handle = c.handle.hasValue() ? c.handle.getValue() : 0;
         }
 
-        if (!commandChar.handle || !configChar.handle || !dataChar.handle)
+        if (!txChar.handle || !rxChar.handle)
         {
             DebugLogger::error("Failed to get characteristics handles");
             ASSERT(false);
@@ -124,18 +115,25 @@ void OfflineGATTService::onGetResult(
 
         DebugLogger::info("Received characteristics handles!");
 
-        asyncSubsribeHandleResource(commandChar.handle, commandChar.resourceId);
-        asyncSubsribeHandleResource(configChar.handle, configChar.resourceId);
-        asyncSubsribeHandleResource(dataChar.handle, dataChar.resourceId);
+        asyncSubsribeHandleResource(txChar.handle, txChar.resourceId);
+        asyncSubsribeHandleResource(rxChar.handle, rxChar.resourceId);
         break;
     }
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
     {
-        if (resultCode == wb::HTTP_CODE_OK) {
-            sendSbem(configChar.resourceId, resourceId.localResourceId, result);
+        if (resultCode == wb::HTTP_CODE_OK)
+        {
+            auto conf = result.convertTo<const WB_RES::OfflineConfig&>();
+
+            OfflineConfigPacket packet(buffer);
+            packet.setReference(pendingRequestId);
+            packet.writeConfig(conf);
+            sendPacket(packet);
+            pendingRequestId = OFFLINE_PACKET_INVALID_REF;
         }
-        else {
-            sendStatusResponse(configChar.resourceId, pendingRequest, resultCode);
+        else
+        {
+            sendStatusResponse(pendingRequestId, resultCode);
             return;
         }
 
@@ -143,36 +141,54 @@ void OfflineGATTService::onGetResult(
     }
     case WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES::LID:
     {
-        if (resultCode >= 400) 
+        if (resultCode >= 400)
         {
-            sendStatusResponse(dataChar.resourceId, pendingRequest, resultCode);
+            sendStatusResponse(pendingRequestId, resultCode);
             return;
         }
 
         auto entries = result.convertTo<const WB_RES::LogEntries&>();
-        if(entries.elements.size() == 0)
+        if (entries.elements.size() == 0)
         {
-            sendStatusResponse(dataChar.resourceId, pendingRequest, wb::HTTP_CODE_NOT_FOUND);
+            sendStatusResponse(pendingRequestId, wb::HTTP_CODE_NOT_FOUND);
             return;
         }
 
         // Are we are looking for a particular log?
-        if(logDataTransmission.logIndex == (int32_t) entries.elements.begin()->id)
+        if (logDataTransmission.index == (int32_t)entries.elements.begin()->id)
         {
             asyncReadLogData(*entries.elements.begin());
             return;
         }
 
-        WB_RES::OfflineLogList logs = {};
-        logs.complete = true;
-        
+        bool list_complete = true;
         if (resultCode == wb::HTTP_CODE_CONTINUE)
         {
             uint32_t lastId = (entries.elements.end() - 1)->id;
             asyncGet(resourceId, AsyncRequestOptions::ForceAsync, lastId);
-            logs.complete = false;
+            list_complete = false;
         }
-        
+
+        OfflineLogListPacket packet(buffer);
+        packet.setReference(pendingRequestId);
+
+        uint32_t logCount = entries.elements.size();
+        for (size_t i = 0; i < logCount; i++)
+        {
+            const auto& el = entries.elements[i];
+            packet.addItem(el);
+
+            bool all_items_sent = (i + 1 == logCount);
+            if (all_items_sent || packet.isFull())
+            {
+                packet.setComplete(list_complete && all_items_sent);
+                sendPacket(packet);
+
+                if(packet.getComplete())
+                    pendingRequestId = OFFLINE_PACKET_INVALID_REF;
+            }
+        }
+
         break;
     }
     default:
@@ -196,6 +212,11 @@ void OfflineGATTService::onPutResult(
 
     switch (resourceId.localResourceId)
     {
+    case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
+    {
+        sendStatusResponse(pendingRequestId, resultCode);
+        break;
+    }
     default:
     {
         DebugLogger::warning("Unhandled PUT result (%d) for resource: %d",
@@ -261,7 +282,7 @@ void OfflineGATTService::onDeleteResult(
     {
     case WB_RES::LOCAL::OFFLINE_DATA::LID:
     {
-        sendStatusResponse(dataChar.resourceId, pendingRequest, resultCode);
+        sendStatusResponse(pendingRequestId, resultCode);
         break;
     }
     default:
@@ -290,7 +311,7 @@ void OfflineGATTService::onSubscribeResult(
     {
         if (resultCode != wb::HTTP_CODE_OK)
         {
-            sendStatusResponse(dataChar.resourceId, pendingRequest, resultCode);
+            sendStatusResponse(pendingRequestId, resultCode);
             return;
         }
         break;
@@ -316,31 +337,68 @@ void OfflineGATTService::onNotify(
     case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
     {
         WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::SUBSCRIBE::ParameterListRef parameterRef(parameters);
-        const auto& handle = parameterRef.getCharHandle();
         const auto& ch = value.convertTo<const WB_RES::Characteristic&>();
 
-        if (handle == commandChar.handle)
+        if (ch.bytes.size() < 2)
+            return;
+
+        auto type = parseOfflinePacketType(ch.bytes[0]);
+        uint8_t ref = ch.bytes[1];
+        DebugLogger::info("Received packet ref: %u type: %u size: %u",
+            ref, type, ch.bytes.size());
+
+        if (pendingRequestId != OFFLINE_PACKET_INVALID_REF)
         {
-            OfflineCommandRequest cmd(ch);
+            uint8_t statusBuf[4];
+            if (pendingRequestId == ref)
+            {
+                DebugLogger::info("Duplicate request, ignoring");
+                return;
+            }
+
+            DebugLogger::info("Service is busy");
+            sendStatusResponse(ref, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
+            return;
+        }
+
+        pendingRequestId = ref;
+
+        switch (type)
+        {
+        case OfflinePacketTypeCommand:
+        {
+            OfflineCommandPacket cmd(buffer);
+            if (!cmd.decode(ch.bytes))
+            {
+                DebugLogger::error("Corrupted command packet (ref %u)", ref);
+                sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
+                return;
+            }
             handleCommand(cmd);
             break;
         }
-        else if (handle == configChar.handle)
+        case OfflinePacketTypeConfig:
         {
-            if (ch.bytes.size() == 15)
+            OfflineConfigPacket conf(buffer);
+            if (!conf.decode(ch.bytes))
             {
-                WB_RES::OfflineConfig config = {
-                    .wakeUpBehavior = static_cast<WB_RES::WakeUpBehavior::Type>(ch.bytes[0]),
-                    .sampleRates = wb::Array<uint16_t>((const uint16_t*)&ch.bytes[1], 6),
-                    .sleepDelay = *reinterpret_cast<const uint16_t*>(&ch.bytes[13]),
-                };
+                DebugLogger::error("Corrupted config packet (ref %u)", ref);
+                sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
+                return;
+            }
 
-                asyncPut(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync, config);
-            }
-            else
-            {
-                DebugLogger::error("Unexpected config size: %u", ch.bytes.size());
-            }
+            asyncPut(
+                WB_RES::LOCAL::OFFLINE_CONFIG(), 
+                AsyncRequestOptions::ForceAsync, 
+                conf.getConfig());
+            break;
+        }
+        default:
+        {
+            DebugLogger::info("Ignored packet (ref %u)", ref);
+            pendingRequestId = OFFLINE_PACKET_INVALID_REF;
+            break;
+        }
         }
         break;
     }
@@ -351,13 +409,18 @@ void OfflineGATTService::onNotify(
         auto index = params.getLogId();
         auto data = value.convertTo<const WB_RES::LogDataNotification&>();
 
-        if(data.bytes.size() > 0) {
-            uint8_t req = pendingRequest;
-            sendSbem(dataChar.resourceId, WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::LID, value);
-            pendingRequest = req; // Not complete yet
+        if (data.bytes.size() > 0)
+        {
+            sendPartialData(
+                &data.bytes[0], data.bytes.size(),
+                logDataTransmission.size, data.offset);
         }
-        else // completed
+        else
+        {
+            // completed
             asyncUnsubscribe(resourceId, AsyncRequestOptions::Empty, index);
+            logDataTransmission = {};
+        }
         break;
     }
     default:
@@ -370,34 +433,25 @@ void OfflineGATTService::onNotify(
 
 void OfflineGATTService::configGattSvc()
 {
-    constexpr uint8_t CHARACTERISTICS_COUNT = 3;
+    constexpr uint8_t CHARACTERISTICS_COUNT = 2;
     WB_RES::GattSvc offlineSvc;
     WB_RES::GattChar offlineChars[CHARACTERISTICS_COUNT];
 
-    WB_RES::GattChar& offlineCommandChar = offlineChars[0];
-    WB_RES::GattProperty commmandCharProps[] = {
+    WB_RES::GattChar& rx = offlineChars[0];
+    WB_RES::GattProperty rxProps[] = {
         WB_RES::GattProperty::WRITE
     };
 
-    WB_RES::GattChar& offlineConfigChar = offlineChars[1];
-    WB_RES::GattProperty configCharProps[] = {
-        WB_RES::GattProperty::NOTIFY,
-        WB_RES::GattProperty::WRITE
-    };
-
-    WB_RES::GattChar& offlineDataChar = offlineChars[2];
-    WB_RES::GattProperty dataCharProps[] = {
+    WB_RES::GattChar& tx = offlineChars[1];
+    WB_RES::GattProperty txProps[] = {
         WB_RES::GattProperty::NOTIFY
     };
 
-    offlineCommandChar.props = wb::MakeArray<WB_RES::GattProperty>(commmandCharProps, 1);
-    offlineCommandChar.uuid = wb::MakeArray<uint8_t>(commandCharUuid, sizeof(commandCharUuid));
+    rx.props = wb::MakeArray<WB_RES::GattProperty>(rxProps, 1);
+    rx.uuid = wb::MakeArray<uint8_t>(rxUuid, sizeof(rxUuid));
 
-    offlineConfigChar.props = wb::MakeArray<WB_RES::GattProperty>(configCharProps, 2);
-    offlineConfigChar.uuid = wb::MakeArray<uint8_t>(configCharUuid, sizeof(configCharUuid));
-
-    offlineDataChar.props = wb::MakeArray<WB_RES::GattProperty>(dataCharProps, 1);
-    offlineDataChar.uuid = wb::MakeArray<uint8_t>(dataCharUuid, sizeof(dataCharUuid));
+    tx.props = wb::MakeArray<WB_RES::GattProperty>(txProps, 1);
+    tx.uuid = wb::MakeArray<uint8_t>(txUuid, sizeof(txUuid));
 
     offlineSvc.uuid = wb::MakeArray<uint8_t>(OfflineGattServiceUuid, sizeof(OfflineGattServiceUuid));
     offlineSvc.chars = wb::MakeArray<WB_RES::GattChar>(offlineChars, CHARACTERISTICS_COUNT);
@@ -405,63 +459,44 @@ void OfflineGATTService::configGattSvc()
     asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
 }
 
-void OfflineGATTService::handleCommand(const OfflineCommandRequest& req)
+void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
 {
-    auto cmd = req.getCommand();
-    uint8_t ref = req.getRequestRef();
+    DebugLogger::info("Received command: %u", packet.getCommand());
 
-    if(ref == 0 || cmd == OfflineCommand::UNKNOWN)
+    switch (packet.getCommand())
     {
-        DebugLogger::info("Invalid command received, ignoring");
-        return;
-    }
-
-    if (pendingRequest > 0)
-    {
-        if (pendingRequest == ref)
-        {
-            DebugLogger::info("Duplicate request, ignoring");
-            return;
-        }
-
-        DebugLogger::info("Service is busy");
-        sendStatusResponse(commandChar.resourceId, ref, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
-        return;
-    }
-
-    pendingRequest = ref;
-    DebugLogger::info("Received command: %d, ref: %d", cmd, ref);
-
-    switch (cmd)
-    {
-    case OfflineCommand::READ_CONFIG:
+    case OfflineCmdReadConfig:
     {
         asyncGet(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync);
         break;
     }
-    case OfflineCommand::GET_SESSIONS:
+    case OfflineCmdListLogs:
     {
         asyncGet(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
         break;
     }
-    case OfflineCommand::GET_SESSION_LOG:
+    case OfflineCmdReadLog:
     {
-        uint16_t id = 0;
-        if(req.tryGetValue<uint16_t>(0, id))
+        if (packet.getParameters().size() == 2)
         {
+            uint16_t id = *reinterpret_cast<const uint16_t*>(packet.getParameters().begin());
             asyncSendLog(id);
+        }
+        else
+        {
+            sendStatusResponse(packet.getReference(), wb::HTTP_CODE_BAD_REQUEST);
         }
         break;
     }
-    case OfflineCommand::CLEAR_SESSION_LOGS:
+    case OfflineCmdClearLogs:
     {
         asyncDelete(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
         break;
     }
-    case OfflineCommand::REPORT_STATUS: // TODO: Implement status reporting???
     default:
     {
-        DebugLogger::warning("Unhandled command: %u", cmd);
+        DebugLogger::warning("Unhandled command: %u", packet.getCommand());
+        pendingRequestId = OFFLINE_PACKET_INVALID_REF;
         break;
     }
     }
@@ -486,68 +521,97 @@ bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whitebo
     return true;
 }
 
-void OfflineGATTService::sendData(wb::ResourceId characteristic, const uint8_t* data, uint32_t size)
+void OfflineGATTService::sendData(const uint8_t* data, uint32_t size)
 {
-    ASSERT(pendingRequest > 0);
-
+    ASSERT(pendingRequestId != OFFLINE_PACKET_INVALID_REF);
     uint32_t sent = 0;
     do
     {
-        pendingDataPacket.init(pendingRequest);
-        sent += pendingDataPacket.writeRawData(data, size, sent);
-        sendPendingDataPacket(characteristic);
+        OfflineDataPacket packet(buffer);
+        uint32_t len = WB_MIN(size, packet.MAX_PAYLOAD);
+        packet.setReference(pendingRequestId);
+        packet.setOffset(sent);
+        packet.setTotalBytes(size);
+        packet.pushBytes(data + sent, len);
+        sendPacket(packet);
+
+        sent += len;
     } while (sent < size);
 
-    pendingRequest = 0;
+    pendingRequestId = OFFLINE_PACKET_INVALID_REF;
 }
 
-void OfflineGATTService::sendSbem(wb::ResourceId characteristic, wb::LocalResourceId resourceId, const wb::Value& data)
+void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset)
 {
-    ASSERT(pendingRequest > 0);
+    ASSERT(pendingRequestId != OFFLINE_PACKET_INVALID_REF);
+    uint32_t sent = 0;
+    do
+    {
+        OfflineDataPacket packet(buffer);
+        uint32_t len = WB_MIN(partSize - sent, packet.MAX_PAYLOAD);
+        packet.setReference(pendingRequestId);
+        packet.setOffset(offset + sent);
+        packet.setTotalBytes(totalSize);
+        packet.pushBytes(data + sent, len);
+        sendPacket(packet);
 
+        sent += len;
+    } while (sent < partSize);
+
+    if(partSize + offset == totalSize)
+        pendingRequestId = OFFLINE_PACKET_INVALID_REF;
+}
+
+void OfflineGATTService::sendSbem(wb::LocalResourceId resourceId, const wb::Value& data)
+{
+    ASSERT(pendingRequestId != OFFLINE_PACKET_INVALID_REF);
     uint32_t sent = 0;
     uint32_t size = getSbemLength(resourceId, data);
     do
     {
-        pendingDataPacket.init(pendingRequest);
-        sent += pendingDataPacket.writeSbem(resourceId, data, sent);
-        sendPendingDataPacket(characteristic);
+        OfflineDataPacket packet(buffer);
+        packet.setReference(pendingRequestId);
+        packet.setOffset(sent);
+        packet.setTotalBytes(size);
+
+        sent += writeToSbemBuffer(
+            packet.getRawBytes(), packet.MAX_PAYLOAD - 8, 
+            sent, resourceId, data);
+
+        sendPacket(packet);
     } while (sent < size);
 
-    pendingRequest = 0;
+    pendingRequestId = OFFLINE_PACKET_INVALID_REF;
 }
 
-void OfflineGATTService::sendStatusResponse(wb::ResourceId characteristic, uint8_t requestRef, uint16_t status)
+void OfflineGATTService::sendStatusResponse(uint8_t requestRef, uint16_t status)
 {
-    OfflineStatusPacket packet;
-    packet.init(requestRef);
-    packet.writeStatus(status);
+    ASSERT(requestRef != OFFLINE_PACKET_INVALID_REF);
+    static uint8_t buf[OfflineStatusPacket::SIZE] = {};
+    
+    OfflineStatusPacket packet(buf);
+    packet.setReference(requestRef);
+    packet.setStatus(status);
+    sendPacket(packet);
 
-    WB_RES::Characteristic value;
-    value.bytes = wb::MakeArray<uint8_t>(packet.getData(), packet.getSize());
-    asyncPut(characteristic, AsyncRequestOptions::Empty, value);
-
-    if (requestRef == pendingRequest)
-        pendingRequest = 0;
+    if(pendingRequestId == requestRef)
+        pendingRequestId = OFFLINE_PACKET_INVALID_REF;
 }
 
-void OfflineGATTService::sendPendingDataPacket(wb::ResourceId characteristic)
+void OfflineGATTService::sendPacket(OfflinePacket& packet)
 {
     WB_RES::Characteristic value;
-    value.bytes = wb::MakeArray<uint8_t>(
-        pendingDataPacket.getData(),
-        pendingDataPacket.getSize());
-    asyncPut(characteristic, AsyncRequestOptions::Empty, value);
+    value.bytes = packet.encode();
+    asyncPut(txChar.resourceId, AsyncRequestOptions::Empty, value);
 }
 
 bool OfflineGATTService::asyncSendLog(uint32_t id)
 {
-    if (logDataTransmission.logIndex > -1) // Transmission in progress
+    if (logDataTransmission.index > -1) // Transmission in progress
         return false;
 
-    logDataTransmission.logIndex = id;
-    logDataTransmission.logSize = 0;
-    logDataTransmission.sentBytes = 0;
+    logDataTransmission.index = id;
+    logDataTransmission.size = 0;
 
     asyncGet(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync, id);
     return true;
@@ -555,10 +619,10 @@ bool OfflineGATTService::asyncSendLog(uint32_t id)
 
 void OfflineGATTService::asyncReadLogData(const WB_RES::LogEntry& entry)
 {
-    if (logDataTransmission.logIndex != (int32_t) entry.id || !entry.size.hasValue())
+    if (logDataTransmission.index != (int32_t)entry.id || !entry.size.hasValue())
         return;
 
-    logDataTransmission.logSize = entry.size.getValue();
+    logDataTransmission.size = entry.size.getValue();
 
     asyncSubscribe(
         WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(),

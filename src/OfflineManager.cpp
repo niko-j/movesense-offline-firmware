@@ -80,11 +80,12 @@ bool OfflineManager::startModule()
     asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::ForceAsync);
 
     // Subscribe to system states
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 0); // Movement
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 1); // Battery low
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 2); // Connectors
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 3); // Double tap
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 4); // Single tap
+    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::ForceAsync, 0); // Movement
+    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::ForceAsync, 1); // Battery low
+    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::ForceAsync, 2); // Connectors
+    // TODO: These are not working (500)
+    //asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::ForceAsync, 3); // Double tap
+    //asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::ForceAsync, 4); // Single tap
 
     // Subscribe to logbook IsFull
     asyncSubscribe(WB_RES::LOCAL::MEM_LOGBOOK_ISFULL());
@@ -124,11 +125,7 @@ void OfflineManager::onGetRequest(
     {
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
     {
-        WB_RES::OfflineConfig data = {
-            .wakeUpBehavior = _config.wakeUpBehavior,
-            .sampleRates = wb::MakeArray(_config.sampleRates),
-            .sleepDelay = _config.sleepDelay
-        };
+        WB_RES::OfflineConfig data = _config.convert();
         returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, data);
         break;
     }
@@ -195,14 +192,14 @@ void OfflineManager::onGetResult(
             auto data = result.convertTo<const WB_RES::EepromData&>();
             if (data.bytes[0] == EEPROM_CONFIG_INIT_MAGIC)
             {
-                if (data.bytes.size() != 1 + sizeof(Config))
+                if (data.bytes.size() != 1 + sizeof(OfflineConfig))
                 {
                     DebugLogger::error("Offline mode is not configured");
                     setState(WB_RES::OfflineState::ERROR_INVALID_CONFIG);
                     return;
                 }
 
-                memcpy(&_config, &data.bytes[1], sizeof(Config));
+                memcpy(&_config, &data.bytes[1], sizeof(OfflineConfig));
                 DebugLogger::info("Offline mode configuration restored");
 
                 setState(WB_RES::OfflineState::IDLE);
@@ -304,7 +301,7 @@ void OfflineManager::onSubscribeResult(
     }
     }
 
-    ASSERT(resultCode < 400)
+    //ASSERT(resultCode < 400)
 }
 
 void OfflineManager::onNotify(
@@ -413,13 +410,7 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
     if (!validateConfig(config))
         return false;
 
-    _config = {
-        .sampleRates = {},
-        .wakeUpBehavior = config.wakeUpBehavior,
-        .sleepDelay = config.sleepDelay,
-    };
-    memcpy(&_config.sampleRates, &config.sampleRates[0], sizeof(_config.sampleRates));
-
+    _config.assign(config);
     return true;
 }
 
@@ -561,19 +552,20 @@ void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
     }
     else if (peerChange.peer.handle.hasValue())
     {
-        const auto handle = peerChange.peer.handle.getValue();
+        // TODO: Do we actually need to adjust connection parameters?
+        // const auto handle = peerChange.peer.handle.getValue();
 
-        WB_RES::ConnParams connParams = {
-            .min_conn_interval = 12,
-            .max_conn_interval = 36,
-            .slave_latency = 2,
-            .sup_timeout = 100
-        };
+        // WB_RES::ConnParams connParams = {
+        //     .min_conn_interval = 12,
+        //     .max_conn_interval = 36,
+        //     .slave_latency = 2,
+        //     .sup_timeout = 100
+        // };
 
-        asyncPut(
-            WB_RES::LOCAL::COMM_BLE_PEERS_CONNHANDLE_PARAMS(),
-            AsyncRequestOptions::ForceAsync,
-            handle, connParams);
+        // asyncPut(
+        //     WB_RES::LOCAL::COMM_BLE_PEERS_CONNHANDLE_PARAMS(),
+        //     AsyncRequestOptions::ForceAsync,
+        //     handle, connParams);
 
         _connections++;
     }

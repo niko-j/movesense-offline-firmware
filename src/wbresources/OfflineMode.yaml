@@ -133,34 +133,6 @@ definitions:
         format: uint16
         x-unit: s
 
-  OfflineLog:
-    required:
-      - Modified
-      - Size
-    properties:
-      Modified:
-        description: Modified timestamp (epoch)
-        type: integer
-        format: uint64
-      Size:
-        description: Log data size in bytes
-        type: integer
-        format: uint32
-  
-  OfflineLogList:
-    required:
-      - Logs
-      - Complete
-    properties:
-      Logs:
-        description: List of sessions logs
-        type: array
-        items:
-          $ref: "#/definitions/OfflineLog"
-      Complete:
-        description: Indicate whether the data is complete
-        type: boolean
-
   OfflineDataBlock:
     required:
       - Data
@@ -172,7 +144,6 @@ definitions:
           type: integer
           format: uint8
           
-
   OfflineState:
     type: integer
     format: uint8

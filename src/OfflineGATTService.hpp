@@ -5,7 +5,7 @@
 
 #include "app-resources/resources.h"
 #include "mem_logbook/resources.h"
-#include "OfflineInternalTypes.hpp"
+#include "OfflineProtocol.hpp"
 
 class OfflineGATTService FINAL : private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -60,15 +60,16 @@ private: /* wb::ResourceClient */
 private:
     void configGattSvc();
 
-    void handleCommand(const OfflineCommandRequest& cmd);
+    void handleCommand(const OfflineCommandPacket& packet);
 
     bool asyncSubsribeHandleResource(int16_t charHandle, wb::ResourceId& resourceOut);
 
-    void sendData(wb::ResourceId characteristic, const uint8_t* data, uint32_t size);
-    void sendSbem(wb::ResourceId characteristic, wb::LocalResourceId resource, const wb::Value& value);
-    
-    void sendStatusResponse(wb::ResourceId characteristic, uint8_t requestRef, uint16_t status);
-    void sendPendingDataPacket(wb::ResourceId characteristic);
+    void sendData(const uint8_t* data, uint32_t size);
+    void sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset);
+    void sendSbem(wb::LocalResourceId resource, const wb::Value& value);
+    void sendStatusResponse(uint8_t requestRef, uint16_t status);
+
+    void sendPacket(OfflinePacket& packet);
 
     bool asyncSendLog(uint32_t id);
     void asyncReadLogData(const WB_RES::LogEntry& entry);
@@ -76,9 +77,8 @@ private:
 
     struct LogDataTransmission
     {
-        int32_t logIndex = -1;
-        uint32_t logSize = 0;
-        uint32_t sentBytes = 0;
+        int32_t index = -1;
+        uint32_t size = 0;
     } logDataTransmission;
 
     struct Characteristic
@@ -88,11 +88,8 @@ private:
     };
 
     int16_t serviceHandle;
-
-    Characteristic commandChar;
-    Characteristic configChar;
-    Characteristic dataChar;
-
-    OfflineDataPacket pendingDataPacket;
-    uint8_t pendingRequest;
+    Characteristic txChar;
+    Characteristic rxChar;
+    uint8_t pendingRequestId;
+    uint8_t buffer[OFFLINE_PACKET_BUFFER_SIZE];
 };
