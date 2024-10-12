@@ -3,20 +3,20 @@
 
 OfflinePacketType parseOfflinePacketType(uint8_t b)
 {
-    if(b > OfflinePacketTypeUnknown && b < OfflinePacketTypeCount)
-        return (OfflinePacketType) b;
+    if (b > OfflinePacketTypeUnknown && b < OfflinePacketTypeCount)
+        return (OfflinePacketType)b;
     return OfflinePacketTypeUnknown;
 }
 
 bool OfflineCommandPacket::decode(const wb::Array<uint8_t>& value)
 {
-    if(value.size() > SIZE || value.size() < 3 || value[0] != OfflinePacketTypeCommand)
+    if (value.size() > SIZE || value.size() < 3 || value[0] != OfflinePacketTypeCommand)
         return false;
 
-    if(value[1] == OFFLINE_PACKET_INVALID_REF)
+    if (value[1] == OFFLINE_PACKET_INVALID_REF)
         return false;
 
-    if(!(value[2] > OfflineCmdUnknown && value[2] < OfflineCmdCount))
+    if (!(value[2] > OfflineCmdUnknown && value[2] < OfflineCmdCount))
         return false;
 
     memcpy(mBuffer, value.begin(), value.size());
@@ -31,10 +31,10 @@ wb::Array<uint8_t> OfflineCommandPacket::encode()
 
 bool OfflineStatusPacket::decode(const wb::Array<uint8_t>& value)
 {
-    if(value.size() != SIZE || value[0] != OfflinePacketTypeStatus)
+    if (value.size() != SIZE || value[0] != OfflinePacketTypeStatus)
         return false;
 
-    if(value[1] == OFFLINE_PACKET_INVALID_REF)
+    if (value[1] == OFFLINE_PACKET_INVALID_REF)
         return false;
 
     memcpy(mBuffer, value.begin(), value.size());
@@ -48,10 +48,10 @@ wb::Array<uint8_t> OfflineStatusPacket::encode()
 
 bool OfflineConfigPacket::decode(const wb::Array<uint8_t>& value)
 {
-    if(value.size() != SIZE || value[0] != OfflinePacketTypeConfig)
+    if (value.size() != SIZE || value[0] != OfflinePacketTypeConfig)
         return false;
 
-    if(value[1] == OFFLINE_PACKET_INVALID_REF)
+    if (value[1] == OFFLINE_PACKET_INVALID_REF)
         return false;
 
     memcpy(mBuffer, value.begin(), value.size());
@@ -59,14 +59,14 @@ bool OfflineConfigPacket::decode(const wb::Array<uint8_t>& value)
 }
 
 wb::Array<uint8_t> OfflineConfigPacket::encode()
-{    
+{
     return wb::MakeArray<uint8_t>(mBuffer, SIZE);
 }
 
 WB_RES::OfflineConfig OfflineConfigPacket::getConfig()
 {
-    return WB_RES::OfflineConfig {
-        .wakeUpBehavior = (WB_RES::WakeUpBehavior::Type) mBuffer[2],
+    return WB_RES::OfflineConfig{
+        .wakeUpBehavior = (WB_RES::WakeUpBehavior::Type)mBuffer[2],
         .sampleRates = wb::MakeArray<uint16_t>(
             reinterpret_cast<const uint16_t*>(mBuffer + 3),
             WB_RES::MeasurementSensors::COUNT),
@@ -76,10 +76,10 @@ WB_RES::OfflineConfig OfflineConfigPacket::getConfig()
 
 bool OfflineDataPacket::decode(const wb::Array<uint8_t>& value)
 {
-    if(value.size() > SIZE || value.size() < 10 || value[0] != OfflinePacketTypeData)
+    if (value.size() > SIZE || value.size() < 10 || value[0] != OfflinePacketTypeData)
         return false;
 
-    if(value[1] == OFFLINE_PACKET_INVALID_REF)
+    if (value[1] == OFFLINE_PACKET_INVALID_REF)
         return false;
 
     memcpy(mBuffer, value.begin(), value.size());
@@ -94,14 +94,14 @@ wb::Array<uint8_t> OfflineDataPacket::encode()
 
 bool OfflineLogListPacket::decode(const wb::Array<uint8_t>& value)
 {
-    if(value.size() > SIZE || value.size() < 4 || value[0] != OfflinePacketTypeLogList)
+    if (value.size() > SIZE || value.size() < 4 || value[0] != OfflinePacketTypeLogList)
         return false;
 
-    if(value[1] == OFFLINE_PACKET_INVALID_REF)
+    if (value[1] == OFFLINE_PACKET_INVALID_REF)
         return false;
 
     int datalen = value.size() - 4;
-    if(datalen != value[2] * 16)
+    if (datalen != value[2] * 16)
         return false;
 
     memcpy(mBuffer, value.begin(), value.size());
@@ -116,7 +116,7 @@ wb::Array<uint8_t> OfflineLogListPacket::encode()
 
 bool OfflineLogListPacket::addItem(const WB_RES::LogEntry& entry)
 {
-    if(isFull())
+    if (isFull())
         return false;
 
     uint32_t size = entry.size.hasValue() ? entry.size.getValue() : 0;
@@ -126,7 +126,7 @@ bool OfflineLogListPacket::addItem(const WB_RES::LogEntry& entry)
         .modified = entry.modificationTimestamp
     };
     pushItems(&item, 1);
-    setCount(getCount()+1);
+    setCount(getCount() + 1);
     return true;
 }
 

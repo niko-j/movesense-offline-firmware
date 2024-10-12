@@ -14,6 +14,20 @@ paths:
           description: Current state
           schema:
             $ref: '#/definitions/OfflineState'
+    put:
+      description: Request state change
+      parameters:
+          - name: state
+            in: body
+            description: New state
+            required: true
+            schema:
+              $ref: '#/definitions/OfflineState'
+      responses:
+        200:
+          description: State change accepted
+        403:
+          description: State change declined
 
   /Offline/State/Subscription:
     post:
@@ -157,15 +171,18 @@ definitions:
     - name: "ACTIVE"
       description: Offline mode is currently active
       value: 2
+    - name: "ERROR_SYSTEM_FAILURE"
+      description: Generic failure mode
+      value: 3
     - name: "ERROR_INVALID_CONFIG"
       description: Offline mode configuration is invalid
-      value: 3 
+      value: 4 
     - name: "ERROR_STORAGE_FULL"
       description: Offline data storage is full
-      value: 4
+      value: 5
     - name: "ERROR_BATTERY_LOW"
       description: "The battery is low. Writing to flash is no longer reliable."
-      value: 5
+      value: 6
 
   WakeUpBehavior:
     type: integer

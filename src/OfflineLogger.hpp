@@ -41,14 +41,6 @@ private: /* wb::ResourceProvider */
         const whiteboard::Request& request,
         const whiteboard::ParameterList& parameters) OVERRIDE;
 
-    virtual void onSubscribe(
-        const whiteboard::Request& rRequest, 
-        const whiteboard::ParameterList& rParameters) OVERRIDE;
-
-    virtual void onUnsubscribe(
-        const whiteboard::Request& rRequest, 
-        const whiteboard::ParameterList& rParameters) OVERRIDE;
-
 private: /* wb::ResourceClient */
     virtual void onGetResult(
         whiteboard::RequestId requestId,
@@ -57,12 +49,6 @@ private: /* wb::ResourceClient */
         const whiteboard::Value& result) OVERRIDE;
 
     virtual void onPutResult(
-        whiteboard::RequestId requestId,
-        whiteboard::ResourceId resourceId,
-        whiteboard::Result resultCode,
-        const whiteboard::Value& result) OVERRIDE;
-
-    virtual void onPostResult(
         whiteboard::RequestId requestId,
         whiteboard::ResourceId resourceId,
         whiteboard::Result resultCode,

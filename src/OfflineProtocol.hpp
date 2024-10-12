@@ -31,7 +31,7 @@ constexpr uint32_t OFFLINE_PACKET_MAX_PAYLOAD = 128;
 constexpr uint32_t OFFLINE_PACKET_HEADER_SIZE = 2;
 constexpr uint32_t OFFLINE_PACKET_BUFFER_SIZE = (
     OFFLINE_PACKET_MAX_PAYLOAD + OFFLINE_PACKET_HEADER_SIZE
-);
+    );
 
 #define OFFLINE_PACKET_PROPERTY(Type, __PropName__, Size, Offset) \
     static_assert(Offset + Size <= SIZE \
@@ -127,7 +127,7 @@ struct OfflineConfigPacket : public OfflinePacket
 {
     OFFLINE_PACKET(OfflineConfigPacket, OfflinePacketTypeConfig, 2 + 15);
     OFFLINE_PACKET_SBEM_PROPERTY(
-        WB_RES::OfflineConfig, WB_RES::LOCAL::OFFLINE_CONFIG::LID, 
+        WB_RES::OfflineConfig, WB_RES::LOCAL::OFFLINE_CONFIG::LID,
         Config, 15, 2);
 };
 

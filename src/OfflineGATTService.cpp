@@ -70,14 +70,11 @@ void OfflineGATTService::onGetResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onGetResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE::LID:
     {
-        if(resultCode != wb::HTTP_CODE_OK)
+        if (resultCode != wb::HTTP_CODE_OK)
         {
             DebugLogger::info("Failed to subcribe GATT service handles");
             return;
@@ -184,7 +181,7 @@ void OfflineGATTService::onGetResult(
                 packet.setComplete(list_complete && all_items_sent);
                 sendPacket(packet);
 
-                if(packet.getComplete())
+                if (packet.getComplete())
                     pendingRequestId = OFFLINE_PACKET_INVALID_REF;
             }
         }
@@ -192,10 +189,9 @@ void OfflineGATTService::onGetResult(
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled GET result (%d) for resource: %d", resultCode, resourceId.localResourceId);
+        DebugLogger::warning("%s: Unhandled GET result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
-    }
     }
 
     ASSERT(resultCode < 400)
@@ -207,9 +203,6 @@ void OfflineGATTService::onPutResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onPutResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
@@ -217,15 +210,20 @@ void OfflineGATTService::onPutResult(
         sendStatusResponse(pendingRequestId, resultCode);
         break;
     }
-    default:
+    case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
     {
-        DebugLogger::warning("Unhandled PUT result (%d) for resource: %d",
-            resultCode, resourceId.localResourceId);
+        if (resultCode != wb::HTTP_CODE_OK)
+        {
+            DebugLogger::error("%s: Characteristics PUT failed: %d",
+                LAUNCHABLE_NAME, resultCode);
+        }
         break;
     }
+    default:
+        DebugLogger::warning("%s: Unhandled PUT result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+        break;
     }
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineGATTService::onPostResult(
@@ -234,9 +232,6 @@ void OfflineGATTService::onPostResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onPostResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_GATTSVC::LID:
@@ -259,14 +254,10 @@ void OfflineGATTService::onPostResult(
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled POST result (%d) for resource: %d",
-            resultCode, resourceId.localResourceId);
+        DebugLogger::warning("%s: Unhandled POST result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
-    }
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineGATTService::onDeleteResult(
@@ -275,9 +266,6 @@ void OfflineGATTService::onDeleteResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onPostResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::OFFLINE_DATA::LID:
@@ -286,11 +274,9 @@ void OfflineGATTService::onDeleteResult(
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled DELETE result (%d) for resource: %d",
-            resultCode, resourceId.localResourceId);
+        DebugLogger::warning("%s: Unhandled DELETE result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
-    }
     }
 
     ASSERT(resultCode < 400)
@@ -302,9 +288,6 @@ void OfflineGATTService::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onSubscribeResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::LID:
@@ -317,12 +300,10 @@ void OfflineGATTService::onSubscribeResult(
         break;
     }
     default:
-    {
+        DebugLogger::warning("%s: Unhandled SUBSCRIBE result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
-    }
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineGATTService::onNotify(
@@ -330,8 +311,6 @@ void OfflineGATTService::onNotify(
     const wb::Value& value,
     const wb::ParameterList& parameters)
 {
-    DebugLogger::verbose("%s: onNotify %d", LAUNCHABLE_NAME, resourceId.localResourceId);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
@@ -344,8 +323,8 @@ void OfflineGATTService::onNotify(
 
         auto type = parseOfflinePacketType(ch.bytes[0]);
         uint8_t ref = ch.bytes[1];
-        DebugLogger::info("Received packet ref: %u type: %u size: %u",
-            ref, type, ch.bytes.size());
+        DebugLogger::info("%s, Received packet ref: %u type: %u size: %u",
+            LAUNCHABLE_NAME, ref, type, ch.bytes.size());
 
         if (pendingRequestId != OFFLINE_PACKET_INVALID_REF)
         {
@@ -356,7 +335,6 @@ void OfflineGATTService::onNotify(
                 return;
             }
 
-            DebugLogger::info("Service is busy");
             sendStatusResponse(ref, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
             return;
         }
@@ -388,8 +366,8 @@ void OfflineGATTService::onNotify(
             }
 
             asyncPut(
-                WB_RES::LOCAL::OFFLINE_CONFIG(), 
-                AsyncRequestOptions::ForceAsync, 
+                WB_RES::LOCAL::OFFLINE_CONFIG(),
+                AsyncRequestOptions::Empty,
                 conf.getConfig());
             break;
         }
@@ -424,10 +402,9 @@ void OfflineGATTService::onNotify(
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled notification from resource: %d", resourceId.localResourceId);
+        DebugLogger::warning("%s: Unhandled notification from resource: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId);
         break;
-    }
     }
 }
 
@@ -494,11 +471,10 @@ void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled command: %u", packet.getCommand());
+        DebugLogger::warning("%s: Unhandled command: %u",
+            LAUNCHABLE_NAME, packet.getCommand());
         pendingRequestId = OFFLINE_PACKET_INVALID_REF;
         break;
-    }
     }
 }
 
@@ -558,7 +534,7 @@ void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize,
         sent += len;
     } while (sent < partSize);
 
-    if(partSize + offset == totalSize)
+    if (partSize + offset == totalSize)
         pendingRequestId = OFFLINE_PACKET_INVALID_REF;
 }
 
@@ -575,7 +551,7 @@ void OfflineGATTService::sendSbem(wb::LocalResourceId resourceId, const wb::Valu
         packet.setTotalBytes(size);
 
         sent += writeToSbemBuffer(
-            packet.getRawBytes(), packet.MAX_PAYLOAD - 8, 
+            packet.getRawBytes(), packet.MAX_PAYLOAD - 8,
             sent, resourceId, data);
 
         sendPacket(packet);
@@ -588,13 +564,13 @@ void OfflineGATTService::sendStatusResponse(uint8_t requestRef, uint16_t status)
 {
     ASSERT(requestRef != OFFLINE_PACKET_INVALID_REF);
     static uint8_t buf[OfflineStatusPacket::SIZE] = {};
-    
+
     OfflineStatusPacket packet(buf);
     packet.setReference(requestRef);
     packet.setStatus(status);
     sendPacket(packet);
 
-    if(pendingRequestId == requestRef)
+    if (pendingRequestId == requestRef)
         pendingRequestId = OFFLINE_PACKET_INVALID_REF;
 }
 

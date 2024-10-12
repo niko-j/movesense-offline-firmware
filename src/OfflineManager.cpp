@@ -113,7 +113,8 @@ void OfflineManager::onGetRequest(
     const wb::Request& request,
     const wb::ParameterList& parameters)
 {
-    DebugLogger::info("OfflineTracker::onGetRequest() called.");
+    DebugLogger::verbose("%s: onGetRequest resource %d",
+        LAUNCHABLE_NAME, request.getResourceId().localResourceId);
 
     if (mModuleState != WB_RES::ModuleStateValues::STARTED)
     {
@@ -130,10 +131,10 @@ void OfflineManager::onGetRequest(
         break;
     }
     default:
-    {
+        DebugLogger::warning("%s: Unimplemented GET for resource %d",
+            LAUNCHABLE_NAME, request.getResourceId().localResourceId);
         returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
         break;
-    }
     }
 }
 
@@ -141,7 +142,8 @@ void OfflineManager::onPutRequest(
     const wb::Request& request,
     const wb::ParameterList& parameters)
 {
-    DebugLogger::info("OfflineTracker::onPutRequest() called.");
+    DebugLogger::verbose("%s: onPutRequest resource %d",
+        LAUNCHABLE_NAME, request.getResourceId().localResourceId);
 
     if (mModuleState != WB_RES::ModuleStateValues::STARTED)
     {
@@ -153,7 +155,7 @@ void OfflineManager::onPutRequest(
     {
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
     {
-        const WB_RES::OfflineConfig& conf = WB_RES::LOCAL::OFFLINE_CONFIG::PUT::ParameterListRef(parameters).getConfig();
+        const auto& conf = WB_RES::LOCAL::OFFLINE_CONFIG::PUT::ParameterListRef(parameters).getConfig();
         if (applyConfig(conf))
         {
             asyncSaveConfigToEEPROM();
@@ -166,11 +168,36 @@ void OfflineManager::onPutRequest(
 
         break;
     }
-    default:
+    case WB_RES::LOCAL::OFFLINE_STATE::LID:
     {
-        returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
+        const auto& state = WB_RES::LOCAL::OFFLINE_STATE::PUT::ParameterListRef(parameters)
+            .getState();
+
+        DebugLogger::info("State change request to %u", state);
+        switch (state)
+        {
+        case WB_RES::OfflineState::INIT:
+        case WB_RES::OfflineState::IDLE:
+        case WB_RES::OfflineState::ACTIVE:
+        {
+            DebugLogger::warning("State change request refused");
+            returnResult(request, wb::HTTP_CODE_FORBIDDEN);
+            break;
+        }
+        default: // Basically, only error states are accepted
+        {
+            setState(state);
+            returnResult(request, wb::HTTP_CODE_OK);
+            break;
+        }
+        }
         break;
     }
+    default:
+        DebugLogger::warning("%s: Unimplemented PUT for resource %d",
+            LAUNCHABLE_NAME, request.getResourceId().localResourceId);
+        returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
+        break;
     }
 }
 
@@ -180,9 +207,6 @@ void OfflineManager::onGetResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::verbose("%s: onGetResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX::LID:
@@ -217,11 +241,9 @@ void OfflineManager::onGetResult(
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled GET result (%d) for resource: %d",
-            resultCode, resourceId.localResourceId);
+        DebugLogger::warning("%s: Unhandled GET result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
-    }
     }
 
     ASSERT(resultCode < 400)
@@ -233,42 +255,67 @@ void OfflineManager::onPutResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::verbose("%s: onPutResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX::LID:
     {
         if (resultCode == whiteboard::HTTP_CODE_OK)
         {
-            DebugLogger::info("Offline config saved to EEPROM");
+            DebugLogger::info("%s: Offline config saved to EEPROM", LAUNCHABLE_NAME);
         }
         else
         {
-            DebugLogger::error("Failed to save offline config to EEPROM: %d", resultCode);
+            DebugLogger::error("%s: Failed to save offline config to EEPROM: %d",
+                LAUNCHABLE_NAME, resultCode);
         }
         break;
     }
     case WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG::LID:
     {
-        DebugLogger::info("Debug log config PUT result: %d", resultCode);
+        DebugLogger::info("%s: Debug log config PUT result: %d",
+            LAUNCHABLE_NAME, resultCode);
         break;
     }
     case WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON::LID:
     {
-        DebugLogger::info("UartOn PUT result: %d", resultCode);
+        DebugLogger::info("%s: UartOn PUT result: %d",
+            LAUNCHABLE_NAME, resultCode);
+        break;
+    }
+    case WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP::LID:
+    case WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP::LID:
+    {
+        if (resultCode != wb::HTTP_CODE_OK)
+        {
+            DebugLogger::error("%s: Failed to set wake up for %d, status %d",
+                LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+        }
+        ASSERT(resultCode == wb::HTTP_CODE_OK);
+        break;
+    }
+    case WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX::LID:
+    {
+        if (resultCode != wb::HTTP_CODE_OK)
+        {
+            DebugLogger::error("%s: Failed to set LED state, status %d",
+                LAUNCHABLE_NAME, resultCode);
+        }
+        break;
+    }
+    case WB_RES::LOCAL::SYSTEM_MODE::LID:
+    {
+        if (resultCode != wb::HTTP_CODE_OK)
+        {
+            DebugLogger::error("%s: Failed to set system mode, status %d",
+                LAUNCHABLE_NAME, resultCode);
+        }
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled PUT result (%d) for resource: %d",
-            resultCode, resourceId.localResourceId);
+        DebugLogger::warning("%s: Unhandled PUT result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
-    }
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineManager::onSubscribeResult(
@@ -277,9 +324,6 @@ void OfflineManager::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onSubscribeResult %d, status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_PEERS::LID:
@@ -295,13 +339,10 @@ void OfflineManager::onSubscribeResult(
         break;
     }
     default:
-    {
-        DebugLogger::info("Subscibe result to resource %d: %d", resourceId.localResourceId, resultCode);
+        DebugLogger::warning("%s: Unhandled SUBSCRIBE result - res: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
-    }
-
-    //ASSERT(resultCode < 400)
 }
 
 void OfflineManager::onNotify(
@@ -309,8 +350,6 @@ void OfflineManager::onNotify(
     const wb::Value& value,
     const wb::ParameterList& parameters)
 {
-    DebugLogger::verbose("%s: onNotify %d", LAUNCHABLE_NAME, resourceId.localResourceId);
-
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_PEERS::LID:
@@ -328,16 +367,15 @@ void OfflineManager::onNotify(
     case WB_RES::LOCAL::MEM_LOGBOOK_ISFULL::LID:
     {
         auto isFull = value.convertTo<bool>();
-        if(isFull)
+        if (isFull)
             setState(WB_RES::OfflineState::ERROR_STORAGE_FULL);
-            
+
         break;
     }
     default:
-    {
-        DebugLogger::warning("Unhandled notification from resource: %d", resourceId.localResourceId);
+        DebugLogger::warning("%s: Unhandled notification from resource: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId);
         break;
-    }
     }
 }
 
@@ -359,7 +397,7 @@ void OfflineManager::onTimer(whiteboard::TimerId timerId)
 void OfflineManager::asyncReadConfigFromEEPROM()
 {
     asyncGet(
-        WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), 
+        WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(),
         AsyncRequestOptions::ForceAsync,
         EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, 1 + sizeof(_config));
 }
@@ -385,7 +423,7 @@ void OfflineManager::asyncSaveConfigToEEPROM()
 
 void OfflineManager::startRecording()
 {
-    if (_state != WB_RES::OfflineState::IDLE)
+    if (_state.getValue() != WB_RES::OfflineState::IDLE)
         return;
 
     DebugLogger::info("Starting recording");
@@ -396,7 +434,7 @@ void OfflineManager::startRecording()
 
 void OfflineManager::stopRecording()
 {
-    if (_state != WB_RES::OfflineState::ACTIVE)
+    if (_state.getValue() != WB_RES::OfflineState::ACTIVE)
         return;
 
     DebugLogger::info("Stopping recording");
@@ -407,10 +445,18 @@ void OfflineManager::stopRecording()
 
 bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
 {
+    if (_state.getValue() != WB_RES::OfflineState::IDLE &&
+        _state.getValue() != WB_RES::OfflineState::ERROR_INVALID_CONFIG)
+    {
+        return false;
+    }
+
     if (!validateConfig(config))
         return false;
 
     _config.assign(config);
+
+    setState(WB_RES::OfflineState::IDLE);
     return true;
 }
 
@@ -479,7 +525,7 @@ void OfflineManager::sleepTimerTick()
 {
     _sleepTimerElapsed += TIMER_TICK_SLEEP;
 
-    switch (_state)
+    switch (_state.getValue())
     {
     case WB_RES::OfflineState::ACTIVE:
     {
@@ -490,6 +536,7 @@ void OfflineManager::sleepTimerTick()
     case WB_RES::OfflineState::ERROR_INVALID_CONFIG:
     case WB_RES::OfflineState::ERROR_STORAGE_FULL:
     case WB_RES::OfflineState::ERROR_BATTERY_LOW:
+    case WB_RES::OfflineState::ERROR_SYSTEM_FAILURE:
     {
         if (_sleepTimerElapsed >= 30000)
             enterSleep();
@@ -507,10 +554,12 @@ void OfflineManager::ledTimerTick()
 {
     // LED indication intervals, starting with OFF time, then ON, then OFF...
     constexpr uint16_t LED_BLINK_SERIES_INIT[] = { 250, 250 }; // Rapid blinking
-    constexpr uint16_t LED_BLINK_SERIES_POWER_ON[] = { 5000, 250 }; // Single blink every 5 seconds
+    constexpr uint16_t LED_BLINK_SERIES_IDLE[] = { 10000, 1000 }; // Long blink once every 10 seconds
+    constexpr uint16_t LED_BLINK_SERIES_ACTIVE[] = { 5000, 250 }; // Single short blink every 5 seconds
     constexpr uint16_t LED_BLINK_SERIES_FULL_STORAGE[] = { 2000, 250 }; // Single blink every 2 seconds
     constexpr uint16_t LED_BLINK_SERIES_ERROR[] = { 2000, 250, 500, 250 }; // Two rapid blinks every 2 seconds
     constexpr uint16_t LED_BLINK_SERIES_LOW_BATTERY[] = { 1000, 1000 }; // Long blink every other second
+    constexpr uint16_t LED_BLINK_SERIES_SYSTEM_FAILURE[] = { 1000, 5000 }; // 1 s off, 5 s on
 
     _ledTimerElapsed += TIMER_TICK_LED;
     bool ledOn = _ledBlinks % 2;
@@ -521,8 +570,9 @@ void OfflineManager::ledTimerTick()
     case WB_RES::OfflineState::INIT:
         nextTimeout = LED_BLINK_SERIES_INIT[_ledBlinks % 2]; break;
     case WB_RES::OfflineState::IDLE:
+        nextTimeout = LED_BLINK_SERIES_IDLE[_ledBlinks % 2]; break;
     case WB_RES::OfflineState::ACTIVE:
-        nextTimeout = LED_BLINK_SERIES_POWER_ON[_ledBlinks % 2]; break;
+        nextTimeout = LED_BLINK_SERIES_ACTIVE[_ledBlinks % 2]; break;
     case WB_RES::OfflineState::ERROR_INVALID_CONFIG:
         nextTimeout = LED_BLINK_SERIES_ERROR[_ledBlinks % 4]; break;
     case WB_RES::OfflineState::ERROR_STORAGE_FULL:
@@ -583,12 +633,12 @@ void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
 
 void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateChange)
 {
-    DebugLogger::info("System state change: id (%u) state (%u)", 
+    DebugLogger::info("System state change: id (%u) state (%u)",
         stateChange.stateId.getValue(), stateChange.newState);
 
     _sleepTimerElapsed = 0; // Any state change resets sleep timer
-    
-    if(_state == WB_RES::OfflineState::ACTIVE)
+
+    if (_state == WB_RES::OfflineState::ACTIVE)
     {
         if (_config.wakeUpBehavior == WB_RES::WakeUpBehavior::DOUBLETAPONOFF &&
             stateChange.stateId == WB_RES::StateId::DOUBLETAP &&
