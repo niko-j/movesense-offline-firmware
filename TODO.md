@@ -1,27 +1,27 @@
 # TODO
 
-## Firmware features
+## Firmware Features / Research
 
-- OfflineLogger: Recording
-  - By resource type (measurement):
-    - ~~Receive subscription notifications~~
-    - Buffer samples (figure out suitable precision / format)
-    - How to encode data in bytes
-    - Send processed buffered samples to DataLogger
+- Implement: Logging
+  - Implement: Buffering samples, converting to more optimal format
+  - Implement: Encode data into chunks
+  - Test: Send chunks to DataLogger, retrieve data with tool
+  
+- Research: Compression
+  - Note: Samples should already be saved using optimal data types (32-bit to 16-bit in most cases)
+  - Experiment: Viability of LZ compression algorithms
+  - Experiment: Double rate sampling to reduce noise to improve compression ratio?
+    - Note: This will consume more power!
+  
+## Configurator Tool
 
-## PC Tool
+- All done for now!
+  
+## Nice-to-Haves (not strictly inside of the scope of the thesis)
 
-- Listing logs
-- Download raw log data
-- (Nice to have) Visualize / unpack data
-
-## Firmware research / nice to haves
-
--  Research and experiment with compression techniques 
-   - Samples should already be saved using optimal data types (32-bit to 16-bit in most cases)
-   - Block compression (LZ)
-   - Double rate sampling to reduce noise (power consumption!)
-
-- Low power mode (nice to have)
+- Low power mode
   - Disable all subscription, disable BLE adv
   - Will consume 2x FullPowerOff, still low
+  - Could replace full power off
+  - This will preserve RTC
+- Tool to parse SBEM format and visualize data
