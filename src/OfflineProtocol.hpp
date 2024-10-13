@@ -54,7 +54,7 @@ public: \
     } \
     bool push##__PropName__(const Type* value, size_t len) \
     { \
-        if(mCount##__PropName__ + len < Length) { \
+        if(mCount##__PropName__ + len <= Length) { \
             memcpy(mBuffer + Offset + Size * mCount##__PropName__, value, len * Size); \
             mCount##__PropName__ += len; \
             return true; \

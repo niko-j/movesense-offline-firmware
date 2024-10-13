@@ -19,6 +19,7 @@ bool OfflineCommandPacket::decode(const wb::Array<uint8_t>& value)
     if (!(value[2] > OfflineCmdUnknown && value[2] < OfflineCmdCount))
         return false;
 
+    mCountParameters = value.size() - 3;
     memcpy(mBuffer, value.begin(), value.size());
     return true;
 }
@@ -82,6 +83,7 @@ bool OfflineDataPacket::decode(const wb::Array<uint8_t>& value)
     if (value[1] == OFFLINE_PACKET_INVALID_REF)
         return false;
 
+    mCountBytes = value.size() - 10;
     memcpy(mBuffer, value.begin(), value.size());
     return true;
 }
@@ -104,6 +106,7 @@ bool OfflineLogListPacket::decode(const wb::Array<uint8_t>& value)
     if (datalen != value[2] * 16)
         return false;
 
+    mCountItems = datalen / 16;
     memcpy(mBuffer, value.begin(), value.size());
     return true;
 }
