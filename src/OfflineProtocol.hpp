@@ -90,11 +90,11 @@ public: \
 #define OFFLINE_PACKET(PacketName, PacketType, ByteLength) \
 protected: \
     static_assert(ByteLength > 2 && "Too small packet size"); \
-    uint8_t* mBuffer = nullptr;\
+    uint8_t* mBuffer = nullptr; \
 public: \
     const static OfflinePacketType TYPE = PacketType; \
     const static uint32_t SIZE = ByteLength; \
-    PacketName(uint8_t* buffer) : mBuffer(buffer) { *buffer = TYPE; } \
+    PacketName(uint8_t* buffer) : mBuffer(buffer) { memset(buffer, 0, ByteLength); *buffer = TYPE; } \
     uint8_t getReference() const { return mBuffer[1]; } \
     void setReference(uint8_t value) { mBuffer[1] = value; } \
     bool decode(const wb::Array<uint8_t>& value); \
@@ -138,7 +138,6 @@ struct OfflineDataPacket : public OfflinePacket
     OFFLINE_PACKET_PROPERTY(uint32_t, Offset, 4, 2);
     OFFLINE_PACKET_PROPERTY(uint32_t, TotalBytes, 4, 6);
     OFFLINE_PACKET_PROPERTY_ARRAY(uint8_t, Bytes, 1, MAX_PAYLOAD, 10);
-
 };
 
 constexpr uint32_t OFFLINE_LOG_LIST_PACKET_MAX_ITEMS = 6;

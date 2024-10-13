@@ -158,34 +158,41 @@ void OfflineGATTService::onGetResult(
             return;
         }
 
-        bool list_complete = true;
-        if (resultCode == wb::HTTP_CODE_CONTINUE)
-        {
-            uint32_t lastId = (entries.elements.end() - 1)->id;
-            asyncGet(resourceId, AsyncRequestOptions::ForceAsync, lastId);
-            list_complete = false;
-        }
+        bool list_complete = (resultCode == wb::HTTP_CODE_OK);
+
+        uint32_t logCount = entries.elements.size();
+        DebugLogger::info("%s: Sending %u items", LAUNCHABLE_NAME, logCount);
 
         OfflineLogListPacket packet(buffer);
         packet.setReference(pendingRequestId);
 
-        uint32_t logCount = entries.elements.size();
         for (size_t i = 0; i < logCount; i++)
         {
+            DebugLogger::info("i: %d, packet count: %d", i, packet.getCount());
+
             const auto& el = entries.elements[i];
             packet.addItem(el);
 
             bool all_items_sent = (i + 1 == logCount);
             if (all_items_sent || packet.isFull())
             {
+                DebugLogger::info("i: %d, all_items_sent: %d, packet count: %d", i, all_items_sent, packet.getCount());
+
                 packet.setComplete(list_complete && all_items_sent);
                 sendPacket(packet);
 
                 if (packet.getComplete())
                     pendingRequestId = OFFLINE_PACKET_INVALID_REF;
+                
+                packet.resetItems();
             }
         }
 
+        if (resultCode == wb::HTTP_CODE_CONTINUE)
+        {
+            uint32_t lastId = (entries.elements.end() - 1)->id;
+            asyncGet(resourceId, AsyncRequestOptions::ForceAsync, lastId);
+        }
         break;
     }
     default:
