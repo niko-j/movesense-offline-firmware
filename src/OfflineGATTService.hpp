@@ -72,14 +72,13 @@ private:
     void sendPacket(OfflinePacket& packet);
 
     bool asyncSendLog(uint32_t id);
-    void asyncReadLogData(const WB_RES::LogEntry& entry);
     void asyncClearLogs();
 
-    struct LogDataTransmission
+    struct LogDownload
     {
-        int32_t index = -1;
+        uint32_t index = 0;
         uint32_t size = 0;
-    } logDataTransmission;
+    } logDownload;
 
     struct Characteristic
     {

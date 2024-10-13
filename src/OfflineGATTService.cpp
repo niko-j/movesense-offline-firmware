@@ -19,7 +19,7 @@ constexpr uint8_t rxUuid[] = { 0x03, 0xB0 };
 OfflineGATTService::OfflineGATTService()
     : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
     , LaunchableModule(LAUNCHABLE_NAME, WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
-    , logDataTransmission({})
+    , logDownload({})
     , serviceHandle(0)
     , pendingRequestId(0)
 {
@@ -149,39 +149,38 @@ void OfflineGATTService::onGetResult(
         }
 
         // Are we are looking for a particular log?
-        if (logDataTransmission.index == (int32_t)entries.elements.begin()->id)
-        {
-            asyncReadLogData(*entries.elements.begin());
-            return;
-        }
-
+        bool log_download = (logDownload.index > 0);
         bool list_complete = (resultCode == wb::HTTP_CODE_OK);
-
         uint32_t logCount = entries.elements.size();
-        DebugLogger::info("%s: Sending %u items", LAUNCHABLE_NAME, logCount);
 
         OfflineLogListPacket packet(buffer);
         packet.setReference(pendingRequestId);
 
         for (size_t i = 0; i < logCount; i++)
         {
-            DebugLogger::info("i: %d, packet count: %d", i, packet.getCount());
-
             const auto& el = entries.elements[i];
-            packet.addItem(el);
-
-            bool all_items_sent = (i + 1 == logCount);
-            if (all_items_sent || packet.isFull())
+            if (log_download)
             {
-                DebugLogger::info("i: %d, all_items_sent: %d, packet count: %d", i, all_items_sent, packet.getCount());
+                if (el.id == logDownload.index)
+                {
+                    logDownload.size = el.size.hasValue() ? el.size.getValue() : 0;
+                }
+            }
+            else // Send entries
+            {
+                packet.addItem(el);
 
-                packet.setComplete(list_complete && all_items_sent);
-                sendPacket(packet);
+                bool all_items_sent = (i + 1 == logCount);
+                if (all_items_sent || packet.isFull())
+                {
+                    packet.setComplete(list_complete && all_items_sent);
+                    sendPacket(packet);
 
-                if (packet.getComplete())
-                    pendingRequestId = OFFLINE_PACKET_INVALID_REF;
-                
-                packet.resetItems();
+                    if (packet.getComplete())
+                        pendingRequestId = OFFLINE_PACKET_INVALID_REF;
+
+                    packet.resetItems();
+                }
             }
         }
 
@@ -190,6 +189,23 @@ void OfflineGATTService::onGetResult(
             uint32_t lastId = (entries.elements.end() - 1)->id;
             asyncGet(resourceId, AsyncRequestOptions::ForceAsync, lastId);
         }
+
+        if (list_complete && log_download)
+        {
+            if (logDownload.size > 0) // Get data
+            {
+                asyncSubscribe(
+                    WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(),
+                    AsyncRequestOptions::ForceAsync,
+                    logDownload.index);
+            }
+            else
+            {
+                logDownload = {};
+                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_NOT_FOUND);
+            }
+        }
+
         break;
     }
     default:
@@ -386,6 +402,7 @@ void OfflineGATTService::onNotify(
         {
             DebugLogger::info("%s: Not accepting packet (ref %u) (type %u)",
                 LAUNCHABLE_NAME, ref, type);
+            sendStatusResponse(ref, wb::HTTP_CODE_NOT_ACCEPTABLE);
             break;
         }
         }
@@ -393,22 +410,28 @@ void OfflineGATTService::onNotify(
     }
     case WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::LID:
     {
-        const auto& params = WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::EVENT::ParameterListRef(parameters);
+        if(logDownload.index == 0)
+            break; // Ignore
 
+        const auto& params = WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::EVENT::ParameterListRef(parameters);
         auto index = params.getLogId();
         auto data = value.convertTo<const WB_RES::LogDataNotification&>();
 
         if (data.bytes.size() > 0)
         {
+            DebugLogger::info("%s: Sending log data %u of %u bytes, offset %u",
+                LAUNCHABLE_NAME, data.bytes.size(), logDownload.size, data.offset);
+
             sendPartialData(
                 &data.bytes[0], data.bytes.size(),
-                logDataTransmission.size, data.offset);
+                logDownload.size, data.offset);
         }
         else
         {
-            // completed
-            asyncUnsubscribe(resourceId, AsyncRequestOptions::Empty, index);
-            logDataTransmission = {};
+            // completed 
+            // TODO: (do we need to unsubscribe?)
+            // asyncUnsubscribe(resourceId, AsyncRequestOptions::Empty, index);
+            logDownload = {};
         }
         break;
     }
@@ -599,25 +622,12 @@ void OfflineGATTService::sendPacket(OfflinePacket& packet)
 
 bool OfflineGATTService::asyncSendLog(uint32_t id)
 {
-    if (logDataTransmission.index > -1) // Transmission in progress
+    if (logDownload.index > 0) // Transmission in progress
         return false;
 
-    logDataTransmission.index = id;
-    logDataTransmission.size = 0;
+    logDownload.index = id;
+    logDownload.size = 0;
 
-    asyncGet(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync, id);
+    asyncGet(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
     return true;
-}
-
-void OfflineGATTService::asyncReadLogData(const WB_RES::LogEntry& entry)
-{
-    if (logDataTransmission.index != (int32_t)entry.id || !entry.size.hasValue())
-        return;
-
-    logDataTransmission.size = entry.size.getValue();
-
-    asyncSubscribe(
-        WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(),
-        AsyncRequestOptions::ForceAsync,
-        entry.id);
 }
