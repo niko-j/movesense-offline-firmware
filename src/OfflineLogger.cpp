@@ -1,23 +1,21 @@
 #include "movesense.h"
-
 #include "OfflineLogger.hpp"
-#include "common/core/dbgassert.h"
-#include "DebugLogger.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
 #include "system_settings/resources.h"
 #include "ui_ind/resources.h"
-
 #include "meas_ecg/resources.h"
 #include "meas_hr/resources.h"
 #include "meas_acc/resources.h"
 #include "meas_gyro/resources.h"
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
-
 #include "mem_datalogger/resources.h"
 #include "mem_logbook/resources.h"
+
+#include "common/core/dbgassert.h"
+#include "DebugLogger.hpp"
 
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 

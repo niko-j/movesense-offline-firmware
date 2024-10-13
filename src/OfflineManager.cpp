@@ -1,8 +1,5 @@
 #include "movesense.h"
-
 #include "OfflineManager.hpp"
-#include "common/core/dbgassert.h"
-#include "DebugLogger.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -15,6 +12,9 @@
 #include "component_led/resources.h"
 #include "comm_ble/resources.h"
 #include "mem_logbook/resources.h"
+
+#include "common/core/dbgassert.h"
+#include "DebugLogger.hpp"
 
 const char* const OfflineManager::LAUNCHABLE_NAME = "OfflineMan";
 
