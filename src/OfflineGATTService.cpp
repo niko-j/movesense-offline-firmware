@@ -7,7 +7,6 @@
 #include "mem_logbook/resources.h"
 
 #include "common/core/dbgassert.h"
-
 #include "DebugLogger.hpp"
 
 const char* const OfflineGATTService::LAUNCHABLE_NAME = "OfflineGATT";
@@ -45,10 +44,8 @@ void OfflineGATTService::deinitModule()
 
 bool OfflineGATTService::startModule()
 {
-    DebugLogger::info("Starting GATT service");
     configGattSvc();
     mModuleState = WB_RES::ModuleStateValues::STARTED;
-    DebugLogger::info("Started GATT service");
     return true;
 }
 
@@ -76,16 +73,14 @@ void OfflineGATTService::onGetResult(
     {
         if (resultCode != wb::HTTP_CODE_OK)
         {
-            DebugLogger::info("Failed to subcribe GATT service handles");
+            DebugLogger::error("%s: Failed to subcribe GATT service handles, status: %d",
+                LAUNCHABLE_NAME, resultCode);
             return;
         }
 
-        DebugLogger::info("Reading characteristics handles");
         const WB_RES::GattSvc& svc = result.convertTo<const WB_RES::GattSvc&>();
 
         uint16_t svcHandle = svc.handle.getValue();
-        DebugLogger::info("Characteristics for service %d", svcHandle);
-
         uint16_t senderUuid = *reinterpret_cast<const uint16_t*>(txUuid);
         uint16_t recvUuid = *reinterpret_cast<const uint16_t*>(rxUuid);
 
@@ -105,12 +100,14 @@ void OfflineGATTService::onGetResult(
 
         if (!txChar.handle || !rxChar.handle)
         {
-            DebugLogger::error("Failed to get characteristics handles");
+            DebugLogger::error("%s: Failed to get characteristics handles for service %u",
+                LAUNCHABLE_NAME, serviceHandle);
             ASSERT(false);
             return;
         }
 
-        DebugLogger::info("Received characteristics handles!");
+        DebugLogger::info("%s: Received characteristics handles for service %u",
+            LAUNCHABLE_NAME, serviceHandle);
 
         asyncSubsribeHandleResource(txChar.handle, txChar.resourceId);
         asyncSubsribeHandleResource(rxChar.handle, rxChar.resourceId);
@@ -246,7 +243,8 @@ void OfflineGATTService::onPostResult(
         if (resultCode == wb::HTTP_CODE_CREATED)
         {
             serviceHandle = (int32_t)result.convertTo<uint16_t>();
-            DebugLogger::info("Offline GATT service created. Handle: %d", serviceHandle);
+            DebugLogger::info("%s: Offline GATT service created. Handle: %d",
+                LAUNCHABLE_NAME, serviceHandle);
 
             // Get handles for characteristics
             asyncGet(
@@ -256,7 +254,8 @@ void OfflineGATTService::onPostResult(
         }
         else
         {
-            DebugLogger::error("Failed to create Offline GATT service: %d", resultCode);
+            DebugLogger::error("%s: Failed to create Offline GATT service: %d",
+                LAUNCHABLE_NAME, resultCode);
         }
         break;
     }
@@ -301,6 +300,8 @@ void OfflineGATTService::onSubscribeResult(
     {
         if (resultCode != wb::HTTP_CODE_OK)
         {
+            DebugLogger::error("%s: Failed to subscribe logbook data, status: %d",
+                LAUNCHABLE_NAME, resultCode);
             sendStatusResponse(pendingRequestId, resultCode);
             return;
         }
@@ -338,7 +339,8 @@ void OfflineGATTService::onNotify(
             uint8_t statusBuf[4];
             if (pendingRequestId == ref)
             {
-                DebugLogger::info("Duplicate request, ignoring");
+                DebugLogger::info("%s: Duplicate request (ref %u) (type %u), ignoring",
+                    LAUNCHABLE_NAME, ref, type);
                 return;
             }
 
@@ -355,7 +357,8 @@ void OfflineGATTService::onNotify(
             OfflineCommandPacket cmd(buffer);
             if (!cmd.decode(ch.bytes))
             {
-                DebugLogger::error("Corrupted command packet (ref %u)", ref);
+                DebugLogger::error("%s: Corrupted command packet (ref %u) (type %u)",
+                    LAUNCHABLE_NAME, ref, type);
                 sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
                 return;
             }
@@ -367,7 +370,8 @@ void OfflineGATTService::onNotify(
             OfflineConfigPacket conf(buffer);
             if (!conf.decode(ch.bytes))
             {
-                DebugLogger::error("Corrupted config packet (ref %u)", ref);
+                DebugLogger::error("%s: Corrupted config packet (ref %u) (type %u)",
+                    LAUNCHABLE_NAME, ref, type);
                 sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
                 return;
             }
@@ -380,8 +384,8 @@ void OfflineGATTService::onNotify(
         }
         default:
         {
-            DebugLogger::info("Ignored packet (ref %u)", ref);
-            pendingRequestId = OFFLINE_PACKET_INVALID_REF;
+            DebugLogger::info("%s: Not accepting packet (ref %u) (type %u)",
+                LAUNCHABLE_NAME, ref, type);
             break;
         }
         }
@@ -461,13 +465,18 @@ void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
     }
     case OfflineCmdReadLog:
     {
-        if (packet.getParameters().size() == 2)
+        const auto& params = packet.getParameters();
+        if (params.size() == 2)
         {
             uint16_t id = *reinterpret_cast<const uint16_t*>(packet.getParameters().begin());
+            DebugLogger::info("%s: Requested log (ref: %u) (id: %u)",
+                LAUNCHABLE_NAME, pendingRequestId, id);
             asyncSendLog(id);
         }
         else
         {
+            DebugLogger::error("%s: Missing parameters (ref: %u) Expected: 2 bytes, got %u",
+                LAUNCHABLE_NAME, pendingRequestId, params.size());
             sendStatusResponse(packet.getReference(), wb::HTTP_CODE_BAD_REQUEST);
         }
         break;
