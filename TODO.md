@@ -5,6 +5,7 @@
 - Implement: Logging
   - Implement: Buffering samples, converting to more optimal format
   - Implement: Encode data into chunks
+  - Ponder: Maybe have Whiteboard APIs for each measurement, instead of single endpoint for data chunks?
   - Test: Send chunks to DataLogger, retrieve data with tool
   
 - Research: Compression
