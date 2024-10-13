@@ -339,12 +339,12 @@ void OfflineLogger::onNotify(
     {
         auto state = value.convertTo<WB_RES::OfflineState>();
 
-        if (state == WB_RES::OfflineState::ACTIVE && !_isLogging)
+        if (state == WB_RES::OfflineState::RUNNING && !_isLogging)
         {
             // Get configuration
             asyncGet(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync);
         }
-        else if (_isLogging)
+        else if (_isLogging) // Any other state, stop
         {
             stopLogging();
         }

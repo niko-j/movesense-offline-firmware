@@ -51,6 +51,12 @@ private: /* wb::ResourceClient */
         wb::Result resultCode,
         const wb::Value& result) OVERRIDE;
 
+    virtual void onUnsubscribeResult(
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
+
     virtual void onNotify(
         wb::ResourceId resourceId,
         const wb::Value& value,
@@ -62,8 +68,8 @@ private:
     void asyncReadConfigFromEEPROM();
     void asyncSaveConfigToEEPROM();
 
-    void startRecording();
-    void stopRecording();
+    bool startRecording();
+    bool onConnected();
 
     bool applyConfig(const WB_RES::OfflineConfig& config);
     bool validateConfig(const WB_RES::OfflineConfig& config);
@@ -77,10 +83,14 @@ private:
     void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);
 
+    void systemReset();
+
     OfflineConfig _config;
 
     WB_RES::OfflineState _state;
     uint8_t _connections;
+    bool _deviceMoving;
+    bool _shouldReset;
 
     wb::TimerId _sleepTimer;
     uint32_t _sleepTimerElapsed;

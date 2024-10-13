@@ -1,20 +1,22 @@
 #include "OfflineTypes.hpp"
 
-WB_RES::OfflineConfig OfflineConfig::convert()
+WB_RES::OfflineConfig internalToWb(const OfflineConfig& config)
 {
     return WB_RES::OfflineConfig{
-        .wakeUpBehavior = (WB_RES::WakeUpBehavior::Type)wakeUpBehavior,
-        .sampleRates = wb::MakeArray(sampleRates),
-        .sleepDelay = sleepDelay
+        .wakeUpBehavior = (WB_RES::WakeUpBehavior::Type) config.wakeUpBehavior,
+        .sampleRates = wb::MakeArray(config.sampleRates),
+        .sleepDelay = config.sleepDelay
     };
 }
 
-void OfflineConfig::assign(const WB_RES::OfflineConfig& value)
+OfflineConfig wbToInternal(const WB_RES::OfflineConfig& config)
 {
-    wakeUpBehavior = value.wakeUpBehavior;
+    OfflineConfig internal;
+    internal.wakeUpBehavior = config.wakeUpBehavior;
     for (size_t i = 0; i < WB_RES::MeasurementSensors::COUNT; i++)
     {
-        sampleRates[i] = i < value.sampleRates.size() ? value.sampleRates[i] : 0;
+        internal.sampleRates[i] = i < config.sampleRates.size() ? config.sampleRates[i] : 0;
     }
-    sleepDelay = value.sleepDelay;
+    internal.sleepDelay = config.sleepDelay;
+    return internal;
 }

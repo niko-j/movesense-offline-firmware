@@ -165,11 +165,11 @@ definitions:
     - name: "INIT"
       description: Offline mode is initializing
       value: 0
-    - name: "IDLE"
-      description: Offline mode is ready but not active
+    - name: "RUNNING"
+      description: Default operation
       value: 1
-    - name: "ACTIVE"
-      description: Offline mode is currently active
+    - name: "CONNECTED"
+      description: Device is connected with Bluetooth
       value: 2
     - name: "ERROR_SYSTEM_FAILURE"
       description: Generic failure mode
@@ -191,24 +191,18 @@ definitions:
     - name: 'AlwaysOn'
       description: Sleep disabled if no flags present
       value: 0
-    - name: 'HR'
-      description: Wake up on HR or when touching the pins.
+    - name: 'Connector'
+      description: Wake up from connector
       value: 1
     - name: 'Movement'
       descrioton: Wake up from any movement
       value: 2
-    - name: 'SingleTapOn'
+    - name: 'SingleTap'
       description: Wake up from single tap
       value: 3
-    - name: 'SingleTapOnOff'
-      description: Wake up and enter sleep from single tap
-      value: 4
-    - name: 'DoubleTapOn'
+    - name: 'DoubleTap'
       description: Wake up from double tap
-      value: 5
-    - name: 'DoubleTapOnOff'
-      description: Wake up and enter sleep from double tap
-      value: 6
+      value: 4
 
   MeasurementSensors:
     type: integer
