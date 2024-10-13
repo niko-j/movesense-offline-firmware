@@ -310,7 +310,7 @@ void OfflineManager::onPutResult(
     }
     case WB_RES::LOCAL::SYSTEM_MODE::LID:
     {
-        if (resultCode != wb::HTTP_CODE_OK)
+        if (resultCode != wb::HTTP_CODE_ACCEPTED)
         {
             DebugLogger::error("%s: Failed to set system mode, status %d",
                 LAUNCHABLE_NAME, resultCode);
