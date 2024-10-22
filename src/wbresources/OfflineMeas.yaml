@@ -15,9 +15,7 @@ paths:
         400:
           description: Operation is not permitted (data recording is active)
 
-  /Offline/Meas/ECG/{SampleRate}/Subscription:
-    parameters:
-       - $ref: '#/parameters/SampleRate'
+  /Offline/Meas/ECG/Subscription:
     post:
       description: Subscribe to offline optimized ECG measurements
       responses:
@@ -49,9 +47,7 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Acc/{SampleRate}/Subscription:
-    parameters:
-       - $ref: '#/parameters/SampleRate'
+  /Offline/Meas/Acc/Subscription:
     post:
       description: Subscribe to offline optimized acceleration measurements
       responses:
@@ -67,9 +63,7 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Gyro/{SampleRate}/Subscription:
-    parameters:
-       - $ref: '#/parameters/SampleRate'
+  /Offline/Meas/Gyro/Subscription:
     post:
       description: Subscribe to offline optimized angular velocity measurements
       responses:
@@ -85,9 +79,7 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Magn/{SampleRate}/Subscription:
-    parameters:
-       - $ref: '#/parameters/SampleRate'
+  /Offline/Meas/Magn/Subscription:
     post:
       description: Subscribe to offline optimized magnetometer measurements
       responses:
@@ -118,14 +110,6 @@ paths:
       responses:
         200:
           description: Operation completed successfully
-
-parameters:
-  SampleRate:
-    name: SampleRate
-    in: path
-    required: true
-    type: integer
-    format: int32
 
 definitions:
   OfflineDataBlock:

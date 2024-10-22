@@ -4,8 +4,6 @@
 
 - Implement: Write optimized offline data samples with DataLogger
   - Debug: "no sbemChunkId found, cannot write to log file"
-  - Debug: Hang on "lfs_extflash_erase: 977" after "DataLogger::startLogging()"
-    - FIXME: When the hang occurs, the system boots and tries again with the same config, and hangs again. Maybe detect when this happens and reset the config?
   
 - Research: Delta compression
   
