@@ -1,11 +1,13 @@
 swagger: '2.0'
 
 info:
+
   version: "0.0.1"
   title: Offline Measurement API
   description: This file defines the API for offline measurements.
 
 paths:
+
   /Offline/Logs:
     delete:
       description: Erase all recorded data
@@ -112,16 +114,6 @@ paths:
           description: Operation completed successfully
 
 definitions:
-  OfflineDataBlock:
-    required:
-      - Data
-    properties:
-      Data:
-        description: Data bytes
-        type: array
-        items:
-          type: integer
-          format: uint8
 
   OfflineECGData:
     required:
@@ -134,6 +126,8 @@ definitions:
       SampleData:
         description: 24-bit samples in byte array
         type: array
+        minItems: 3
+        maxItems: 48
         items:
           type: integer
           format: uint8
@@ -175,7 +169,9 @@ definitions:
         description: Local timestamp of the first measurement
         $ref: "#/definitions/OfflineTimestamp"
       Measurements:
-        type: array
+        type: array       
+        minItems: 9
+        maxItems: 72
         x-unit: m/s^2
         description: Byte array of 3D vectors with 24-bit fixed-point components.
         items:
@@ -196,6 +192,8 @@ definitions:
           Represented as a byte array of 3D vectors with 24-bit fixed-point components.
         type: array
         x-unit: dps (degree per second)
+        minItems: 9
+        maxItems: 72
         items:
           type: integer
           format: uint8
@@ -211,6 +209,8 @@ definitions:
       Measurements:
         type: array
         x-unit: microtesla
+        minItems: 9
+        maxItems: 72
         items:
           type: integer
           format: uint8
