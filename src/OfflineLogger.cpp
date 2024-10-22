@@ -666,7 +666,7 @@ void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& dat
 
     WB_RES::OfflineTempData temp;
     temp.timestamp = data.timestamp;
-    temp.measurement = (int8_t)as_c;
+    temp.measurement = as_c;
 
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_TEMP(), ResponseOptions::ForceAsync, temp);
 }
