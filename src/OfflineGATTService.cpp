@@ -17,8 +17,8 @@ constexpr uint8_t txUuid[] = { 0x02, 0xB0 };
 constexpr uint8_t rxUuid[] = { 0x03, 0xB0 };
 
 OfflineGATTService::OfflineGATTService()
-    : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
-    , LaunchableModule(LAUNCHABLE_NAME, WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
+    : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
+    , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
     , logDownload({})
     , serviceHandle(0)
     , pendingRequestId(0)
@@ -290,7 +290,7 @@ void OfflineGATTService::onDeleteResult(
 {
     switch (resourceId.localResourceId)
     {
-    case WB_RES::LOCAL::OFFLINE_DATA::LID:
+    case WB_RES::LOCAL::OFFLINE_LOGS::LID:
     {
         sendStatusResponse(pendingRequestId, resultCode);
         break;
@@ -506,7 +506,7 @@ void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
     }
     case OfflineCmdClearLogs:
     {
-        asyncDelete(WB_RES::LOCAL::OFFLINE_DATA(), AsyncRequestOptions::ForceAsync);
+        asyncDelete(WB_RES::LOCAL::OFFLINE_LOGS(), AsyncRequestOptions::ForceAsync);
         break;
     }
     default:

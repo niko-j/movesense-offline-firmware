@@ -1,5 +1,6 @@
 #include "movesense.h"
 #include "OfflineLogger.hpp"
+#include "OfflineTypes.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -20,14 +21,21 @@
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 
 static const wb::LocalResourceId sProviderResources[] = {
-    WB_RES::LOCAL::OFFLINE_DATA::LID
+    WB_RES::LOCAL::OFFLINE_LOGS::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_HR::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID,
 };
 
 OfflineLogger::OfflineLogger()
-    : ResourceProvider(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_DATA::EXECUTION_CONTEXT)
-    , ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_DATA::EXECUTION_CONTEXT)
-    , LaunchableModule(LAUNCHABLE_NAME, WB_RES::LOCAL::OFFLINE_DATA::EXECUTION_CONTEXT)
-    , _isLogging(false)
+    : ResourceProvider(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
+    , ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
+    , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
+    , _configured(false)
+    , _logging(false)
 {
     for (uint8_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
@@ -59,15 +67,15 @@ bool OfflineLogger::startModule()
 {
     asyncSubscribe(WB_RES::LOCAL::OFFLINE_STATE());
 
-    // Setup DataLogger to receive blocks from /Offline/Data resource
-    WB_RES::DataEntry entry = { .path = "/Offline/Data" };
-    WB_RES::DataLoggerConfig config = {};
-    config.dataEntries.dataEntry = wb::MakeArray<WB_RES::DataEntry>(&entry, 1);
+    // // Setup DataLogger to receive blocks from /Offline/Data resource
+    // WB_RES::DataEntry entry = { .path = "/Offline/Data" };
+    // WB_RES::DataLoggerConfig config = {};
+    // config.dataEntries.dataEntry = wb::MakeArray<WB_RES::DataEntry>(&entry, 1);
 
-    asyncPut(
-        WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(),
-        AsyncRequestOptions::Empty,
-        config);
+    // asyncPut(
+    //     WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(),
+    //     AsyncRequestOptions::Empty,
+    //     config);
 
     mModuleState = WB_RES::ModuleStateValues::STARTED;
     return true;
@@ -117,14 +125,6 @@ void OfflineLogger::onPostRequest(
 
     switch (request.getResourceId().localResourceId)
     {
-    case WB_RES::LOCAL::OFFLINE_DATA::LID:
-    {
-        // TODO: Remove this API after done testing data logging
-        const auto& data = WB_RES::LOCAL::OFFLINE_DATA::POST::ParameterListRef(parameters).getData();
-        storeDataBlock(data);
-        returnResult(request, wb::HTTP_CODE_OK);
-        break;
-    }
     default:
         DebugLogger::warning("%s: Unimplemented POST for resource %d",
             LAUNCHABLE_NAME, request.getResourceId().localResourceId);
@@ -148,7 +148,7 @@ void OfflineLogger::onDeleteRequest(
 
     switch (request.getResourceId().localResourceId)
     {
-    case WB_RES::LOCAL::OFFLINE_DATA::LID:
+    case WB_RES::LOCAL::OFFLINE_LOGS::LID:
     {
         if (eraseData())
             returnResult(request, wb::HTTP_CODE_OK);
@@ -196,11 +196,11 @@ void OfflineLogger::onPutResult(
     {
     case WB_RES::LOCAL::MEM_DATALOGGER_STATE::LID:
     {
+        DebugLogger::error("%s: /DataLogger/State result %u",
+            LAUNCHABLE_NAME, resultCode);
+
         if (resultCode != wb::HTTP_CODE_OK)
         {
-            DebugLogger::error("%s: /DataLogger/State result %u",
-                LAUNCHABLE_NAME, resultCode);
-
             switch (resultCode)
             {
             case wb::HTTP_CODE_INSUFFICIENT_STORAGE:
@@ -220,36 +220,49 @@ void OfflineLogger::onPutResult(
                 break;
             }
             }
-            _isLogging = false;
+            stopLogging();
+        }
+        else
+        {
+            _logging = _configured;
         }
         break;
     }
     case WB_RES::LOCAL::MEM_DATALOGGER_CONFIG::LID:
     {
-        if (resultCode != wb::HTTP_CODE_OK)
-        {
-            DebugLogger::error("%s: /DataLogger/Config result %u",
-                LAUNCHABLE_NAME, resultCode);
+        DebugLogger::info("%s: /DataLogger/Config result %u",
+            LAUNCHABLE_NAME, resultCode);
 
-            switch (resultCode)
-            {
-            case wb::HTTP_CODE_BAD_REQUEST:
-            {
-                asyncPut(
-                    WB_RES::LOCAL::OFFLINE_STATE(),
-                    AsyncRequestOptions::Empty,
-                    WB_RES::OfflineState::ERROR_INVALID_CONFIG);
-                break;
-            }
-            default:
-            {
-                asyncPut(
-                    WB_RES::LOCAL::OFFLINE_STATE(),
-                    AsyncRequestOptions::Empty,
-                    WB_RES::OfflineState::ERROR_SYSTEM_FAILURE);
-                break;
-            }
-            }
+        switch (resultCode)
+        {
+        case wb::HTTP_CODE_BAD_REQUEST:
+        {
+            asyncPut(
+                WB_RES::LOCAL::OFFLINE_STATE(),
+                AsyncRequestOptions::Empty,
+                WB_RES::OfflineState::ERROR_INVALID_CONFIG);
+            stopLogging();
+            break;
+        }
+        case wb::HTTP_CODE_OK:
+        {
+            // Config ok, begin logging!
+            _configured = true;
+            asyncPut(
+                WB_RES::LOCAL::MEM_DATALOGGER_STATE(),
+                AsyncRequestOptions::ForceAsync,
+                WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+            break;
+        }
+        default:
+        {
+            asyncPut(
+                WB_RES::LOCAL::OFFLINE_STATE(),
+                AsyncRequestOptions::Empty,
+                WB_RES::OfflineState::ERROR_SYSTEM_FAILURE);
+            stopLogging();
+            break;
+        }
         }
         break;
     }
@@ -337,14 +350,11 @@ void OfflineLogger::onNotify(
     {
         auto state = value.convertTo<WB_RES::OfflineState>();
 
-        if (state == WB_RES::OfflineState::RUNNING && !_isLogging)
+        stopLogging();
+
+        if (state == WB_RES::OfflineState::RUNNING)
         {
-            // Get configuration
             asyncGet(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync);
-        }
-        else if (_isLogging) // Any other state, stop
-        {
-            stopLogging();
         }
 
         break;
@@ -394,18 +404,18 @@ void OfflineLogger::onNotify(
 
 bool OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
 {
-    if (_isLogging)
-        stopLogging();
-
+    ASSERT(!_logging && !_configured);
     uint8_t i = 0;
+    char paths[6][32] = {};
 
     if (config.sampleRates[WB_RES::OfflineMeasurement::ECG])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID;
-        asyncSubscribe(
-            _measurements[i],
-            AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::OfflineMeasurement::ECG]);
+
+        uint16_t samplerate = config.sampleRates[WB_RES::OfflineMeasurement::ECG];
+        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, samplerate);
+
+        snprintf(paths[i], 31, "/Offline/Meas/ECG/%u", samplerate);
         i++;
     }
 
@@ -413,36 +423,40 @@ bool OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_HR::ID;
         asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty);
+        snprintf(paths[i], 31, "/Offline/Meas/HR");
         i++;
     }
 
     if (config.sampleRates[WB_RES::OfflineMeasurement::ACC])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID;
-        asyncSubscribe(
-            _measurements[i],
-            AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::OfflineMeasurement::ACC]);
+
+        uint16_t samplerate = config.sampleRates[WB_RES::OfflineMeasurement::ACC];
+        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, samplerate);
+
+        snprintf(paths[i], 31, "/Offline/Meas/Acc/%u", samplerate);
         i++;
     }
 
     if (config.sampleRates[WB_RES::OfflineMeasurement::GYRO])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::ID;
-        asyncSubscribe(
-            _measurements[i],
-            AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::OfflineMeasurement::GYRO]);
+
+        uint16_t samplerate = config.sampleRates[WB_RES::OfflineMeasurement::GYRO];
+        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, samplerate);
+
+        snprintf(paths[i], 31, "/Offline/Meas/Gyro/%u", samplerate);
         i++;
     }
 
     if (config.sampleRates[WB_RES::OfflineMeasurement::MAGN])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID;
-        asyncSubscribe(
-            _measurements[i],
-            AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::OfflineMeasurement::MAGN]);
+
+        uint16_t samplerate = config.sampleRates[WB_RES::OfflineMeasurement::MAGN];
+        asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty, samplerate);
+
+        snprintf(paths[i], 31, "/Offline/Meas/Magn/%u", samplerate);
         i++;
     }
 
@@ -450,86 +464,222 @@ bool OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_TEMP::ID;
         asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty);
+        snprintf(paths[i], 31, "/Offline/Meas/Temp");
         i++;
     }
 
-    _isLogging = (i > 0);
+    bool hasMeasurements = (i > 0);
 
-    if (_isLogging)
+    if (hasMeasurements)
     {
+        // Setup DataLogger to receive measurements
+
+        WB_RES::DataLoggerConfig datalog = {};
+        WB_RES::DataEntry entries[6] = {};
+
+        for (size_t j = 0; j < i; j++)
+            entries[j].path = paths[j];
+
+        datalog.dataEntries.dataEntry = wb::MakeArray(entries, i);
+
         asyncPut(
-            WB_RES::LOCAL::MEM_DATALOGGER_STATE(),
+            WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(),
             AsyncRequestOptions::Empty,
-            WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+            datalog);
     }
 
-    return _isLogging;
+    return hasMeasurements;
 }
 
 void OfflineLogger::stopLogging()
 {
-    if (!_isLogging)
-        return;
-
-    asyncPut(
-        WB_RES::LOCAL::MEM_DATALOGGER_STATE(),
-        AsyncRequestOptions::Empty,
-        WB_RES::DataLoggerState::DATALOGGER_READY);
-
-    _isLogging = false;
-
-    for (uint8_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
+    if(_configured)
     {
-        if (_measurements[i] != wb::ID_INVALID_RESOURCE)
-            asyncUnsubscribe(_measurements[i]);
-        _measurements[i] = wb::ID_INVALID_RESOURCE;
+        _configured = false;
+        for (uint8_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
+        {
+            if (_measurements[i] != wb::ID_INVALID_RESOURCE)
+                asyncUnsubscribe(_measurements[i]);
+            _measurements[i] = wb::ID_INVALID_RESOURCE;
+        }
+    }
+
+    if (_logging)
+    {
+        _logging = false;
+        asyncPut(
+            WB_RES::LOCAL::MEM_DATALOGGER_STATE(),
+            AsyncRequestOptions::Empty,
+            WB_RES::DataLoggerState::DATALOGGER_READY);
     }
 }
 
 void OfflineLogger::recordECGSamples(const WB_RES::ECGData& data)
 {
-    // TODO: Process samples and encode it into a block
-    // TODO: Send block to DataLogger
+    // ECG Samples: 18 bits in registers (pad to 3 bytes)
+
+    static uint8_t buffer[16 * 3]; // max 16 x 24-bit values
+    size_t samples = data.samples.size();
+    ASSERT(samples <= 16);
+
+    for (size_t i = 0; i < samples; i++)
+    {
+        buffer[i * 3 + 0] = (data.samples[i] >> 0) & 0xFF;
+        buffer[i * 3 + 1] = (data.samples[i] >> 8) & 0xFF;
+        buffer[i * 3 + 2] = (data.samples[i] >> 16) & 0xFF;
+    }
+
+    WB_RES::OfflineECGData ecg;
+    ecg.timestamp = data.timestamp;
+    ecg.sampleData = wb::MakeArray(buffer, samples * 3);
+
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE(), ResponseOptions::Empty, ecg);
 }
 
 void OfflineLogger::recordHeartRateSamples(const WB_RES::HRData& data)
 {
-    // TODO: Process samples and encode it into a block
-    // TODO: Send block Data Logger
+    // RTOR Samples: 14 bits in registers
+    // TODO: RR: Maybe use delta compression?
+
+    // Average as a 8.8 fixed-point:
+    // Max: 255.99609375 (HRData.average maximum is 250.0, no need to clamp)
+    // Min: 0 (same as HRData.average minimum)
+    // Res: 0.00390625
+
+    WB_RES::OfflineHRData hr;
+    hr.average = float_to_fixed_point<uint16_t, 8, 8>(data.average);
+    hr.rrValues = data.rrData; // max items 60
+
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_HR(), ResponseOptions::Empty, hr);
 }
 
 void OfflineLogger::recordAccelerationSamples(const WB_RES::AccData& data)
 {
-    // TODO: Process samples and encode it into a block
-    // TODO: Send block Data Logger
+    // Vector components as signed 16.8 fixed-point values (24 bits per component)
+    // TODO: The range should be enough for most cases, but I'd like to hear others' opinions
+    // Max: 32767.99609375
+    // Min: -32768
+    // Res: 0.00390625
+
+    static uint8_t buffer[8 * 3 * 3]; // max 8 x (3 x 24-bit) samples
+    size_t samples = data.arrayAcc.size();
+    ASSERT(samples <= 8);
+
+    for (size_t i = 0; i < samples; i++)
+    {
+        uint32_t x = float_to_fixed_point<int32_t, 16, 8>(data.arrayAcc[i].x);
+        uint32_t y = float_to_fixed_point<int32_t, 16, 8>(data.arrayAcc[i].y);
+        uint32_t z = float_to_fixed_point<int32_t, 16, 8>(data.arrayAcc[i].z);
+
+        buffer[i * 9 + 0] = (x >> 0) & 0xFF;
+        buffer[i * 9 + 1] = (x >> 8) & 0xFF;
+        buffer[i * 9 + 2] = (x >> 16) & 0xFF;
+
+        buffer[i * 9 + 3] = (y >> 0) & 0xFF;
+        buffer[i * 9 + 4] = (y >> 8) & 0xFF;
+        buffer[i * 9 + 5] = (y >> 16) & 0xFF;
+
+        buffer[i * 9 + 6] = (z >> 0) & 0xFF;
+        buffer[i * 9 + 7] = (z >> 8) & 0xFF;
+        buffer[i * 9 + 8] = (z >> 16) & 0xFF;
+    }
+
+    WB_RES::OfflineAccData acc;
+    acc.timestamp = data.timestamp;
+    acc.measurements = wb::MakeArray(buffer, samples * 9);
+
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE(), ResponseOptions::Empty, acc);
 }
 
 void OfflineLogger::recordGyroscopeSamples(const WB_RES::GyroData& data)
 {
-    // TODO: Process samples and encode it into a block
-    // TODO: Send block Data Logger
+    // Vector components as signed 16.8 fixed-point values (24 bits per component)
+    // TODO: The range should be enough for most cases, but I'd like to hear others' opinions
+    // Max: 32767.99609375
+    // Min: -32768
+    // Res: 0.00390625
+
+    static uint8_t buffer[8 * 3 * 3]; // max 8 x (3 x 24-bit) samples
+    size_t samples = data.arrayGyro.size();
+    ASSERT(samples <= 8);
+
+    for (size_t i = 0; i < samples; i++)
+    {
+        uint32_t x = float_to_fixed_point<int32_t, 16, 8>(data.arrayGyro[i].x);
+        uint32_t y = float_to_fixed_point<int32_t, 16, 8>(data.arrayGyro[i].y);
+        uint32_t z = float_to_fixed_point<int32_t, 16, 8>(data.arrayGyro[i].z);
+
+        buffer[i * 9 + 0] = (x >> 0) & 0xFF;
+        buffer[i * 9 + 1] = (x >> 8) & 0xFF;
+        buffer[i * 9 + 2] = (x >> 16) & 0xFF;
+
+        buffer[i * 9 + 3] = (y >> 0) & 0xFF;
+        buffer[i * 9 + 4] = (y >> 8) & 0xFF;
+        buffer[i * 9 + 5] = (y >> 16) & 0xFF;
+
+        buffer[i * 9 + 6] = (z >> 0) & 0xFF;
+        buffer[i * 9 + 7] = (z >> 8) & 0xFF;
+        buffer[i * 9 + 8] = (z >> 16) & 0xFF;
+    }
+
+    WB_RES::OfflineGyroData gyro;
+    gyro.timestamp = data.timestamp;
+    gyro.measurements = wb::MakeArray(buffer, samples * 9);
+
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE(), ResponseOptions::Empty, gyro);
 }
 
 void OfflineLogger::recordMagnetometerSamples(const WB_RES::MagnData& data)
 {
-    // TODO: Process samples and encode it into a block
-    // TODO: Send block Data Logger
+    // Vector components as signed 16.8 fixed-point values (24 bits per component)
+    // TODO: The range should be enough for most cases, but I'd like to hear others' opinions
+    // Max: 32767.99609375
+    // Min: -32768
+    // Res: 0.00390625
+
+    static uint8_t buffer[8 * 3 * 3]; // max 8 x (3 x 24-bit) samples
+    size_t samples = data.arrayMagn.size();
+    ASSERT(samples <= 8);
+
+    for (size_t i = 0; i < samples; i++)
+    {
+        uint32_t x = float_to_fixed_point<int32_t, 16, 8>(data.arrayMagn[i].x);
+        uint32_t y = float_to_fixed_point<int32_t, 16, 8>(data.arrayMagn[i].y);
+        uint32_t z = float_to_fixed_point<int32_t, 16, 8>(data.arrayMagn[i].z);
+
+        buffer[i * 9 + 0] = (x >> 0) & 0xFF;
+        buffer[i * 9 + 1] = (x >> 8) & 0xFF;
+        buffer[i * 9 + 2] = (x >> 16) & 0xFF;
+
+        buffer[i * 9 + 3] = (y >> 0) & 0xFF;
+        buffer[i * 9 + 4] = (y >> 8) & 0xFF;
+        buffer[i * 9 + 5] = (y >> 16) & 0xFF;
+
+        buffer[i * 9 + 6] = (z >> 0) & 0xFF;
+        buffer[i * 9 + 7] = (z >> 8) & 0xFF;
+        buffer[i * 9 + 8] = (z >> 16) & 0xFF;
+    }
+
+    WB_RES::OfflineMagnData magn;
+    magn.timestamp = data.timestamp;
+    magn.measurements = wb::MakeArray(buffer, samples * 9);
+
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE(), ResponseOptions::Empty, magn);
 }
 
 void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& data)
 {
-    // TODO: Process samples and encode it into a block
-    // TODO: Send block Data Logger
-}
+    float as_c = CLAMP(data.measurement - 273.15f, INT8_MIN, INT8_MAX);
 
-void OfflineLogger::storeDataBlock(const WB_RES::OfflineDataBlock& block)
-{
-    updateResource(WB_RES::LOCAL::OFFLINE_DATA(), ResponseOptions::Empty, block);
+    WB_RES::OfflineTempData temp;
+    temp.timestamp = data.timestamp;
+    temp.measurement = (int8_t)as_c;
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_TEMP(), ResponseOptions::Empty, temp);
 }
 
 bool OfflineLogger::eraseData()
 {
-    if (_isLogging)
+    if (_logging)
         return false;
 
     asyncDelete(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES());

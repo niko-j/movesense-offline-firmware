@@ -82,9 +82,9 @@ private:
     void recordMagnetometerSamples(const WB_RES::MagnData& data);
     void recordTemperatureSamples(const WB_RES::TemperatureValue& data);
 
-    void storeDataBlock(const WB_RES::OfflineDataBlock& block);
     bool eraseData();
 
-    bool _isLogging;
+    bool _configured;
+    bool _logging;
     wb::ResourceId _measurements[MAX_MEASUREMENT_SUBSCRIPTIONS];
 };

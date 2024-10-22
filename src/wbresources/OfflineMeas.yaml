@@ -1,0 +1,253 @@
+swagger: '2.0'
+
+info:
+  version: "0.0.1"
+  title: Offline Measurement API
+  description: This file defines the API for offline measurements.
+
+paths:
+  /Offline/Logs:
+    delete:
+      description: Erase all recorded data
+      responses:
+        200:
+          description: Operation completed successfully
+        400:
+          description: Operation is not permitted (data recording is active)
+
+  /Offline/Meas/ECG/{SampleRate}/Subscription:
+    parameters:
+       - $ref: '#/parameters/SampleRate'
+    post:
+      description: Subscribe to offline optimized ECG measurements
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Offline optimized ECG data
+          schema:
+            $ref: '#/definitions/OfflineECGData'
+    delete:
+      description: Unsubscribe from offline optimized ECG measurements
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Meas/HR/Subscription:
+    post:
+      description: Subscribe to offline optimized HR and RR measurements
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Offline optimized HR and RR data
+          schema:
+            $ref: '#/definitions/OfflineHRData'
+    delete:
+      description: Unsubscribe from offline optimized HR and RR measurements
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Meas/Acc/{SampleRate}/Subscription:
+    parameters:
+       - $ref: '#/parameters/SampleRate'
+    post:
+      description: Subscribe to offline optimized acceleration measurements
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Offline optimized linear acceleration data
+          schema:
+            $ref: '#/definitions/OfflineAccData'
+    delete:
+      description: Unsubscribe from offline optimized acceleration measurements
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Meas/Gyro/{SampleRate}/Subscription:
+    parameters:
+       - $ref: '#/parameters/SampleRate'
+    post:
+      description: Subscribe to offline optimized angular velocity measurements
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Offline optimized gyro data
+          schema:
+            $ref: '#/definitions/OfflineGyroData'
+    delete:
+      description: Unsubscribe from offline optimized angular velocity measurements
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Meas/Magn/{SampleRate}/Subscription:
+    parameters:
+       - $ref: '#/parameters/SampleRate'
+    post:
+      description: Subscribe to offline optimized magnetometer measurements
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Offline optimized magnetometer data
+          schema:
+            $ref: '#/definitions/OfflineMagnData'
+    delete:
+      description: Unsubscribe from offline optimized magnetometer measurements
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Meas/Temp/Subscription:
+    post:
+      description: Subscribe to offline optimized temperature measurements
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Offline optimized temperature data
+          schema:
+            $ref: '#/definitions/OfflineTempData'
+    delete:
+      description: Unsubscribe from offline optimized temperature measurements
+      responses:
+        200:
+          description: Operation completed successfully
+
+parameters:
+  SampleRate:
+    name: SampleRate
+    in: path
+    required: true
+    type: integer
+    format: int32
+
+definitions:
+  OfflineDataBlock:
+    required:
+      - Data
+    properties:
+      Data:
+        description: Data bytes
+        type: array
+        items:
+          type: integer
+          format: uint8
+
+  OfflineECGData:
+    required:
+      - Timestamp
+      - SampleData
+    properties:
+      Timestamp:
+        description: Local timestamp of the first measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      SampleData:
+        description: 24-bit samples in byte array
+        type: array
+        items:
+          type: integer
+          format: uint8
+
+  OfflineHRData:
+    required:
+        - Average
+        - rrValues
+    properties:
+      Average:
+        description: |
+          Heart rate value that is averaged and filtered and presented in bpm.
+          The average is a fixed-point (8.8) value.
+        type: integer
+        format: uint16
+        x-unit: bpm
+        minimum: 0.0
+        maximum: 250.0
+      rrValues:
+        description: |
+          RR-interval returns all the intervals in milliseconds. By default,
+          single rr-interval value is returned after each heart beat.
+        type: array
+        minItems: 1
+        maxItems: 60
+        items:
+          type: integer
+          format: uint16
+          x-unit: ms
+          minimum: 240    # equals in HR 250 bpm
+          maximum: 4000   # equals in HR 15 bpm
+
+  OfflineAccData:
+    required:
+      - Timestamp
+      - Measurements
+    properties:
+      Timestamp:
+        description: Local timestamp of the first measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Measurements:
+        type: array
+        x-unit: m/s^2
+        description: Byte array of 3D vectors with 24-bit fixed-point components.
+        items:
+          type: integer
+          format: uint8
+
+  OfflineGyroData:
+    required:
+      - Timestamp
+      - Measurements
+    properties:
+      Timestamp:
+        description: Local timestamp of the first measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Measurements:
+        description: |
+          Measured angular velocity values (3D) in array.
+          Represented as a byte array of 3D vectors with 24-bit fixed-point components.
+        type: array
+        x-unit: dps (degree per second)
+        items:
+          type: integer
+          format: uint8
+
+  OfflineMagnData:
+    required:
+      - Timestamp
+      - Measurements
+    properties:
+      Timestamp:
+        description: Local timestamp of the first measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Measurements:
+        type: array
+        x-unit: microtesla
+        items:
+          type: integer
+          format: uint8
+
+  OfflineTempData:
+    required:
+      - Timestamp
+      - Measurement
+    properties:
+      Timestamp:
+        description: Local timestamp of the first measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Measurement:
+        type: integer
+        format: int8
+        description: Temperature as 8-bit signed integer
+        minimum: -128
+        maximum: 127
+        x-unit: celsius
+
+  OfflineTimestamp:
+    type: integer
+    format: uint32
+    x-unit: millisecond

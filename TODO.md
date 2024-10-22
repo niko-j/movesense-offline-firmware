@@ -2,17 +2,12 @@
 
 ## Firmware Features / Research
 
-- Implement: Logging
-  - Implement: Buffering samples, converting to more optimal format
-  - Implement: Encode data into chunks
-  - Ponder: Maybe have Whiteboard APIs for each measurement, instead of single endpoint for data chunks?
-  - Test: Send chunks to DataLogger, retrieve data with tool
+- Implement: Write optimized offline data samples with DataLogger
+  - Debug: "no sbemChunkId found, cannot write to log file"
+  - Debug: Hang on "lfs_extflash_erase: 977" after "DataLogger::startLogging()"
+    - FIXME: When the hang occurs, the system boots and tries again with the same config, and hangs again. Maybe detect when this happens and reset the config?
   
-- Research: Compression
-  - Note: Samples should already be saved using optimal data types (32-bit to 16-bit in most cases)
-  - Experiment: Viability of LZ compression algorithms
-  - Experiment: Double rate sampling to reduce noise to improve compression ratio?
-    - Note: This will consume more power!
+- Research: Delta compression
   
 ## Configurator Tool
 

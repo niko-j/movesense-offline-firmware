@@ -31,9 +31,9 @@ static const wb::LocalResourceId sProviderResources[] = {
 };
 
 OfflineManager::OfflineManager()
-    : ResourceProvider(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
-    , ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
-    , LaunchableModule(LAUNCHABLE_NAME, WB_RES::LOCAL::OFFLINE_CONFIG::EXECUTION_CONTEXT)
+    : ResourceProvider(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
+    , ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
+    , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
     , _state(WB_RES::OfflineState::INIT)
     , _config({})
     , _connections(0)

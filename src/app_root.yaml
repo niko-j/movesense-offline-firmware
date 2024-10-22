@@ -28,3 +28,7 @@ apis:
   OfflineMode.*:
     apiId: 101
     defaultExecutionContext: application
+  
+  OfflineMeas.*:
+    apiId: 102
+    defaultExecutionContext: application
