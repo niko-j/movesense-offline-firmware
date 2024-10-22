@@ -221,24 +221,25 @@ void OfflineManager::onGetResult(
     {
         if (resultCode == whiteboard::HTTP_CODE_OK)
         {
+            OfflineConfig conf = {};
             auto data = result.convertTo<const WB_RES::EepromData&>();
+
             if (data.bytes[0] == EEPROM_CONFIG_INIT_MAGIC)
             {
                 ASSERT(data.bytes.size() == 1 + sizeof(OfflineConfig));
-
-                OfflineConfig conf;
                 memcpy(&conf, &data.bytes[1], sizeof(OfflineConfig));
 
-                DebugLogger::info("%s: Offline mode configuration read",
+                DebugLogger::info("%s: Offline mode configuration restored",
                     LAUNCHABLE_NAME);
-
-                if (applyConfig(internalToWb(conf)))
-                    startRecording();
             }
             else
             {
-                DebugLogger::info("Offline mode is not configured");
+                DebugLogger::info("%s: Offline mode is not configured, using defaults",
+                    LAUNCHABLE_NAME);
             }
+
+            if (applyConfig(internalToWb(conf)))
+                startRecording();
         }
         else
         {
