@@ -657,7 +657,12 @@ void OfflineLogger::recordMagnetometerSamples(const WB_RES::MagnData& data)
 
 void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& data)
 {
-    float as_c = CLAMP(data.measurement - 273.15f, INT8_MIN, INT8_MAX);
+    static int8_t last = 0;
+    int8_t as_c = (int8_t) CLAMP(data.measurement - 273.15f, INT8_MIN, INT8_MAX);
+
+    if(as_c == last) // Temperature has not changed enough. Ignore.
+        return;
+    last = as_c;
 
     WB_RES::OfflineTempData temp;
     temp.timestamp = data.timestamp;

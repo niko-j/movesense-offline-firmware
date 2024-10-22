@@ -23,4 +23,4 @@ inline float fixed_point_to_float(T_in value)
     return ((float) value / (float)(1 << F_bits));
 }
 
-#define CLAMP(x, min, max) (x < min ? min : (x > max ? max : 0))
+#define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
