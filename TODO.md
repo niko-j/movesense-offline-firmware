@@ -4,6 +4,8 @@
 
 - Implement: Write optimized offline data samples with DataLogger
   - Debug: "no sbemChunkId found, cannot write to log file"
+  - Nothing seems to get written even when not receiving above message
+  - Should the config be saved in the start of the log?
   
 - Research: Delta compression
   
