@@ -399,54 +399,54 @@ bool OfflineLogger::startLogging(const WB_RES::OfflineConfig& config)
 
     uint8_t i = 0;
 
-    if (config.sampleRates[WB_RES::MeasurementSensors::ECG])
+    if (config.sampleRates[WB_RES::OfflineMeasurement::ECG])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID;
         asyncSubscribe(
             _measurements[i],
             AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::MeasurementSensors::ECG]);
+            config.sampleRates[WB_RES::OfflineMeasurement::ECG]);
         i++;
     }
 
-    if (config.sampleRates[WB_RES::MeasurementSensors::HR])
+    if (config.sampleRates[WB_RES::OfflineMeasurement::HR])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_HR::ID;
         asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty);
         i++;
     }
 
-    if (config.sampleRates[WB_RES::MeasurementSensors::ACC])
+    if (config.sampleRates[WB_RES::OfflineMeasurement::ACC])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID;
         asyncSubscribe(
             _measurements[i],
             AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::MeasurementSensors::ACC]);
+            config.sampleRates[WB_RES::OfflineMeasurement::ACC]);
         i++;
     }
 
-    if (config.sampleRates[WB_RES::MeasurementSensors::GYRO])
+    if (config.sampleRates[WB_RES::OfflineMeasurement::GYRO])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::ID;
         asyncSubscribe(
             _measurements[i],
             AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::MeasurementSensors::GYRO]);
+            config.sampleRates[WB_RES::OfflineMeasurement::GYRO]);
         i++;
     }
 
-    if (config.sampleRates[WB_RES::MeasurementSensors::MAGN])
+    if (config.sampleRates[WB_RES::OfflineMeasurement::MAGN])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID;
         asyncSubscribe(
             _measurements[i],
             AsyncRequestOptions::Empty,
-            config.sampleRates[WB_RES::MeasurementSensors::MAGN]);
+            config.sampleRates[WB_RES::OfflineMeasurement::MAGN]);
         i++;
     }
 
-    if (config.sampleRates[WB_RES::MeasurementSensors::TEMP])
+    if (config.sampleRates[WB_RES::OfflineMeasurement::TEMP])
     {
         _measurements[i] = WB_RES::LOCAL::MEAS_TEMP::ID;
         asyncSubscribe(_measurements[i], AsyncRequestOptions::Empty);

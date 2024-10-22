@@ -133,10 +133,12 @@ definitions:
     properties:
       WakeUpBehavior:
         description: Configure how the device wakes up
-        $ref: "#/definitions/WakeUpBehavior"
+        $ref: "#/definitions/OfflineWakeup"
       SampleRates:
         description: Array of samplerates for each sensor indexed by MeasurementSensors enum.
         type: array
+        minItems: 6
+        maxItems: 6
         items:
           type: integer
           format: uint16
@@ -184,7 +186,7 @@ definitions:
       description: "The battery is low. Writing to flash is no longer reliable."
       value: 6
 
-  WakeUpBehavior:
+  OfflineWakeup:
     type: integer
     format: uint8
     enum:
@@ -204,7 +206,7 @@ definitions:
       description: Wake up from double tap
       value: 4
 
-  MeasurementSensors:
+  OfflineMeasurement:
     type: integer
     format: uint8
     enum:

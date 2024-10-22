@@ -67,10 +67,10 @@ wb::Array<uint8_t> OfflineConfigPacket::encode()
 WB_RES::OfflineConfig OfflineConfigPacket::getConfig()
 {
     return WB_RES::OfflineConfig{
-        .wakeUpBehavior = (WB_RES::WakeUpBehavior::Type)mBuffer[2],
+        .wakeUpBehavior = (WB_RES::OfflineWakeup::Type)mBuffer[2],
         .sampleRates = wb::MakeArray<uint16_t>(
             reinterpret_cast<const uint16_t*>(mBuffer + 3),
-            WB_RES::MeasurementSensors::COUNT),
+            WB_RES::OfflineMeasurement::COUNT),
         .sleepDelay = *reinterpret_cast<const uint16_t*>(mBuffer + 15)
     };
 }

@@ -548,7 +548,7 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
 bool OfflineManager::validateConfig(const WB_RES::OfflineConfig& config)
 {
     // TODO: Add more validations
-    bool sampleRatesDefined = config.sampleRates.size() == WB_RES::MeasurementSensors::COUNT;
+    bool sampleRatesDefined = config.sampleRates.size() == WB_RES::OfflineMeasurement::COUNT;
     return (sampleRatesDefined);
 }
 
@@ -557,31 +557,31 @@ void OfflineManager::enterSleep()
     // Configure wake up triggers
     switch (_config.wakeUpBehavior)
     {
-    case WB_RES::WakeUpBehavior::CONNECTOR:
+    case WB_RES::OfflineWakeup::CONNECTOR:
     {
         asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
         break;
     }
-    case WB_RES::WakeUpBehavior::MOVEMENT:
+    case WB_RES::OfflineWakeup::MOVEMENT:
     {
         WB_RES::WakeUpState wakeup = { .state = 1, .level = 1 }; // Level = movement threshold [0,63]
         asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
         break;
     }
-    case WB_RES::WakeUpBehavior::SINGLETAP:
+    case WB_RES::OfflineWakeup::SINGLETAP:
     {
         WB_RES::WakeUpState wakeup = { .state = 3, .level = 0 };
         asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
         break;
     }
-    case WB_RES::WakeUpBehavior::DOUBLETAP:
+    case WB_RES::OfflineWakeup::DOUBLETAP:
     {
         WB_RES::WakeUpState wakeup = { .state = 2, .level = 5 }; // Level = delay between taps [0,7]
         asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
         break;
     }
     default:
-    case WB_RES::WakeUpBehavior::ALWAYSON:
+    case WB_RES::OfflineWakeup::ALWAYSON:
     {
         DebugLogger::error("Configured wake up behavior does not permit sleeping");
         _sleepTimerElapsed = 0;
