@@ -659,13 +659,17 @@ void OfflineManager::sleepTimerTick()
 void OfflineManager::ledTimerTick()
 {
     // LED indication intervals, starting with OFF time, then ON, then OFF...
-    constexpr uint16_t LED_BLINK_SERIES_INIT[] = { 250, 250 }; // Rapid blinking
-    constexpr uint16_t LED_BLINK_SERIES_CONN[] = { 5000, 250 }; // Single short blink every 5 seconds
-    constexpr uint16_t LED_BLINK_SERIES_RUN[] = { 10000, 500 }; // Long blink once every 10 seconds
-    constexpr uint16_t LED_BLINK_SERIES_FULL_STORAGE[] = { 2000, 250 }; // Single blink every 2 seconds
-    constexpr uint16_t LED_BLINK_SERIES_ERROR[] = { 2000, 250, 500, 250 }; // Two rapid blinks every 2 seconds
-    constexpr uint16_t LED_BLINK_SERIES_LOW_BATTERY[] = { 1000, 1000 }; // Long blink every other second
-    constexpr uint16_t LED_BLINK_SERIES_SYSTEM_FAILURE[] = { 1000, 5000 }; // 1 s off, 5 s on
+
+    // Normal modes
+    constexpr uint16_t LED_BLINK_SERIES_INIT[] = { 250, 250 };
+    constexpr uint16_t LED_BLINK_SERIES_CONN[] = { 10000, 1000 };
+    constexpr uint16_t LED_BLINK_SERIES_RUN[] = { 5000, 500 };
+
+    // Error modes
+    constexpr uint16_t LED_BLINK_SERIES_FULL_STORAGE[] = { 2000, 500 };
+    constexpr uint16_t LED_BLINK_SERIES_CONFIG_ERROR[] = { 2000, 500, 500, 500 };
+    constexpr uint16_t LED_BLINK_SERIES_SYSTEM_FAILURE[] = { 2000, 500, 500, 500, 500, 500 };
+    constexpr uint16_t LED_BLINK_SERIES_LOW_BATTERY[] = { 2000, 2000 };
 
     _ledTimerElapsed += TIMER_TICK_LED;
     bool ledOn = _ledBlinks % 2;
@@ -675,12 +679,14 @@ void OfflineManager::ledTimerTick()
     {
     case WB_RES::OfflineState::INIT:
         nextTimeout = LED_BLINK_SERIES_INIT[_ledBlinks % 2]; break;
-    case WB_RES::OfflineState::CONNECTED:
-        nextTimeout = LED_BLINK_SERIES_CONN[_ledBlinks % 2]; break;
     case WB_RES::OfflineState::RUNNING:
         nextTimeout = LED_BLINK_SERIES_RUN[_ledBlinks % 2]; break;
+    case WB_RES::OfflineState::CONNECTED:
+        nextTimeout = LED_BLINK_SERIES_CONN[_ledBlinks % 2]; break;
+    case WB_RES::OfflineState::ERROR_SYSTEM_FAILURE:
+        nextTimeout = LED_BLINK_SERIES_SYSTEM_FAILURE[_ledBlinks % 6]; break;
     case WB_RES::OfflineState::ERROR_INVALID_CONFIG:
-        nextTimeout = LED_BLINK_SERIES_ERROR[_ledBlinks % 4]; break;
+        nextTimeout = LED_BLINK_SERIES_CONFIG_ERROR[_ledBlinks % 4]; break;
     case WB_RES::OfflineState::ERROR_STORAGE_FULL:
         nextTimeout = LED_BLINK_SERIES_FULL_STORAGE[_ledBlinks % 2]; break;
     case WB_RES::OfflineState::ERROR_BATTERY_LOW:
