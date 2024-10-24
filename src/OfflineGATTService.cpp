@@ -323,6 +323,11 @@ void OfflineGATTService::onSubscribeResult(
         }
         break;
     }
+    case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
+    {
+        DebugLogger::info("%s: Subscribed to characteristic handle", LAUNCHABLE_NAME);
+        break;
+    }
     default:
         DebugLogger::warning("%s: Unhandled SUBSCRIBE result - res: %d, status: %d",
             LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);

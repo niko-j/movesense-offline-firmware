@@ -79,7 +79,7 @@ bool OfflineManager::startModule()
     asyncReadConfigFromEEPROM();
 
     // Subscribe to BLE peers (Halt offline recording when connected)
-    asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::ForceAsync);
+    asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::Empty);
 
     // Subscribe to system states
     asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 1); // Battery low
@@ -181,14 +181,14 @@ void OfflineManager::onPutRequest(
         const auto& state = WB_RES::LOCAL::OFFLINE_STATE::PUT::ParameterListRef(parameters)
             .getState();
 
-        DebugLogger::info("State change request to %u", state);
+        DebugLogger::info("%s: State change request to %u", LAUNCHABLE_NAME, state);
         switch (state)
         {
         case WB_RES::OfflineState::INIT:
         case WB_RES::OfflineState::CONNECTED:
         case WB_RES::OfflineState::RUNNING:
         {
-            DebugLogger::warning("State change request refused");
+            DebugLogger::warning("%s: State change request refused", LAUNCHABLE_NAME);
             returnResult(request, wb::HTTP_CODE_FORBIDDEN);
             break;
         }
@@ -243,7 +243,7 @@ void OfflineManager::onGetResult(
         }
         else
         {
-            DebugLogger::info("Failed to read EEPROM: %d", resultCode);
+            DebugLogger::info("%s: Failed to read EEPROM: %d", LAUNCHABLE_NAME, resultCode);
         }
         break;
     }
@@ -337,11 +337,11 @@ void OfflineManager::onSubscribeResult(
     {
         if (resultCode == wb::HTTP_CODE_OK)
         {
-            DebugLogger::info("Subscribed to BLE peers");
+            DebugLogger::info("%s: Subscribed to BLE peers", LAUNCHABLE_NAME);
         }
         else
         {
-            DebugLogger::error("Failed to subscribe BLE peers: %d", resultCode);
+            DebugLogger::error("%s: Failed to subscribe BLE peers: %d", LAUNCHABLE_NAME, resultCode);
         }
         break;
     }
@@ -555,6 +555,8 @@ bool OfflineManager::validateConfig(const WB_RES::OfflineConfig& config)
 
 void OfflineManager::enterSleep()
 {
+    DebugLogger::info("%s: enterSleep()", LAUNCHABLE_NAME);
+
     // Configure wake up triggers
     switch (_config.wakeUpBehavior)
     {
@@ -584,13 +586,14 @@ void OfflineManager::enterSleep()
     default:
     case WB_RES::OfflineWakeup::ALWAYSON:
     {
-        DebugLogger::error("Configured wake up behavior does not permit sleeping");
+        DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
+            LAUNCHABLE_NAME);
         _sleepTimerElapsed = 0;
         return;
     }
     }
 
-    DebugLogger::info("Full power off");
+    DebugLogger::info("%s: Goodbye!", LAUNCHABLE_NAME);
     asyncPut(WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync, WB_RES::SystemModeValues::FULLPOWEROFF);
 }
 
@@ -598,7 +601,7 @@ void OfflineManager::setState(WB_RES::OfflineState state)
 {
     if (state == _state)
     {
-        DebugLogger::warning("BUG: State change to active state");
+        DebugLogger::warning("%s: BUG: State change to active state", LAUNCHABLE_NAME);
         return;
     }
 
@@ -606,7 +609,7 @@ void OfflineManager::setState(WB_RES::OfflineState state)
     _ledTimerElapsed = 0;
     _sleepTimerElapsed = 0;
 
-    DebugLogger::info("STATE -> %u", _state.getValue());
+    DebugLogger::info("%s: STATE -> %u", LAUNCHABLE_NAME, _state.getValue());
     updateResource(WB_RES::LOCAL::OFFLINE_STATE(), ResponseOptions::Empty, _state);
 }
 
@@ -698,7 +701,7 @@ void OfflineManager::ledTimerTick()
 
 void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
 {
-    DebugLogger::info("BLE PeerChange");
+    DebugLogger::info("%s: BLE PeerChange", LAUNCHABLE_NAME);
     if (peerChange.state == WB_RES::PeerStateValues::DISCONNECTED)
     {
         _connections--;
@@ -715,13 +718,13 @@ void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
         onConnected();
     }
 
-    DebugLogger::info("BLE connections: %d", _connections);
+    DebugLogger::info("%s: BLE connections: %d", LAUNCHABLE_NAME, _connections);
 }
 
 void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateChange)
 {
-    DebugLogger::info("System state change: id (%u) state (%u)",
-        stateChange.stateId.getValue(), stateChange.newState);
+    DebugLogger::info("%s: System state change: id (%u) state (%u)",
+        LAUNCHABLE_NAME, stateChange.stateId.getValue(), stateChange.newState);
 
     _sleepTimerElapsed = 0; // Any state change resets sleep timer
 
