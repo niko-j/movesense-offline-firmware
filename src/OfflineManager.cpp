@@ -578,10 +578,22 @@ void OfflineManager::enterSleep()
     default:
     case WB_RES::OfflineWakeup::ALWAYSON:
     {
-        DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
-            LAUNCHABLE_NAME);
-        _sleepTimerElapsed = 0;
-        return;
+        if (_shouldReset)
+        {
+            // Force reset and wakeup from single tap
+            _shouldReset = false;
+
+            WB_RES::WakeUpState wakeup = { .state = 3, .level = 0 };
+            asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
+            break;
+        }
+        else
+        {
+            DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
+                LAUNCHABLE_NAME);
+            _sleepTimerElapsed = 0;
+            return;
+        }
     }
     }
 
@@ -615,13 +627,6 @@ void OfflineManager::sleepTimerTick()
     }
     case WB_RES::OfflineState::RUNNING:
     {
-        if (_shouldReset)
-        {
-            // Configuration changed, needs to reset
-            enterSleep();
-            _shouldReset = false; // in case sleep is denied
-        }
-
         if (_config.sleepDelay > 0)
         {
             _sleepTimerElapsed += TIMER_TICK_SLEEP;
@@ -710,7 +715,15 @@ void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
     }
 
     if (_connections == 0) {
-        startRecording();
+        if (_shouldReset)
+        {
+            // Configuration changed, needs to reset
+            enterSleep();
+        }
+        else
+        {
+            startRecording();
+        }
     }
     else if (_connections == 1) {
         onConnected();
