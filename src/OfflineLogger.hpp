@@ -72,7 +72,8 @@ private: /* wb::ResourceClient */
         const wb::ParameterList& parameters) OVERRIDE;
 
 private:
-    bool startLogging(const WB_RES::OfflineConfig& config);
+    void applyConfig(const WB_RES::OfflineConfig& config);
+    bool startLogging();
     void stopLogging();
 
     void recordECGSamples(const WB_RES::ECGData& data);
@@ -86,5 +87,16 @@ private:
 
     bool _configured;
     bool _logging;
-    wb::ResourceId _measurements[MAX_MEASUREMENT_SUBSCRIPTIONS];
+    
+    struct ResourceEntry
+    {
+        bool subscribed = false;
+        uint16_t sampleRate = 0;
+        wb::ResourceId resourceId = wb::ID_INVALID_RESOURCE;
+    };
+    ResourceEntry _measurements[MAX_MEASUREMENT_SUBSCRIPTIONS];
+    ResourceEntry* findResourceEntry(wb::ResourceId id);
+    bool isSubscribedToResources() const;
+    void subscribeResources();
+    void unsubscribeResources();
 };

@@ -126,11 +126,8 @@ definitions:
       SampleData:
         description: 24-bit samples in byte array
         type: array
-        minItems: 3
-        maxItems: 48
         items:
-          type: integer
-          format: uint8
+          $ref: "#/definitions/FixedPoint_S16_8"
 
   OfflineHRData:
     required:
@@ -169,14 +166,11 @@ definitions:
         description: Local timestamp of the first measurement
         $ref: "#/definitions/OfflineTimestamp"
       Measurements:
-        type: array       
-        minItems: 9
-        maxItems: 72
+        type: array
         x-unit: m/s^2
         description: Byte array of 3D vectors with 24-bit fixed-point components.
         items:
-          type: integer
-          format: uint8
+          $ref: "#/definitions/FixedPointVec3_S16_8"
 
   OfflineGyroData:
     required:
@@ -192,11 +186,8 @@ definitions:
           Represented as a byte array of 3D vectors with 24-bit fixed-point components.
         type: array
         x-unit: dps (degree per second)
-        minItems: 9
-        maxItems: 72
         items:
-          type: integer
-          format: uint8
+          $ref: "#/definitions/FixedPointVec3_S16_8"
 
   OfflineMagnData:
     required:
@@ -209,11 +200,8 @@ definitions:
       Measurements:
         type: array
         x-unit: microtesla
-        minItems: 9
-        maxItems: 72
         items:
-          type: integer
-          format: uint8
+          $ref: "#/definitions/FixedPointVec3_S16_8"
 
   OfflineTempData:
     required:
@@ -235,3 +223,42 @@ definitions:
     type: integer
     format: uint32
     x-unit: millisecond
+
+  FixedPointVec3_S16_8:
+    required:
+      - x
+      - y
+      - z
+    properties:
+      x:
+        $ref: "#/definitions/FixedPoint_S16_8"
+      y:
+        $ref: "#/definitions/FixedPoint_S16_8"
+      z:
+        $ref: "#/definitions/FixedPoint_S16_8"
+
+  FixedPoint_S16_8:
+    required:
+      - Integer
+      - Fraction
+    properties:
+      Integer:
+        type: integer
+        format: int16
+      Fraction:
+        type: integer
+        format: uint8
+
+datalogger:
+  version: "1.0"
+  type: "config"
+
+  resources:
+    /Offline/Meas/ECG/.*:
+      array-lengths: 16
+    /Offline/Meas/Acc/.*:
+      array-lengths: 1,2,4,8
+    /Offline/Meas/Gyro/.*:
+      array-lengths: 1,2,4,8
+    /Offline/Meas/Magn/.*:
+      array-lengths: 1,2,4,8
