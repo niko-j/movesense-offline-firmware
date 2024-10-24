@@ -1,14 +1,22 @@
 # TODO
 
 ## Firmware Features / Research
-
-- Implement: Write optimized offline data samples with DataLogger
-  - Debug: "no sbemChunkId found, cannot write to log file"
-  - Nothing seems to get written even when not receiving above message
-  - Should the config be saved in the start of the log?
   
 - Research: Delta compression
+
+- Implement: Check for system failures on boot and reset config if necessary
+
+- Debug: 929:Whiteboard.cpp
+  - Probably too many notifications/requests going on simultaneously on init.
+
+- Debug: ECG measurements seem to run FIFO overflow quite easily.
   
+```log
+00> 00:00:21 !isRREnabled
+00> 00:00:21 mNextECGTimestamp == 0 && sLastInterruptTS == 0. Wait for next interrupt.
+00> 00:00:22 MAX30003 FIFO OVERFLOW: ts: 22504
+```
+
 ## Configurator Tool
 
 - All done for now!
