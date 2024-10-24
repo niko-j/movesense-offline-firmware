@@ -512,34 +512,26 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
         return false;
 
     bool init = _state.getValue() == WB_RES::OfflineState::INIT;
-    bool sleepChanged = (!!_config.sleepDelay) != (!!config.sleepDelay);
-
-    if (init || sleepChanged) // Sleep delay changed?
+    if (init)
     {
-        if (init) // This works only the first time
+        if (config.sleepDelay > 0)
         {
-            if (config.sleepDelay > 0)
-            {
-                // Use movement detection and timer
-                asyncSubscribe(
-                    WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
-                    WB_RES::StateId::MOVEMENT);
-            }
-            else
-            {
-                // double tap to manually enter sleep
-                asyncSubscribe(
-                    WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
-                    WB_RES::StateId::DOUBLETAP);
-            }
+            // Use movement detection and timer
+            asyncSubscribe(
+                WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+                WB_RES::StateId::MOVEMENT);
         }
         else
         {
-            // Subscribing to system states does not work any more if previously set,
-            // even if unsubscribed.
-
-            _shouldReset = true;
+            // double tap to manually enter sleep
+            asyncSubscribe(
+                WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+                WB_RES::StateId::DOUBLETAP);
         }
+    }
+    else
+    {
+        _shouldReset = true; // Always reset when config changed
     }
 
     _config = wbToInternal(config);
