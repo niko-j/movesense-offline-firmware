@@ -550,7 +550,7 @@ void OfflineLogger::recordHeartRateSamples(const WB_RES::HRData& data)
     // Res: 0.00390625
 
     WB_RES::OfflineHRData hr;
-    hr.average = float_to_fixed_point<uint16_t, 8, 8>(data.average);
+    hr.average = float_to_fixed_point<uint16_t, 8>(data.average);
     hr.rrValues = data.rrData; // max items 60
 
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_HR(), ResponseOptions::ForceAsync, hr);

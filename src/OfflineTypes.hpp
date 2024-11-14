@@ -11,21 +11,21 @@ struct OfflineConfig
 WB_RES::OfflineConfig internalToWb(const OfflineConfig& config);
 OfflineConfig wbToInternal(const WB_RES::OfflineConfig& config);
 
-template<typename T_out, uint8_t Q_bits, uint8_t F_bits>
-inline T_out float_to_fixed_point(float value)
+template<typename T, uint8_t F_bits>
+inline T float_to_fixed_point(float value)
 {
-    return (T_out)(round(value * (1 << F_bits)));
+    return static_cast<T>(round(value * (1 << F_bits)));
 }
 
-template<typename T_in, uint8_t Q_bits, uint8_t F_bits>
-inline float fixed_point_to_float(T_in value)
+template<typename T, uint8_t F_bits>
+inline float fixed_point_to_float(T value)
 {
-    return ((float) value / (float)(1 << F_bits));
+    return static_cast<float>(value) / (1 << F_bits);
 }
 
 inline WB_RES::FixedPoint_S16_8 float_to_fixed_point_S16_8(float value)
 {
-    int16_t fixed = float_to_fixed_point<int16_t, 16, 8>(value);
+    int32_t fixed = float_to_fixed_point<int32_t, 8>(value);
     WB_RES::FixedPoint_S16_8 out = {};
     out.integer = (fixed >> 8) & 0xFFFF;
     out.fraction = (fixed & 0xFF);
@@ -34,8 +34,8 @@ inline WB_RES::FixedPoint_S16_8 float_to_fixed_point_S16_8(float value)
 
 inline float fixed_point_S16_8_to_float(WB_RES::FixedPoint_S16_8 value)
 {
-    int16_t fixed = value.fraction | (value.integer << 8);
-    return fixed_point_to_float<int16_t, 16, 8>(fixed);
+    int32_t fixed = value.fraction | (value.integer << 8);
+    return fixed_point_to_float<int32_t, 8>(fixed);
 }
 
 #define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
