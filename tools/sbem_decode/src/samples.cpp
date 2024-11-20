@@ -1,7 +1,7 @@
 #include "samples.hpp"
 #include <iostream>
 
-constexpr const char* CSV_DELIMITER = ";";
+constexpr const char* CSV_DELIMITER = ",";
 
 const SbemDescriptor* getFirstItemName(const SbemDocument& sbem, const SbemChunk& chunk)
 {
