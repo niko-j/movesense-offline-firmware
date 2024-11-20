@@ -2,11 +2,6 @@
 
 An offline tracking firmware for Movesense Flash (SS2_NAND variant) sensor devices.
 
-The firmware implements the following modules:
-
-- `OfflineTracker`: The main application controlling and monitoring the device.
-- TBD
-
 A separate tool application will be used for communicating with the services over BLE and for configuring the device.
 
 ## Prerequisites
@@ -19,6 +14,7 @@ A separate tool application will be used for communicating with the services ove
 - `movesense-device-lib` submodule contains the Movesense device library containing resources for building the firmware.
 - `scripts` contains convenient scripts for building, dumping, and flashing the firmware. It also contains scripts for pulling and running the Docker image for building.
 - `src` contains the firmware project files and source code.
+- `tools` additional tools you may find helpful (e.g., SBEM decoder)
 
 ## Getting Started
 
@@ -45,12 +41,4 @@ Either use the VSCode task `Build (debug)` or run the build script `/movesense/s
 You can flash the firmware using your mobile phone and the DFU package found in the `build` directory. 
 
 If you have a jig, you can either run the VSCode task `Flash firmware` or run the script `./scripts/flash.sh`. The flashing scripts do not work on Windows, use nRF Command Line tools to program the device.
-
-## Modules
-
-Notes about the modules (subject to change).
-
-### OfflineTracker
-
-- Monitors the device and its sensors, manages power states.
 
