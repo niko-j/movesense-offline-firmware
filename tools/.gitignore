@@ -2,4 +2,4 @@
 *.dSYM
 *.sbem
 *.csv
-./sbem_decode/sbem_decode
+*/build/

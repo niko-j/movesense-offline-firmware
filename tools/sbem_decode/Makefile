@@ -1,13 +1,17 @@
 CXXFLAGS = --std=c++17 -O0 -g
+BUILD_DIR = ./build
 TARGET = sbem_decode
 	
-all: executable
+all: prepare executable
 
 release: CXXFLAGS = --std=c++17 -O2
-release: executable
+release: prepare executable
+
+prepare:
+	mkdir -p $(BUILD_DIR)
 
 executable:
-	g++ -o $(TARGET) \
+	g++ -o $(BUILD_DIR)/$(TARGET) \
 		$(CXXFLAGS) \
 		-I./src \
 		-I./src/sbem \
@@ -19,6 +23,6 @@ executable:
 		./src/main.cpp
 
 clean:
-	rm ./sbem_decode
+	rm -r $(BUILD_DIR)
 
 .PHONY: all clean release executable
