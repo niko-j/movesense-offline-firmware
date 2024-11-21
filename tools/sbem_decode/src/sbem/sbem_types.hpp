@@ -28,6 +28,12 @@ namespace whiteboard
 
 typedef uint32 OfflineTimestamp;
 
+template<typename T, uint8_t Q>
+float fixed_point_to_float(T value)
+{
+	return ((double) value / (double)(1 << Q));
+}
+
 struct WB_ALIGN(2) FixedPoint_S16_8 : ISbemSerialized
 {
 	// Structure type identification and serialization
@@ -42,7 +48,7 @@ struct WB_ALIGN(2) FixedPoint_S16_8 : ISbemSerialized
 	inline float toFloat() const
 	{
 		int32_t fixed = fraction | (integer << 8);
-		return ((double) fixed / (double)(1 << 8));
+		return fixed_point_to_float<int32_t, 8>(fixed);
 	}
 };
 

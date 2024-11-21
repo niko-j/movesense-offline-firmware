@@ -239,7 +239,7 @@ bool Samples::exportHRSamples(const std::string& filepath)
         for (size_t j = 0; j < entry.rrValues.size(); j++)
         {
             out
-                << entry.average << CSV_DELIMITER
+                << fixed_point_to_float<uint16_t, 8>(entry.average) << CSV_DELIMITER
                 << entry.rrValues[j] << std::endl;
         }
     }

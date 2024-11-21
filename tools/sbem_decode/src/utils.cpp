@@ -136,7 +136,9 @@ void utils::printHRSamples(const Samples& samples)
     std::cout << "HR(\n";
     for (const auto& sample : samples.hr)
     {
-        std::cout << "Average(" << sample.average << ") RR[ ";
+        std::cout
+            << "Average(" << fixed_point_to_float<uint16_t, 8>(sample.average)
+            << ") RR[ ";
         for (const auto& rr : sample.rrValues)
         {
             std::cout << rr << " ";
