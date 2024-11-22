@@ -10,7 +10,7 @@ void utils::printHeader(const SbemDocument& sbem)
 
 void utils::printDescriptors(const SbemDocument& sbem)
 {
-    std::cout << "Descriptors (\n";
+    std::cout << "Descriptors {\n";
     for (const auto& desc : sbem.getDescriptors())
     {
         auto name = desc.second.getName();
@@ -62,12 +62,12 @@ void utils::printDescriptors(const SbemDocument& sbem)
         }
     }
 
-    std::cout << ")\n";
+    std::cout << "}\n";
 }
 
 void utils::printDataChunks(const SbemDocument& sbem)
 {
-    std::cout << "Data(\n";
+    std::cout << "Data {\n";
     std::map<SbemId, std::vector<const SbemChunk*>> ChunksById;
     for (const auto& chunk : sbem.getChunks())
     {
@@ -92,14 +92,23 @@ void utils::printDataChunks(const SbemDocument& sbem)
             std::cout << "]\n";
         }
     }
-    std::cout << ")\n";
+    std::cout << "}\n";
 }
 
 
 template<typename T>
 void printImuSamples(const std::string& name, const std::vector<T>& samples)
 {
-    std::cout << name << "(\n";
+    uint16_t samplerate = 0;
+    if(samples.size() > 1)
+    {
+        const auto& a = samples.at(0);
+        const auto& b = samples.at(1);
+        double interval = utils::calculateSampleInterval(a.timestamp, a.measurements.size(), b.timestamp);
+        samplerate = utils::calculateSampleRate(interval);
+    }
+
+    std::cout << name << " SampleRate(" << samplerate << " Hz) {\n";
     for (const auto& sample : samples)
     {
         std::cout << " @" << sample.timestamp << " [ ";
@@ -113,7 +122,7 @@ void printImuSamples(const std::string& name, const std::vector<T>& samples)
         }
         std::cout << "]\n";
     }
-    std::cout << ")\n";
+    std::cout << "}\n";
 }
 
 void utils::printAccSamples(const Samples& samples)
@@ -133,7 +142,7 @@ void utils::printMagnSamples(const Samples& samples)
 
 void utils::printHRSamples(const Samples& samples)
 {
-    std::cout << "HR(\n";
+    std::cout << "HR {\n";
     for (const auto& sample : samples.hr)
     {
         std::cout
@@ -145,12 +154,21 @@ void utils::printHRSamples(const Samples& samples)
         }
         std::cout << "]\n";
     }
-    std::cout << ")\n";
+    std::cout << "}\n";
 }
 
 void utils::printECGSamples(const Samples& samples)
 {
-    std::cout << "ECG(\n";
+    uint16_t samplerate = 0;
+    if(samples.ecg.size() > 1)
+    {
+        const auto& a = samples.ecg.at(0);
+        const auto& b = samples.ecg.at(1);
+        double interval = calculateSampleInterval(a.timestamp, a.sampleData.size(), b.timestamp);
+        samplerate = calculateSampleRate(interval);
+    }
+
+    std::cout << "ECG SampleRate(" << samplerate << " Hz) {\n";
     for (const auto& sample : samples.ecg)
     {
         std::cout << " @" << sample.timestamp << " [ ";
@@ -160,15 +178,15 @@ void utils::printECGSamples(const Samples& samples)
         }
         std::cout << "]\n";
     }
-    std::cout << ")\n";
+    std::cout << "}\n";
 }
 
 void utils::printTempSamples(const Samples& samples)
 {
-    std::cout << "Temp(\n";
+    std::cout << "Temp {\n";
     for (const auto& sample : samples.temp)
     {
         std::cout << " @" << sample.timestamp << " Value(" << sample.measurement << ")\n";
     }
-    std::cout << ")\n";
+    std::cout << "}\n";
 }

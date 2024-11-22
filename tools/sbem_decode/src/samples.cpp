@@ -1,4 +1,5 @@
 #include "samples.hpp"
+#include "utils.hpp"
 #include <iostream>
 
 constexpr const char* CSV_DELIMITER = ",";
@@ -100,14 +101,15 @@ bool Samples::exportAccSamples(const std::string& filepath)
         << "Z" << std::endl;
 
     // Figure out sample rate
-    uint16_t samplerate = 1;
+    uint16_t samplerate = 0;
+    uint16_t interval = 0;
     if (acc.size() > 1)
     {
         const auto& a = acc.at(0);
         const auto& b = acc.at(1);
-        OfflineTimestamp diff = b.timestamp - a.timestamp;
-        double msPerSample = diff / a.measurements.size();
-        samplerate = static_cast<uint16_t>(round(1000.0 / msPerSample));
+        double diff = utils::calculateSampleInterval(a.timestamp, a.measurements.size(), b.timestamp);
+        interval = static_cast<uint16_t>(round(diff));
+        samplerate = utils::calculateSampleRate(diff);
     }
 
     // Data rows
@@ -118,7 +120,7 @@ bool Samples::exportAccSamples(const std::string& filepath)
         {
             const auto& meas = entry.measurements[j];
             out
-                << entry.timestamp + samplerate * j << CSV_DELIMITER
+                << entry.timestamp + interval * j << CSV_DELIMITER
                 << meas.x.toFloat() << CSV_DELIMITER
                 << meas.y.toFloat() << CSV_DELIMITER
                 << meas.z.toFloat() << std::endl;
@@ -145,14 +147,16 @@ bool Samples::exportGyroSamples(const std::string& filepath)
         << "Z" << std::endl;
 
     // Figure out sample rate
-    uint16_t samplerate = 1;
+    uint16_t samplerate = 0;
+    uint16_t interval = 0;
     if (gyro.size() > 1)
     {
         const auto& a = gyro.at(0);
         const auto& b = gyro.at(1);
-        OfflineTimestamp diff = b.timestamp - a.timestamp;
-        double msPerSample = diff / a.measurements.size();
-        samplerate = static_cast<uint16_t>(floor(1000.0 / msPerSample));
+
+        double diff = utils::calculateSampleInterval(a.timestamp, a.measurements.size(), b.timestamp);
+        interval = static_cast<uint16_t>(round(diff));
+        samplerate = utils::calculateSampleRate(diff);
     }
 
     // Data rows
@@ -163,7 +167,7 @@ bool Samples::exportGyroSamples(const std::string& filepath)
         {
             const auto& meas = entry.measurements[j];
             out
-                << entry.timestamp + samplerate * j << CSV_DELIMITER
+                << entry.timestamp + interval * j << CSV_DELIMITER
                 << meas.x.toFloat() << CSV_DELIMITER
                 << meas.y.toFloat() << CSV_DELIMITER
                 << meas.z.toFloat() << std::endl;
@@ -190,14 +194,16 @@ bool Samples::exportMagnSamples(const std::string& filepath)
         << "Z" << std::endl;
 
     // Figure out sample rate
-    uint16_t samplerate = 1;
+    uint16_t samplerate = 0;
+    uint16_t interval = 0;
     if (magn.size() > 1)
     {
         const auto& a = magn.at(0);
         const auto& b = magn.at(1);
-        OfflineTimestamp diff = b.timestamp - a.timestamp;
-        double msPerSample = diff / a.measurements.size();
-        samplerate = static_cast<uint16_t>(floor(1000.0 / msPerSample));
+
+        double diff = utils::calculateSampleInterval(a.timestamp, a.measurements.size(), b.timestamp);
+        interval = static_cast<uint16_t>(round(diff));
+        samplerate = utils::calculateSampleRate(diff);
     }
 
     // Data rows
@@ -208,7 +214,7 @@ bool Samples::exportMagnSamples(const std::string& filepath)
         {
             const auto& meas = entry.measurements[j];
             out
-                << entry.timestamp + samplerate * j << CSV_DELIMITER
+                << entry.timestamp + interval * j << CSV_DELIMITER
                 << meas.x.toFloat() << CSV_DELIMITER
                 << meas.y.toFloat() << CSV_DELIMITER
                 << meas.z.toFloat() << std::endl;
@@ -262,14 +268,16 @@ bool Samples::exportECGSamples(const std::string& filepath)
         << "mV" << std::endl;
 
     // Figure out sample rate
-    uint16_t samplerate = 1;
+    uint16_t samplerate = 0;
+    uint16_t interval = 0;
     if (ecg.size() > 1)
     {
         const auto& a = ecg.at(0);
         const auto& b = ecg.at(1);
-        OfflineTimestamp diff = b.timestamp - a.timestamp;
-        double msPerSample = diff / a.sampleData.size();
-        samplerate = static_cast<uint16_t>(floor(1000.0 / msPerSample));
+
+        double diff = utils::calculateSampleInterval(a.timestamp, a.sampleData.size(), b.timestamp);
+        interval = static_cast<uint16_t>(round(diff));
+        samplerate = utils::calculateSampleRate(diff);
     }
 
     // Data rows
@@ -280,7 +288,7 @@ bool Samples::exportECGSamples(const std::string& filepath)
         {
             const auto& meas = entry.sampleData[j];
             out
-                << entry.timestamp + samplerate * j << CSV_DELIMITER
+                << entry.timestamp + interval * j << CSV_DELIMITER
                 << meas.toFloat() << std::endl;
         }
     }
