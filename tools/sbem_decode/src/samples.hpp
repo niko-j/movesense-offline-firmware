@@ -14,11 +14,4 @@ struct Samples
     std::vector<OfflineTempData> temp;
 
     Samples(const SbemDocument& sbem);
-
-    bool exportAccSamples(const std::string& filepath);
-    bool exportGyroSamples(const std::string& filepath);
-    bool exportMagnSamples(const std::string& filepath);
-    bool exportHRSamples(const std::string& filepath);
-    bool exportECGSamples(const std::string& filepath);
-    bool exportTempSamples(const std::string& filepath);
 };

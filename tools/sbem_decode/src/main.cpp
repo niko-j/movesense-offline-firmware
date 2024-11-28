@@ -6,34 +6,59 @@
 #include "samples.hpp"
 #include "utils.hpp"
 
+constexpr const char* CMD_INFO = "info";
+constexpr const char* CMD_CSV = "csv";
+
 void usage()
 {
-    printf("Usage: sbem_decode [command] [sbem_file_path]\n");
+    printf("Usage: sbem_decode [command] [measurement?] [sbem_file_path]\n");
     printf("  Commands:\n");
-    printf("    info    - Prints information about the SBEM file.\n");
-    printf("    export  - Exports samples to CSV files.\n");
+    printf("    %8s - Prints information about the SBEM file.\n", CMD_INFO);
+    printf("    %8s - Prints decoded samples in CSV format.\n", CMD_CSV);
+    printf("\n");
+    printf("  Args:\n");
+    printf("    measurement - Select measurement to show when using the '%s' command.\n", CMD_CSV);
+    printf("        valid values: acc|gyro|magn|ecg|hr|temp\n");
+    printf("\n");
+    printf("  Examples:\n");
+    printf("    sbem_decode info samples.sbem\n");
+    printf("        Parse and show information about the SBEM file.\n");
+    printf("    sbem_decode csv acc samples.sbem\n");
+    printf("        Parse and show decoded acceleration samples.\n");
     printf("\n");
 }
 
 int main(int argc, char* argv[])
 {
-    if (argc != 3)
+    if (argc < 2)
     {
-        printf("Invalid args\n");
+        printf("Error: Missing command\n");
         usage();
         return EXIT_FAILURE;
     }
 
     std::string cmd(argv[1]);
-    std::filesystem::path filepath(argv[2]);
 
-    if (cmd != "info" && cmd != "export")
+    if (cmd != CMD_INFO && cmd != CMD_CSV)
     {
-        printf("Unknown command: %s\n", cmd.c_str());
+        printf("Error: Unknown command: %10s\n", cmd.c_str());
+        usage();
+        return EXIT_FAILURE;
+    }
+    else if (cmd == CMD_INFO && argc != 3)
+    {
+        printf("Error: Unexpected arguments\n");
+        usage();
+        return EXIT_FAILURE;
+    }
+    else if (cmd == CMD_CSV && argc != 4)
+    {
+        printf("Error: Unexpected arguments\n");
         usage();
         return EXIT_FAILURE;
     }
 
+    std::filesystem::path filepath(argv[argc - 1]);
     SbemDocument sbem;
     auto parseResult = sbem.parse(filepath.c_str());
     if (parseResult != SbemDocument::ParseResult::Success)
@@ -41,11 +66,9 @@ int main(int argc, char* argv[])
         printf("Failed to parse: (%u)\n", parseResult);
         return EXIT_FAILURE;
     }
-
-
     Samples samples(sbem);
 
-    if (cmd == "info")
+    if (cmd == CMD_INFO)
     {
         printf("== SBEM File Info ==\n");
         utils::printHeader(sbem);
@@ -61,27 +84,28 @@ int main(int argc, char* argv[])
         utils::printTempSamples(samples);
     }
 
-    if (cmd == "export")
+    if (cmd == CMD_CSV)
     {
-        std::string basename = filepath.filename().replace_extension("");
+        std::string meas(argv[2]);
 
-        if (samples.acc.size() > 0)
-            samples.exportAccSamples(basename + "_acc.csv");
-
-        if (samples.gyro.size() > 0)
-            samples.exportGyroSamples(basename + "_gyro.csv");
-
-        if (samples.magn.size() > 0)
-            samples.exportMagnSamples(basename + "_magn.csv");
-
-        if (samples.hr.size() > 0)
-            samples.exportHRSamples(basename + "_hr.csv");
-
-        if (samples.ecg.size() > 0)
-            samples.exportECGSamples(basename + "_ecg.csv");
-
-        if (samples.temp.size() > 0)
-            samples.exportTempSamples(basename + "_temp.csv");
+        if (meas == "acc")
+            utils::printAccSamplesCSV(samples, std::cout);
+        else if (meas == "gyro")
+            utils::printGyroSamplesCSV(samples, std::cout);
+        else if (meas == "magn")
+            utils::printMagnSamplesCSV(samples, std::cout);
+        else if (meas == "hr")
+            utils::printHRSamplesCSV(samples, std::cout);
+        else if (meas == "ecg")
+            utils::printECGSamplesCSV(samples, std::cout);
+        else if (meas == "temp")
+            utils::printTempSamplesCSV(samples, std::cout);
+        else
+        {
+            printf("Error: Unknown measurement '%s'.\n", meas.c_str());
+            usage();
+            return EXIT_FAILURE;
+        }
     }
 
     return EXIT_SUCCESS;
