@@ -37,10 +37,6 @@ private: /* wb::ResourceProvider */
         const whiteboard::Request& request,
         const whiteboard::ParameterList& parameters) OVERRIDE;
 
-    virtual void onDeleteRequest(
-        const whiteboard::Request& request,
-        const whiteboard::ParameterList& parameters) OVERRIDE;
-
 private: /* wb::ResourceClient */
     virtual void onGetResult(
         whiteboard::RequestId requestId,
@@ -49,12 +45,6 @@ private: /* wb::ResourceClient */
         const whiteboard::Value& result) OVERRIDE;
 
     virtual void onPutResult(
-        whiteboard::RequestId requestId,
-        whiteboard::ResourceId resourceId,
-        whiteboard::Result resultCode,
-        const whiteboard::Value& result) OVERRIDE;
-
-    virtual void onDeleteResult(
         whiteboard::RequestId requestId,
         whiteboard::ResourceId resourceId,
         whiteboard::Result resultCode,
@@ -82,8 +72,6 @@ private:
     void recordGyroscopeSamples(const WB_RES::GyroData& data);
     void recordMagnetometerSamples(const WB_RES::MagnData& data);
     void recordTemperatureSamples(const WB_RES::TemperatureValue& data);
-
-    bool eraseData();
 
     bool _configured;
     bool _logging;

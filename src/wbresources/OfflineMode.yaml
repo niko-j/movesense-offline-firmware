@@ -3,7 +3,9 @@ swagger: '2.0'
 info:
   version: "0.0.1"
   title: Offline Mode API
-  description: This file defines the API for offline mode.
+  description: This file defines the API for offline mode.  
+  x-api-type: public
+  x-api-required: false
 
 paths:
   /Offline/State:

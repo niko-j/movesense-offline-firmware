@@ -290,7 +290,7 @@ void OfflineGATTService::onDeleteResult(
 {
     switch (resourceId.localResourceId)
     {
-    case WB_RES::LOCAL::OFFLINE_LOGS::LID:
+    case WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES::LID:
     {
         sendStatusResponse(pendingRequestId, resultCode);
         break;
@@ -511,7 +511,7 @@ void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
     }
     case OfflineCmdClearLogs:
     {
-        asyncDelete(WB_RES::LOCAL::OFFLINE_LOGS(), AsyncRequestOptions::ForceAsync);
+        asyncDelete(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
         break;
     }
     default:

@@ -13,7 +13,6 @@
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
 #include "mem_datalogger/resources.h"
-#include "mem_logbook/resources.h"
 
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
@@ -21,7 +20,6 @@
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 
 static const wb::LocalResourceId sProviderResources[] = {
-    WB_RES::LOCAL::OFFLINE_LOGS::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_HR::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID,
@@ -125,37 +123,6 @@ void OfflineLogger::onPostRequest(
     {
     default:
         DebugLogger::warning("%s: Unimplemented POST for resource %d",
-            LAUNCHABLE_NAME, request.getResourceId().localResourceId);
-        returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
-        break;
-    }
-}
-
-void OfflineLogger::onDeleteRequest(
-    const wb::Request& request,
-    const wb::ParameterList& parameters)
-{
-    DebugLogger::verbose("%s: onDeleteRequest resource %d",
-        LAUNCHABLE_NAME, request.getResourceId().localResourceId);
-
-    if (mModuleState != WB_RES::ModuleStateValues::STARTED)
-    {
-        returnResult(request, wb::HTTP_CODE_SERVICE_UNAVAILABLE);
-        return;
-    }
-
-    switch (request.getResourceId().localResourceId)
-    {
-    case WB_RES::LOCAL::OFFLINE_LOGS::LID:
-    {
-        if (eraseData())
-            returnResult(request, wb::HTTP_CODE_OK);
-        else
-            returnResult(request, wb::HTTP_CODE_BAD_REQUEST);
-        break;
-    }
-    default:
-        DebugLogger::warning("%s: Unimplemented DELETE for resource %d",
             LAUNCHABLE_NAME, request.getResourceId().localResourceId);
         returnResult(request, wb::HTTP_CODE_NOT_IMPLEMENTED);
         break;
@@ -266,30 +233,6 @@ void OfflineLogger::onPutResult(
         break;
     default:
         DebugLogger::verbose("%s: Unhandled PUT result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-        break;
-    }
-}
-
-void OfflineLogger::onDeleteResult(
-    whiteboard::RequestId requestId,
-    whiteboard::ResourceId resourceId,
-    whiteboard::Result resultCode,
-    const whiteboard::Value& result)
-{
-    switch (resourceId.localResourceId)
-    {
-    case WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES::LID:
-    {
-        if (resultCode == wb::HTTP_CODE_OK)
-            DebugLogger::info("%s: LogBook cleared", LAUNCHABLE_NAME);
-        else
-            DebugLogger::error("%s: Failed to clear LogBook, status %d",
-                LAUNCHABLE_NAME, resultCode);
-        break;
-    }
-    default:
-        DebugLogger::verbose("%s: Unhandled DELETE result - res: %d, status: %d",
             LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
@@ -649,16 +592,6 @@ void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& dat
 
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_TEMP(), ResponseOptions::ForceAsync, temp);
 }
-
-bool OfflineLogger::eraseData()
-{
-    if (_logging)
-        return false;
-
-    asyncDelete(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES());
-    return true;
-}
-
 
 OfflineLogger::ResourceEntry* OfflineLogger::findResourceEntry(wb::ResourceId id)
 {

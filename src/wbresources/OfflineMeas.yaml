@@ -1,22 +1,13 @@
 swagger: '2.0'
 
 info:
-
   version: "0.0.1"
   title: Offline Measurement API
   description: This file defines the API for offline measurements.
+  x-api-type: public
+  x-api-required: false
 
 paths:
-
-  /Offline/Logs:
-    delete:
-      description: Erase all recorded data
-      responses:
-        200:
-          description: Operation completed successfully
-        400:
-          description: Operation is not permitted (data recording is active)
-
   /Offline/Meas/ECG/Subscription:
     post:
       description: Subscribe to offline optimized ECG measurements
