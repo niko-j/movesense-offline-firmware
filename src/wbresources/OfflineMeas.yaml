@@ -280,7 +280,7 @@ definitions:
         format: uint8
       B2:
         type: integer
-        format: uint8
+        format: int8
 
   Q10_6:
     required:
