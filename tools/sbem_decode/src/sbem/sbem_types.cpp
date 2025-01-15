@@ -154,7 +154,7 @@ bool Q12_12::readFrom(const std::vector<char>& data, size_t offset)
     return (
         readValue<uint8>(data, offset + 0, b0) &&
         readValue<uint8>(data, offset + 1, b1) &&
-        readValue<uint8>(data, offset + 2, b2)
+        readValue<int8>(data, offset + 2, b2)
         );
 }
 

@@ -102,7 +102,7 @@ struct WB_ALIGN(1) Q12_12 : ISbemSerialized
 
 	WB_ALIGN(1) uint8 b0;
 	WB_ALIGN(1) uint8 b1;
-	WB_ALIGN(1) uint8 b2;
+	WB_ALIGN(1) int8 b2;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 
