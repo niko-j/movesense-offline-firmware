@@ -490,7 +490,7 @@ bool OfflineManager::startRecording()
         return false;
     }
 
-    if (_advOffTimer == wb::ID_INVALID_TIMER)
+    if (_advOffTimer == wb::ID_INVALID_TIMER && _config.wakeUpBehavior != WB_RES::OfflineWakeup::ALWAYSON)
         _advOffTimer = ResourceClient::startTimer(TIMER_BLE_ADV_TIMEOUT, false);
 
     setState(WB_RES::OfflineState::RUNNING);
