@@ -24,6 +24,7 @@ constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0xA0;
 
 constexpr size_t TIMER_TICK_SLEEP = 1000;
 constexpr size_t TIMER_TICK_LED = 250;
+constexpr size_t TIMER_BLE_ADV_TIMEOUT = 60 * 1000;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_CONFIG::LID,
@@ -44,6 +45,7 @@ OfflineManager::OfflineManager()
     , _ledTimer(wb::ID_INVALID_TIMER)
     , _ledTimerElapsed(0)
     , _ledBlinks(0)
+    , _advOffTimer(wb::ID_INVALID_TIMER)
 {
 }
 
@@ -444,6 +446,12 @@ void OfflineManager::onTimer(whiteboard::TimerId timerId)
         ledTimerTick();
         return;
     }
+
+    if (timerId == _advOffTimer)
+    {
+        handleBleAdvTimeout();
+        return;
+    }
 }
 
 void OfflineManager::asyncReadConfigFromEEPROM()
@@ -482,6 +490,9 @@ bool OfflineManager::startRecording()
         return false;
     }
 
+    if (_advOffTimer == wb::ID_INVALID_TIMER)
+        _advOffTimer = ResourceClient::startTimer(TIMER_BLE_ADV_TIMEOUT, false);
+
     setState(WB_RES::OfflineState::RUNNING);
     return true;
 }
@@ -493,6 +504,12 @@ bool OfflineManager::onConnected()
         _connections == 0)
     {
         return false;
+    }
+
+    if (_advOffTimer != wb::ID_INVALID_TIMER)
+    {
+        ResourceClient::stopTimer(_advOffTimer);
+        _advOffTimer = wb::ID_INVALID_TIMER;
     }
 
     setState(WB_RES::OfflineState::CONNECTED);
@@ -747,4 +764,11 @@ void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateCha
         enterSleep();
         return;
     }
+}
+
+void OfflineManager::handleBleAdvTimeout()
+{
+    DebugLogger::info("%s: Turning off BLE advertising", LAUNCHABLE_NAME);
+    _advOffTimer = wb::ID_INVALID_TIMER;
+    asyncDelete(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::ForceAsync);
 }

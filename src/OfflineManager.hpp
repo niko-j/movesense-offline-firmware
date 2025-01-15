@@ -82,8 +82,7 @@ private:
 
     void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);
-
-    void systemReset();
+    void handleBleAdvTimeout();
 
     OfflineConfig _config;
 
@@ -98,4 +97,6 @@ private:
     wb::TimerId _ledTimer;
     uint32_t _ledTimerElapsed;
     uint8_t _ledBlinks;
+
+    wb::TimerId _advOffTimer;
 };
