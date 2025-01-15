@@ -34,11 +34,11 @@ float fixed_point_to_float(T value)
 	return ((double) value / (double)(1 << Q));
 }
 
-struct WB_ALIGN(2) FixedPoint_S16_8 : ISbemSerialized
+struct WB_ALIGN(2) Q16_8 : ISbemSerialized
 {
 	// Structure type identification and serialization
 	typedef int Structure;
-	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26112;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26122;
 
 	WB_ALIGN(2) int16 integer;
 	WB_ALIGN(1) uint8 fraction;
@@ -52,6 +52,80 @@ struct WB_ALIGN(2) FixedPoint_S16_8 : ISbemSerialized
 	}
 };
 
+struct WB_ALIGN(2) Vec3_Q16_8 : ISbemSerialized
+{
+	// Structure type identification and serialization
+	typedef int Structure;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26123;
+
+	WB_ALIGN(2) Q16_8 x;
+	WB_ALIGN(2) Q16_8 y;
+	WB_ALIGN(2) Q16_8 z;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+};
+
+struct WB_ALIGN(2) Q10_6 : ISbemSerialized
+{
+	// Structure type identification and serialization
+	typedef int Structure;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26118;
+
+	WB_ALIGN(2) int16 value;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+
+	inline float toFloat() const
+	{
+    	return fixed_point_to_float<int16_t, 6>(value);
+	}
+};
+
+struct WB_ALIGN(2) Vec3_Q10_6 : ISbemSerialized
+{
+	// Structure type identification and serialization
+	typedef int Structure;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26119;
+
+	WB_ALIGN(2) Q10_6 x;
+	WB_ALIGN(2) Q10_6 y;
+	WB_ALIGN(2) Q10_6 z;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+};
+
+struct WB_ALIGN(1) Q12_12 : ISbemSerialized
+{
+	// Structure type identification and serialization
+	typedef int Structure;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26114;
+
+	WB_ALIGN(1) uint8 b0;
+	WB_ALIGN(1) uint8 b1;
+	WB_ALIGN(1) uint8 b2;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+
+	inline float toFloat() const
+	{
+		int32_t fixed = b0 | (b1 << 8) | (b2 << 16);
+		return fixed_point_to_float<int32_t, 12>(fixed);
+	}
+};
+
+struct WB_ALIGN(1) Vec3_Q12_12 : ISbemSerialized
+{
+	// Structure type identification and serialization
+	typedef int Structure;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26115;
+
+	WB_ALIGN(1) Q12_12 x;
+	WB_ALIGN(1) Q12_12 y;
+	WB_ALIGN(1) Q12_12 z;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+};
+
 struct WB_ALIGN(4) OfflineECGData : ISbemSerialized
 {
 	// Structure type identification and serialization
@@ -59,7 +133,7 @@ struct WB_ALIGN(4) OfflineECGData : ISbemSerialized
 	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26113;
 
 	WB_ALIGN(4) OfflineTimestamp timestamp;
-	WB_ALIGN(4) whiteboard::Array< FixedPoint_S16_8 > sampleData;
+	WB_ALIGN(4) whiteboard::Array< int16 > sampleData;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
@@ -76,19 +150,6 @@ struct WB_ALIGN(4) OfflineHRData : ISbemSerialized
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
 
-struct WB_ALIGN(2) FixedPointVec3_S16_8 : ISbemSerialized
-{
-	// Structure type identification and serialization
-	typedef int Structure;
-	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26115;
-
-	WB_ALIGN(2) FixedPoint_S16_8 x;
-	WB_ALIGN(2) FixedPoint_S16_8 y;
-	WB_ALIGN(2) FixedPoint_S16_8 z;
-
-	virtual bool readFrom(const std::vector<char>&data, size_t offset);
-};
-
 struct WB_ALIGN(4) OfflineAccData : ISbemSerialized
 {
 	// Structure type identification and serialization
@@ -96,7 +157,7 @@ struct WB_ALIGN(4) OfflineAccData : ISbemSerialized
 	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26116;
 
 	WB_ALIGN(4) OfflineTimestamp timestamp;
-	WB_ALIGN(4) whiteboard::Array< FixedPointVec3_S16_8 > measurements;
+	WB_ALIGN(4) whiteboard::Array< Vec3_Q12_12 > measurements;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
@@ -108,7 +169,7 @@ struct WB_ALIGN(4) OfflineGyroData : ISbemSerialized
 	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26117;
 
 	WB_ALIGN(4) OfflineTimestamp timestamp;
-	WB_ALIGN(4) whiteboard::Array< FixedPointVec3_S16_8 > measurements;
+	WB_ALIGN(4) whiteboard::Array< Vec3_Q12_12 > measurements;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
@@ -120,7 +181,7 @@ struct WB_ALIGN(4) OfflineMagnData : ISbemSerialized
 	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26118;
 
 	WB_ALIGN(4) OfflineTimestamp timestamp;
-	WB_ALIGN(4) whiteboard::Array< FixedPointVec3_S16_8 > measurements;
+	WB_ALIGN(4) whiteboard::Array< Vec3_Q10_6 > measurements;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };

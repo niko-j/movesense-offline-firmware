@@ -175,7 +175,7 @@ void utils::printECGSamples(const Samples& samples)
         std::cout << " @" << sample.timestamp << " [ ";
         for (const auto& v : sample.sampleData)
         {
-            std::cout << v.toFloat() << " ";
+            std::cout << v << " ";
         }
         std::cout << "]\n";
     }
@@ -358,7 +358,7 @@ std::ostream& utils::printECGSamplesCSV(const Samples& samples, std::ostream& ou
             const auto& meas = entry.sampleData[j];
             out
                 << entry.timestamp + interval * j << CSV_DELIMITER
-                << meas.toFloat() << std::endl;
+                << meas << std::endl;
         }
     }
 

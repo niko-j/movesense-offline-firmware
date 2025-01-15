@@ -463,16 +463,16 @@ void OfflineLogger::stopLogging()
 
 void OfflineLogger::recordECGSamples(const WB_RES::ECGData& data)
 {
-    // ECG Samples: 18 bits in registers (pad to 3 bytes)
+    // ECG Samples: 18 bits in registers
+    // ENOB is around 15.5, so we can probably discard first two bits by shifting to right
 
-    static WB_RES::FixedPoint_S16_8 buffer[16]; // max 16 x 24-bit values
+    static int16_t buffer[16];
     size_t samples = data.samples.size();
     ASSERT(samples <= 16);
 
     for (size_t i = 0; i < samples; i++)
     {
-        buffer[i].fraction = (data.samples[i] & 0xFF);
-        buffer[i].integer = (data.samples[i] >> 8) & 0xFFFF;
+        buffer[i] = (data.samples[i] >> 2);
     }
 
     WB_RES::OfflineECGData ecg;
@@ -487,13 +487,8 @@ void OfflineLogger::recordHeartRateSamples(const WB_RES::HRData& data)
     // RTOR Samples: 14 bits in registers
     // TODO: RR: Maybe use delta compression?
 
-    // Average as a 8.8 fixed-point:
-    // Max: 255.99609375 (HRData.average maximum is 250.0, no need to clamp)
-    // Min: 0 (same as HRData.average minimum)
-    // Res: 0.00390625
-
     WB_RES::OfflineHRData hr;
-    hr.average = float_to_fixed_point<uint16_t, 8>(data.average);
+    hr.average = static_cast<uint8_t>(roundf(data.average));
     hr.rrValues = data.rrData; // max items 60
 
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_HR(), ResponseOptions::ForceAsync, hr);
@@ -501,21 +496,15 @@ void OfflineLogger::recordHeartRateSamples(const WB_RES::HRData& data)
 
 void OfflineLogger::recordAccelerationSamples(const WB_RES::AccData& data)
 {
-    // Vector components as signed 16.8 fixed-point values (24 bits per component)
-    // TODO: The range should be enough for most cases, but I'd like to hear others' opinions
-    // Max: 32767.99609375
-    // Min: -32768
-    // Res: 0.00390625
-
-    static WB_RES::FixedPointVec3_S16_8 buffer[8]; // max 8 x (3 x 24-bit) samples
+    static WB_RES::Vec3_Q12_12 buffer[8]; // max 8 x (3 x 24-bit) samples
     size_t samples = data.arrayAcc.size();
     ASSERT(samples <= 8);
 
     for (size_t i = 0; i < samples; i++)
     {
-        buffer[i].x = float_to_fixed_point_S16_8(data.arrayAcc[i].x);
-        buffer[i].y = float_to_fixed_point_S16_8(data.arrayAcc[i].y);
-        buffer[i].z = float_to_fixed_point_S16_8(data.arrayAcc[i].z);
+        buffer[i].x = float_to_fixed_point_Q12_12(data.arrayAcc[i].x);
+        buffer[i].y = float_to_fixed_point_Q12_12(data.arrayAcc[i].y);
+        buffer[i].z = float_to_fixed_point_Q12_12(data.arrayAcc[i].z);
     }
 
     WB_RES::OfflineAccData acc;
@@ -527,21 +516,15 @@ void OfflineLogger::recordAccelerationSamples(const WB_RES::AccData& data)
 
 void OfflineLogger::recordGyroscopeSamples(const WB_RES::GyroData& data)
 {
-    // Vector components as signed 16.8 fixed-point values (24 bits per component)
-    // TODO: The range should be enough for most cases, but I'd like to hear others' opinions
-    // Max: 32767.99609375
-    // Min: -32768
-    // Res: 0.00390625
-
-    static WB_RES::FixedPointVec3_S16_8 buffer[8]; // max 8 x (3 x 24-bit) samples
+    static WB_RES::Vec3_Q12_12 buffer[8]; // max 8 x (3 x 24-bit) samples
     size_t samples = data.arrayGyro.size();
     ASSERT(samples <= 8);
 
     for (size_t i = 0; i < samples; i++)
     {
-        buffer[i].x = float_to_fixed_point_S16_8(data.arrayGyro[i].x);
-        buffer[i].y = float_to_fixed_point_S16_8(data.arrayGyro[i].y);
-        buffer[i].z = float_to_fixed_point_S16_8(data.arrayGyro[i].z);
+        buffer[i].x = float_to_fixed_point_Q12_12(data.arrayGyro[i].x);
+        buffer[i].y = float_to_fixed_point_Q12_12(data.arrayGyro[i].y);
+        buffer[i].z = float_to_fixed_point_Q12_12(data.arrayGyro[i].z);
     }
 
     WB_RES::OfflineGyroData gyro;
@@ -553,21 +536,15 @@ void OfflineLogger::recordGyroscopeSamples(const WB_RES::GyroData& data)
 
 void OfflineLogger::recordMagnetometerSamples(const WB_RES::MagnData& data)
 {
-    // Vector components as signed 16.8 fixed-point values (24 bits per component)
-    // TODO: The range should be enough for most cases, but I'd like to hear others' opinions
-    // Max: 32767.99609375
-    // Min: -32768
-    // Res: 0.00390625
-
-    static WB_RES::FixedPointVec3_S16_8 buffer[8]; // max 8 x (3 x 24-bit) samples
+    static WB_RES::Vec3_Q10_6 buffer[8]; // max 8 x (3 x 24-bit) samples
     size_t samples = data.arrayMagn.size();
     ASSERT(samples <= 8);
 
     for (size_t i = 0; i < samples; i++)
     {
-        buffer[i].x = float_to_fixed_point_S16_8(data.arrayMagn[i].x);
-        buffer[i].y = float_to_fixed_point_S16_8(data.arrayMagn[i].y);
-        buffer[i].z = float_to_fixed_point_S16_8(data.arrayMagn[i].z);
+        buffer[i].x = float_to_fixed_point_Q10_6(data.arrayMagn[i].x);
+        buffer[i].y = float_to_fixed_point_Q10_6(data.arrayMagn[i].y);
+        buffer[i].z = float_to_fixed_point_Q10_6(data.arrayMagn[i].z);
     }
 
     WB_RES::OfflineMagnData magn;

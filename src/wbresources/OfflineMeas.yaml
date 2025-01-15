@@ -115,10 +115,12 @@ definitions:
         description: Local timestamp of the first measurement
         $ref: "#/definitions/OfflineTimestamp"
       SampleData:
-        description: 24-bit samples in byte array
+        description: 16-bit samples in byte array
         type: array
         items:
-          $ref: "#/definitions/FixedPoint_S16_8"
+          type: integer
+          format: int16
+          x-unit: bpm
 
   OfflineHRData:
     required:
@@ -126,11 +128,9 @@ definitions:
         - rrValues
     properties:
       Average:
-        description: |
-          Heart rate value that is averaged and filtered and presented in bpm.
-          The average is a fixed-point (8.8) value.
+        description: Average heartrate
         type: integer
-        format: uint16
+        format: uint8
         x-unit: bpm
         minimum: 0.0
         maximum: 250.0
@@ -161,7 +161,7 @@ definitions:
         x-unit: m/s^2
         description: Byte array of 3D vectors with 24-bit fixed-point components.
         items:
-          $ref: "#/definitions/FixedPointVec3_S16_8"
+          $ref: "#/definitions/Vec3_Q12_12"
 
   OfflineGyroData:
     required:
@@ -178,7 +178,7 @@ definitions:
         type: array
         x-unit: dps (degree per second)
         items:
-          $ref: "#/definitions/FixedPointVec3_S16_8"
+          $ref: "#/definitions/Vec3_Q12_12"
 
   OfflineMagnData:
     required:
@@ -192,7 +192,7 @@ definitions:
         type: array
         x-unit: microtesla
         items:
-          $ref: "#/definitions/FixedPointVec3_S16_8"
+          $ref: "#/definitions/Vec3_Q10_6"
 
   OfflineTempData:
     required:
@@ -215,20 +215,46 @@ definitions:
     format: uint32
     x-unit: millisecond
 
-  FixedPointVec3_S16_8:
+  Vec3_Q16_8:
     required:
       - x
       - y
       - z
     properties:
       x:
-        $ref: "#/definitions/FixedPoint_S16_8"
+        $ref: "#/definitions/Q16_8"
       y:
-        $ref: "#/definitions/FixedPoint_S16_8"
+        $ref: "#/definitions/Q16_8"
       z:
-        $ref: "#/definitions/FixedPoint_S16_8"
+        $ref: "#/definitions/Q16_8"
 
-  FixedPoint_S16_8:
+  Vec3_Q10_6:
+    required:
+      - x
+      - y
+      - z
+    properties:
+      x:
+        $ref: "#/definitions/Q10_6"
+      y:
+        $ref: "#/definitions/Q10_6"
+      z:
+        $ref: "#/definitions/Q10_6"
+
+  Vec3_Q12_12:
+    required:
+      - x
+      - y
+      - z
+    properties:
+      x:
+        $ref: "#/definitions/Q12_12"
+      y:
+        $ref: "#/definitions/Q12_12"
+      z:
+        $ref: "#/definitions/Q12_12"
+
+  Q16_8:
     required:
       - Integer
       - Fraction
@@ -239,6 +265,30 @@ definitions:
       Fraction:
         type: integer
         format: uint8
+
+  Q12_12:
+    required:
+      - B0
+      - B1
+      - B2
+    properties:
+      B0:
+        type: integer
+        format: uint8
+      B1:
+        type: integer
+        format: uint8
+      B2:
+        type: integer
+        format: uint8
+
+  Q10_6:
+    required:
+      - Value
+    properties:
+      Value:
+        type: integer
+        format: int16
 
 datalogger:
   version: "1.0"
