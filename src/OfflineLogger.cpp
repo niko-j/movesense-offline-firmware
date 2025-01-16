@@ -383,7 +383,7 @@ void OfflineLogger::applyConfig(const WB_RES::OfflineConfig& config)
 bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
 {
     uint8_t count = 0;
-    static wb::ResourceId::Value resourceIds[WB_RES::OfflineMeasurement::COUNT] = {
+    static wb::ResourceId resourceIds[WB_RES::OfflineMeasurement::COUNT] = {
         WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID,
         WB_RES::LOCAL::MEAS_HR::ID,
         WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID,
@@ -393,7 +393,12 @@ bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
         wb::ID_INVALID_RESOURCE, // Activity is based on acceleration, handle as special case
         wb::ID_INVALID_RESOURCE, // Tap detection is based on acceleration, handle as special case
     };
-    memset(_measurements, 0, sizeof(_measurements));
+    
+    for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
+    {
+        _loggedResource[i] = false;
+        _measurements[i] = {};
+    }
 
     for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
     {
@@ -645,7 +650,7 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
 
 void OfflineLogger::tapDetection(const WB_RES::AccData& data)
 {
-    constexpr float TAP_DETECTION_THRESHOLD = 5.0f;
+    constexpr float TAP_DETECTION_THRESHOLD = 20.0f;
 
     static uint8_t tap_count = 0;
     static uint32_t tap_timestamp = 0;
@@ -677,14 +682,15 @@ void OfflineLogger::tapDetection(const WB_RES::AccData& data)
         }
     }
 
-    float diff = (max.vec - min.vec).length<float>();
-    if (diff > TAP_DETECTION_THRESHOLD)
+    float magnitude = max.vec.distance<float>(min.vec);
+    if (magnitude > TAP_DETECTION_THRESHOLD)
     {
-        DebugLogger::info("%s: Tap detected, count (%u), magn (%f)", LAUNCHABLE_NAME, tap_count, diff);
         tap_count += 1;
         tap_timestamp = data.timestamp;
-        tap_magnitude += diff;
+        tap_magnitude += magnitude;
         min = {}; max = {};
+
+        DebugLogger::info("%s: Tap detected, count %u", LAUNCHABLE_NAME, tap_count);
     }
 
     // No new taps within a couple seconds
@@ -738,13 +744,15 @@ bool OfflineLogger::isSubscribedToResources() const
 
 void OfflineLogger::subscribeResources()
 {
-    DebugLogger::info("%s: Subscribing to all measurements (if any)", LAUNCHABLE_NAME);
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
         auto& entry = _measurements[i];
         if (entry.resourceId != wb::ID_INVALID_RESOURCE && !entry.subscribed)
         {
-            if (entry.sampleRate)
+            DebugLogger::info("%s: Subscribing to measurement[%d]: %d", 
+                LAUNCHABLE_NAME, i, entry.resourceId.value);
+
+            if (entry.sampleRate > 1)
                 asyncSubscribe(entry.resourceId, AsyncRequestOptions::Empty, (int32_t)entry.sampleRate);
             else
                 asyncSubscribe(entry.resourceId, AsyncRequestOptions::Empty);
