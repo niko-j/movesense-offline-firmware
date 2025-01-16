@@ -18,7 +18,7 @@
 #include "DebugLogger.hpp"
 
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
-constexpr uint16_t DEFAULT_ACTIVITY_LOGGING_SAMPLE_RATE = 13;
+constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 13;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,
@@ -27,7 +27,8 @@ static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_GYRO::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_MAGN::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID
+    WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID,
 };
 
 OfflineLogger::OfflineLogger()
@@ -67,17 +68,6 @@ void OfflineLogger::deinitModule()
 bool OfflineLogger::startModule()
 {
     asyncSubscribe(WB_RES::LOCAL::OFFLINE_STATE());
-
-    // // Setup DataLogger to record config changes
-    // WB_RES::DataEntry entry = { .path = "/Offline/Config" };
-    // WB_RES::DataLoggerConfig config = {};
-    // config.dataEntries.dataEntry = wb::MakeArray<WB_RES::DataEntry>(&entry, 1);
-
-    // asyncPut(
-    //     WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(),
-    //     AsyncRequestOptions::Empty,
-    //     config);
-
     mModuleState = WB_RES::ModuleStateValues::STARTED;
     return true;
 }
@@ -343,6 +333,9 @@ void OfflineLogger::onNotify(
         if (_loggedResource[WB_RES::OfflineMeasurement::ACTIVITY])
             recordActivity(data);
 
+        if (_loggedResource[WB_RES::OfflineMeasurement::TAP])
+            tapDetection(data);
+
         break;
     }
     case WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::LID:
@@ -398,6 +391,7 @@ bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
         WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID,
         WB_RES::LOCAL::MEAS_TEMP::ID,
         wb::ID_INVALID_RESOURCE, // Activity is based on acceleration, handle as special case
+        wb::ID_INVALID_RESOURCE, // Tap detection is based on acceleration, handle as special case
     };
     memset(_measurements, 0, sizeof(_measurements));
 
@@ -421,7 +415,17 @@ bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
                     if (config.sampleRates[WB_RES::OfflineMeasurement::ACC] == 0)
                     {
                         _measurements[count].resourceId = resourceIds[WB_RES::OfflineMeasurement::ACC];
-                        _measurements[count].sampleRate = DEFAULT_ACTIVITY_LOGGING_SAMPLE_RATE;
+                        _measurements[count].sampleRate = DEFAULT_ACC_SAMPLE_RATE;
+                        count++;
+                    }
+                }
+                else if (i == WB_RES::OfflineMeasurement::TAP)
+                {
+                    if (config.sampleRates[WB_RES::OfflineMeasurement::ACC] == 0 &&
+                        config.sampleRates[WB_RES::OfflineMeasurement::ACTIVITY] == 0)
+                    {
+                        _measurements[count].resourceId = resourceIds[WB_RES::OfflineMeasurement::ACC];
+                        _measurements[count].sampleRate = DEFAULT_ACC_SAMPLE_RATE;
                         count++;
                     }
                 }
@@ -443,6 +447,7 @@ uint8_t OfflineLogger::configureDataLogger(const WB_RES::OfflineConfig& config)
         "/Offline/Meas/Magn",
         "/Offline/Meas/Temp",
         "/Offline/Meas/Activity",
+        "/Offline/Meas/Tap",
     };
     WB_RES::DataEntry entries[WB_RES::OfflineMeasurement::COUNT] = {};
 
@@ -635,6 +640,73 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
         accumulated_average = 0;
         acc_count = 0;
         activity_start = data.timestamp;
+    }
+}
+
+void OfflineLogger::tapDetection(const WB_RES::AccData& data)
+{
+    constexpr float TAP_DETECTION_THRESHOLD = 5.0f;
+
+    static uint8_t tap_count = 0;
+    static uint32_t tap_timestamp = 0;
+    static float tap_magnitude = 0.0f;
+
+    static struct {
+        wb::FloatVector3D vec = {};
+        float len = INFINITY;
+    } min;
+
+    static struct {
+        wb::FloatVector3D vec = {};
+        float len = 0.0f;
+    } max;
+
+    for (size_t i = 0; i < data.arrayAcc.size(); i++)
+    {
+        float len = data.arrayAcc[i].length<float>();
+        if (len < min.len)
+        {
+            min.len = len;
+            min.vec = data.arrayAcc[i];
+        }
+
+        if (len > max.len)
+        {
+            max.len = len;
+            max.vec = data.arrayAcc[i];
+        }
+    }
+
+    float diff = (max.vec - min.vec).length<float>();
+    if (diff > TAP_DETECTION_THRESHOLD)
+    {
+        DebugLogger::info("%s: Tap detected, count (%u), magn (%f)", LAUNCHABLE_NAME, tap_count, diff);
+        tap_count += 1;
+        tap_timestamp = data.timestamp;
+        tap_magnitude += diff;
+        min = {}; max = {};
+    }
+
+    // No new taps within a couple seconds
+    if (tap_count > 0 && data.timestamp - tap_timestamp > 2000)
+    {
+        if (tap_count > 1) // Ignore single taps
+        {
+            WB_RES::OfflineTapData tap;
+            tap.timestamp = data.timestamp;
+            tap.magnitude = float_to_fixed_point_Q10_6(tap_magnitude / tap_count);
+            tap.count = tap_count;
+
+            updateResource(
+                WB_RES::LOCAL::OFFLINE_MEAS_TAP(),
+                ResponseOptions::ForceAsync, tap);
+
+            tap_timestamp = 0;
+        }
+
+        tap_count = 0;
+        tap_magnitude = 0.0f;
+        min = {}; max = {};
     }
 }
 

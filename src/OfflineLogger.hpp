@@ -76,6 +76,7 @@ private:
     void recordMagnetometerSamples(const WB_RES::MagnData& data);
     void recordTemperatureSamples(const WB_RES::TemperatureValue& data);
     void recordActivity(const WB_RES::AccData& data);
+    void tapDetection(const WB_RES::AccData& data);
 
     bool _configured;
     bool _logging;

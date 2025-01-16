@@ -99,8 +99,8 @@ definitions:
       SampleRates:
         description: Array of samplerates for each sensor indexed by MeasurementSensors enum.
         type: array
-        minItems: 7
-        maxItems: 7
+        minItems: 8
+        maxItems: 8
         items:
           type: integer
           format: uint16
@@ -182,7 +182,10 @@ definitions:
     - name: 'ACTIVITY'
       description: Activity
       value: 6
+    - name: 'TAP'
+      description: Tap detection
+      value: 7
     - name: 'COUNT'
       description: Number of measurements
-      value: 7
+      value: 8
 

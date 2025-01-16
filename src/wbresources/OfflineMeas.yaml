@@ -113,11 +113,27 @@ paths:
         200:
           description: Operation completed successfully
         x-notification:
-          description: Offline optimized temperature data
+          description: Average acceleration during a minute
           schema:
             $ref: '#/definitions/OfflineActivityData'
     delete:
       description: Unsubscribe from activity.
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Offline/Meas/Tap/Subscription:
+    post:
+      description: Subscribe to tap detection events.
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Information about detected tapping
+          schema:
+            $ref: '#/definitions/OfflineTapData'
+    delete:
+      description: Unsubscribe from tap detection events.
       responses:
         200:
           description: Operation completed successfully
@@ -240,6 +256,23 @@ definitions:
         type: integer
         format: uint32
         description: Value representing user activity based on linear acceleration.
+
+  OfflineTapData:
+    required:
+      - Timestamp
+      - Magnitude
+      - Count
+    properties:
+      Timestamp:
+        description: Local timestamp of the measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Magnitude:
+        description: Average magnitude of the taps
+        $ref: "#/definitions/Q10_6"
+      Count:
+        type: integer
+        format: uint8
+        description: Number of consequtive taps detected
 
   OfflineTimestamp:
     type: integer
