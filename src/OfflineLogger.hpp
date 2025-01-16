@@ -12,7 +12,7 @@
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
 
-constexpr uint8_t MAX_MEASUREMENT_SUBSCRIPTIONS = 6;
+constexpr uint8_t MAX_MEASUREMENT_SUBSCRIPTIONS = 4;
 
 class OfflineLogger FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -63,6 +63,9 @@ private: /* wb::ResourceClient */
 
 private:
     void applyConfig(const WB_RES::OfflineConfig& config);
+    bool configureMeasurements(const WB_RES::OfflineConfig& config);
+    uint8_t configureDataLogger(const WB_RES::OfflineConfig& config);
+
     bool startLogging();
     void stopLogging();
 
@@ -72,9 +75,11 @@ private:
     void recordGyroscopeSamples(const WB_RES::GyroData& data);
     void recordMagnetometerSamples(const WB_RES::MagnData& data);
     void recordTemperatureSamples(const WB_RES::TemperatureValue& data);
+    void recordActivity(const WB_RES::AccData& data);
 
     bool _configured;
     bool _logging;
+    bool _loggedResource[WB_RES::OfflineMeasurement::COUNT];
     
     struct ResourceEntry
     {

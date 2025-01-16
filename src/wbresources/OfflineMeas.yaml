@@ -104,6 +104,24 @@ paths:
         200:
           description: Operation completed successfully
 
+  /Offline/Meas/Activity/Subscription:
+    post:
+      description: |
+        Subscribe to activity based on movement. 
+        Once a minute, creates a value that has been accumulated based on linear acceleration.
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Offline optimized temperature data
+          schema:
+            $ref: '#/definitions/OfflineActivityData'
+    delete:
+      description: Unsubscribe from activity.
+      responses:
+        200:
+          description: Operation completed successfully
+
 definitions:
 
   OfflineECGData:
@@ -210,6 +228,19 @@ definitions:
         maximum: 127
         x-unit: celsius
 
+  OfflineActivityData:
+    required:
+      - Timestamp
+      - Activity
+    properties:
+      Timestamp:
+        description: Local timestamp of the measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Activity:
+        type: integer
+        format: uint32
+        description: Value representing user activity based on linear acceleration.
+
   OfflineTimestamp:
     type: integer
     format: uint32
@@ -295,11 +326,11 @@ datalogger:
   type: "config"
 
   resources:
-    /Offline/Meas/ECG/.*:
+    /Offline/Meas/ECG:
       array-lengths: 16
-    /Offline/Meas/Acc/.*:
+    /Offline/Meas/Acc:
       array-lengths: 1,2,4,8
-    /Offline/Meas/Gyro/.*:
+    /Offline/Meas/Gyro:
       array-lengths: 1,2,4,8
-    /Offline/Meas/Magn/.*:
+    /Offline/Meas/Magn:
       array-lengths: 1,2,4,8

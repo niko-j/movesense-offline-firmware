@@ -18,6 +18,7 @@
 #include "DebugLogger.hpp"
 
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
+constexpr uint16_t DEFAULT_ACTIVITY_LOGGING_SAMPLE_RATE = 13;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,
@@ -26,6 +27,7 @@ static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_GYRO::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_MAGN::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID
 };
 
 OfflineLogger::OfflineLogger()
@@ -36,7 +38,10 @@ OfflineLogger::OfflineLogger()
     , _logging(false)
 {
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
+    {
+        _loggedResource[i] = false;
         _measurements[i] = {};
+    }
 }
 
 OfflineLogger::~OfflineLogger()
@@ -331,7 +336,13 @@ void OfflineLogger::onNotify(
     case WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::LID:
     {
         auto data = value.convertTo<const WB_RES::AccData&>();
-        recordAccelerationSamples(data);
+
+        if (_loggedResource[WB_RES::OfflineMeasurement::ACC])
+            recordAccelerationSamples(data);
+
+        if (_loggedResource[WB_RES::OfflineMeasurement::ACTIVITY])
+            recordActivity(data);
+
         break;
     }
     case WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::LID:
@@ -362,59 +373,9 @@ void OfflineLogger::onNotify(
 void OfflineLogger::applyConfig(const WB_RES::OfflineConfig& config)
 {
     ASSERT(!_logging && !_configured);
-    uint8_t i = 0;
-    WB_RES::DataEntry entries[6] = {};
+    bool valid_measurements = configureMeasurements(config);
 
-    if (config.sampleRates[WB_RES::OfflineMeasurement::ECG])
-    {
-        _measurements[i].resourceId = WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID;
-        _measurements[i].sampleRate = config.sampleRates[WB_RES::OfflineMeasurement::ECG];
-        entries[i].path = "/Offline/Meas/ECG";
-        i++;
-    }
-
-    if (config.sampleRates[WB_RES::OfflineMeasurement::HR])
-    {
-        _measurements[i].resourceId = WB_RES::LOCAL::MEAS_HR::ID;
-        entries[i].path = "/Offline/Meas/HR";
-        i++;
-    }
-
-    if (config.sampleRates[WB_RES::OfflineMeasurement::ACC])
-    {
-        _measurements[i].resourceId = WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID;
-        _measurements[i].sampleRate = config.sampleRates[WB_RES::OfflineMeasurement::ACC];
-        entries[i].path = "/Offline/Meas/Acc";
-        i++;
-    }
-
-    if (config.sampleRates[WB_RES::OfflineMeasurement::GYRO])
-    {
-        _measurements[i].resourceId = WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::ID;
-        _measurements[i].sampleRate = config.sampleRates[WB_RES::OfflineMeasurement::GYRO];
-        entries[i].path = "/Offline/Meas/Gyro";
-        i++;
-    }
-
-    if (config.sampleRates[WB_RES::OfflineMeasurement::MAGN])
-    {
-        _measurements[i].resourceId = WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID;
-        _measurements[i].sampleRate = config.sampleRates[WB_RES::OfflineMeasurement::MAGN];
-        entries[i].path = "/Offline/Meas/Magn";
-        i++;
-    }
-
-    if (config.sampleRates[WB_RES::OfflineMeasurement::TEMP])
-    {
-        _measurements[i].resourceId = WB_RES::LOCAL::MEAS_TEMP::ID;
-        entries[i].path = "/Offline/Meas/Temp";
-        i++;
-    }
-
-    // entries[i].path = "/Offline/Config"; // Keep recording config changes
-    // i++;
-
-    if (i > 4) // too many simulaneous measurements
+    if (!valid_measurements)
     {
         asyncPut(
             WB_RES::LOCAL::OFFLINE_STATE(),
@@ -423,14 +384,87 @@ void OfflineLogger::applyConfig(const WB_RES::OfflineConfig& config)
         return;
     }
 
-    // Setup DataLogger to receive measurements
+    configureDataLogger(config);
+}
+
+bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
+{
+    uint8_t count = 0;
+    static wb::ResourceId::Value resourceIds[WB_RES::OfflineMeasurement::COUNT] = {
+        WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID,
+        WB_RES::LOCAL::MEAS_HR::ID,
+        WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID,
+        WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::ID,
+        WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID,
+        WB_RES::LOCAL::MEAS_TEMP::ID,
+        wb::ID_INVALID_RESOURCE, // Activity is based on acceleration, handle as special case
+    };
+    memset(_measurements, 0, sizeof(_measurements));
+
+    for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
+    {
+        if (config.sampleRates[i]) // Non-zero value indicates active measurement
+        {
+            if (count > MAX_MEASUREMENT_SUBSCRIPTIONS)
+                return false;
+
+            if (resourceIds[i] != wb::ID_INVALID_RESOURCE)
+            {
+                _measurements[count].resourceId = resourceIds[i];
+                _measurements[count].sampleRate = config.sampleRates[i];
+                count++;
+            }
+            else // Handle special measurements that do not directly correspond to raw measurements
+            {
+                if (i == WB_RES::OfflineMeasurement::ACTIVITY)
+                {
+                    if (config.sampleRates[WB_RES::OfflineMeasurement::ACC] == 0)
+                    {
+                        _measurements[count].resourceId = resourceIds[WB_RES::OfflineMeasurement::ACC];
+                        _measurements[count].sampleRate = DEFAULT_ACTIVITY_LOGGING_SAMPLE_RATE;
+                        count++;
+                    }
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+uint8_t OfflineLogger::configureDataLogger(const WB_RES::OfflineConfig& config)
+{
+    uint8_t count = 0;
+    static const char* paths[WB_RES::OfflineMeasurement::COUNT] = {
+        "/Offline/Meas/ECG",
+        "/Offline/Meas/HR",
+        "/Offline/Meas/Acc",
+        "/Offline/Meas/Gyro",
+        "/Offline/Meas/Magn",
+        "/Offline/Meas/Temp",
+        "/Offline/Meas/Activity",
+    };
+    WB_RES::DataEntry entries[WB_RES::OfflineMeasurement::COUNT] = {};
+
+    for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
+    {
+        _loggedResource[i] = (config.sampleRates[i] > 0);
+        if (_loggedResource[i])
+        {
+            entries[count].path = paths[i];
+            count++;
+        }
+    }
+
     WB_RES::DataLoggerConfig logConfig = {};
-    logConfig.dataEntries.dataEntry = wb::MakeArray(entries, i);
+    logConfig.dataEntries.dataEntry = wb::MakeArray(entries, count);
 
     asyncPut(
         WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(),
         AsyncRequestOptions::Empty,
         logConfig);
+
+    return count;
 }
 
 bool OfflineLogger::startLogging()
@@ -568,6 +602,40 @@ void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& dat
     temp.measurement = as_c;
 
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_TEMP(), ResponseOptions::ForceAsync, temp);
+}
+
+void OfflineLogger::recordActivity(const WB_RES::AccData& data)
+{
+    static uint32_t activity_start = data.timestamp;
+    static uint32_t acc_count = 0;
+    static uint32_t accumulated_average = 0;
+
+    float total_len = 0.0f;
+    size_t count = data.arrayAcc.size();
+    for (size_t i = 0; i < count; i++)
+    {
+        total_len += data.arrayAcc[i].length<float>();
+    }
+    float avg_len = total_len / count;
+
+    accumulated_average += (uint32_t)avg_len;
+    acc_count += 1;
+
+    uint32_t timediff = data.timestamp - activity_start;
+    if (timediff >= 60000)
+    {
+        WB_RES::OfflineActivityData activityData;
+        activityData.timestamp = data.timestamp;
+        activityData.activity = accumulated_average / acc_count;
+
+        updateResource(
+            WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY(),
+            ResponseOptions::ForceAsync, activityData);
+
+        accumulated_average = 0;
+        acc_count = 0;
+        activity_start = data.timestamp;
+    }
 }
 
 OfflineLogger::ResourceEntry* OfflineLogger::findResourceEntry(wb::ResourceId id)
