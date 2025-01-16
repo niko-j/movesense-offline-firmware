@@ -71,7 +71,8 @@ WB_RES::OfflineConfig OfflineConfigPacket::getConfig()
         .sampleRates = wb::MakeArray<uint16_t>(
             reinterpret_cast<const uint16_t*>(mBuffer + 3),
             WB_RES::OfflineMeasurement::COUNT),
-        .sleepDelay = *reinterpret_cast<const uint16_t*>(mBuffer + 15)
+        .sleepDelay = *reinterpret_cast<const uint16_t*>(
+            mBuffer + 2 * WB_RES::OfflineMeasurement::COUNT + 3)
     };
 }
 
