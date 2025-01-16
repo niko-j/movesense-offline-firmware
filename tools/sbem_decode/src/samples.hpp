@@ -12,6 +12,8 @@ struct Samples
     std::vector<OfflineHRData> hr;
     std::vector<OfflineECGData> ecg;
     std::vector<OfflineTempData> temp;
+    std::vector<OfflineActivityData> activity;
+    std::vector<OfflineTapData> taps;
 
     Samples(const SbemDocument& sbem);
 };

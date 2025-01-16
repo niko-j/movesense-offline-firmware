@@ -74,6 +74,18 @@ Samples::Samples(const SbemDocument& sbem)
             if (chunk.tryRead(data))
                 temp.push_back(data);
         }
+        else if (measurement.find("OfflineMeasActivity") != std::string::npos)
+        {
+            OfflineActivityData data;
+            if (chunk.tryRead(data))
+                activity.push_back(data);
+        }
+        else if (measurement.find("OfflineMeasTap") != std::string::npos)
+        {
+            OfflineTapData data;
+            if (chunk.tryRead(data))
+                taps.push_back(data);
+        }
         else
         {
             printf("Unknown measurement: %s\n", measurement.c_str());

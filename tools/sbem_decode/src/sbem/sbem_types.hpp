@@ -197,3 +197,28 @@ struct WB_ALIGN(4) OfflineTempData : ISbemSerialized
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
+
+struct WB_ALIGN(4) OfflineActivityData : ISbemSerialized
+{
+	// Structure type identification and serialization
+	typedef int Structure;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26122;
+
+	WB_ALIGN(4) OfflineTimestamp timestamp;
+	WB_ALIGN(4) uint32 activity;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+};
+
+struct WB_ALIGN(4) OfflineTapData : ISbemSerialized
+{
+	// Structure type identification and serialization
+	typedef int Structure;
+	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26123;
+
+	WB_ALIGN(4) OfflineTimestamp timestamp;
+	WB_ALIGN(2) Q10_6 magnitude;
+	WB_ALIGN(1) uint8 count;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+};

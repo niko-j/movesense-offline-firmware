@@ -123,6 +123,23 @@ bool OfflineTempData::readFrom(const std::vector<char>& data, size_t offset)
         );
 }
 
+bool OfflineActivityData::readFrom(const std::vector<char>& data, size_t offset)
+{
+    return (
+        readValue<OfflineTimestamp>(data, offset + 0, timestamp) &&
+        readValue<uint32>(data, offset + sizeof(OfflineTimestamp), activity)
+        );
+}
+
+bool OfflineTapData::readFrom(const std::vector<char>& data, size_t offset)
+{
+    return (
+        readValue<OfflineTimestamp>(data, offset + 0, timestamp) &&
+        magnitude.readFrom(data, offset + sizeof(OfflineTimestamp)) &&
+        readValue<uint8>(data, offset + sizeof(OfflineTimestamp) + 2, count)
+        );
+}
+
 bool Vec3_Q16_8::readFrom(const std::vector<char>& data, size_t offset)
 {
     return (

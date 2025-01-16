@@ -192,6 +192,27 @@ void utils::printTempSamples(const Samples& samples)
     std::cout << "}\n";
 }
 
+void utils::printActivitySamples(const Samples& samples)
+{
+    std::cout << "Activity {\n";
+    for (const auto& sample : samples.activity)
+    {
+        std::cout << " @" << sample.timestamp << " Value(" << sample.activity << ")\n";
+    }
+    std::cout << "}\n";
+}
+
+void utils::printTapDetectionSamples(const Samples& samples)
+{
+    std::cout << "TapDetection {\n";
+    for (const auto& sample : samples.taps)
+    {
+        std::cout << " @" << sample.timestamp 
+            << " Magnitude(" << sample.magnitude.toFloat()
+            << " Count(" << sample.count << ")\n";
+    }
+    std::cout << "}\n";
+}
 
 std::ostream& utils::printAccSamplesCSV(const Samples& samples, std::ostream& out)
 {
@@ -377,6 +398,42 @@ std::ostream& utils::printTempSamplesCSV(const Samples& samples, std::ostream& o
         out
             << samples.temp[i].timestamp << CSV_DELIMITER
             << samples.temp[i].measurement << std::endl;
+    }
+
+    return out;
+}
+
+std::ostream& utils::printActivitySamplesCSV(const Samples& samples, std::ostream& out)
+{
+    // Title row
+    out << "Timestamp" << CSV_DELIMITER
+        << "Activity" << std::endl;
+
+    // Data rows
+    for (size_t i = 0; i < samples.activity.size(); i++)
+    {
+        out
+            << samples.activity[i].timestamp << CSV_DELIMITER
+            << samples.activity[i].activity << std::endl;
+    }
+
+    return out;
+}
+
+std::ostream& utils::printTapDetectionSamplesCSV(const Samples& samples, std::ostream& out)
+{
+    // Title row
+    out << "Timestamp" << CSV_DELIMITER
+        << "Magnitude" << CSV_DELIMITER
+        << "Count" << std::endl;
+
+    // Data rows
+    for (size_t i = 0; i < samples.taps.size(); i++)
+    {
+        out
+            << samples.taps[i].timestamp << CSV_DELIMITER
+            << samples.taps[i].magnitude.toFloat() << CSV_DELIMITER
+            << samples.taps[i].count << std::endl;
     }
 
     return out;

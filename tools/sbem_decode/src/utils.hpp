@@ -18,6 +18,8 @@ namespace utils
     void printHRSamples(const Samples& samples);
     void printECGSamples(const Samples& samples);
     void printTempSamples(const Samples& samples);
+    void printActivitySamples(const Samples& samples);
+    void printTapDetectionSamples(const Samples& samples);
 
     std::ostream& printAccSamplesCSV(const Samples& samples, std::ostream& out);
     std::ostream& printGyroSamplesCSV(const Samples& samples, std::ostream& out);
@@ -25,6 +27,8 @@ namespace utils
     std::ostream& printHRSamplesCSV(const Samples& samples, std::ostream& out);
     std::ostream& printECGSamplesCSV(const Samples& samples, std::ostream& out);
     std::ostream& printTempSamplesCSV(const Samples& samples, std::ostream& out);
+    std::ostream& printActivitySamplesCSV(const Samples& samples, std::ostream& out);
+    std::ostream& printTapDetectionSamplesCSV(const Samples& samples, std::ostream& out);
 
     inline double calculateSampleInterval(OfflineTimestamp timestamp, size_t sampleCount, OfflineTimestamp next)
     {

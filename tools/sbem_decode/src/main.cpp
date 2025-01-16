@@ -18,7 +18,7 @@ void usage()
     printf("\n");
     printf("  Args:\n");
     printf("    measurement - Select measurement to show when using the '%s' command.\n", CMD_CSV);
-    printf("        valid values: acc|gyro|magn|ecg|hr|temp\n");
+    printf("        valid values: acc|gyro|magn|ecg|hr|temp|activity|tap\n");
     printf("\n");
     printf("  Examples:\n");
     printf("    sbem_decode info samples.sbem\n");
@@ -82,6 +82,8 @@ int main(int argc, char* argv[])
         utils::printHRSamples(samples);
         utils::printECGSamples(samples);
         utils::printTempSamples(samples);
+        utils::printActivitySamples(samples);
+        utils::printTapDetectionSamples(samples);
     }
 
     if (cmd == CMD_CSV)
@@ -100,6 +102,10 @@ int main(int argc, char* argv[])
             utils::printECGSamplesCSV(samples, std::cout);
         else if (meas == "temp")
             utils::printTempSamplesCSV(samples, std::cout);
+        else if (meas == "activity")
+            utils::printActivitySamplesCSV(samples, std::cout);
+        else if (meas == "tap")
+            utils::printTapDetectionSamplesCSV(samples, std::cout);
         else
         {
             printf("Error: Unknown measurement '%s'.\n", meas.c_str());
