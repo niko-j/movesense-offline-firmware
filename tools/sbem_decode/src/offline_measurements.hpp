@@ -24,6 +24,7 @@ namespace whiteboard
 
 //! ========================================
 //! Copy generated data structures into here
+//! and implement ISbemSerialized for them!
 //! ========================================
 
 typedef uint32 OfflineTimestamp;

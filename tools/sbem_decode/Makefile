@@ -14,10 +14,7 @@ executable:
 	g++ -o $(BUILD_DIR)/$(TARGET) \
 		$(CXXFLAGS) \
 		-I./src \
-		-I./src/sbem \
-		-I./src/datatypes \
-		./src/sbem/sbem.cpp \
-		./src/sbem/sbem_types.cpp \
+		./src/offline_measurements.cpp \
 		./src/samples.cpp \
 		./src/utils.cpp \
 		./src/main.cpp

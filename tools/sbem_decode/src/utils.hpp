@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 
-#include "sbem/sbem.hpp"
+#include "sbem.hpp"
 #include "samples.hpp"
 
 namespace utils

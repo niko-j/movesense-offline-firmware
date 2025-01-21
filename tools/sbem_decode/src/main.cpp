@@ -2,8 +2,9 @@
 #include <string>
 #include <filesystem>
 
-#include "sbem/sbem.hpp"
-#include "samples.hpp"
+#define SBEM_IMPL
+#include "sbem.hpp"
+
 #include "utils.hpp"
 
 constexpr const char* CMD_INFO = "info";

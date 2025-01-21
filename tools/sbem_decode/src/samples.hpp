@@ -1,8 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "sbem/sbem.hpp"
-#include "sbem/sbem_types.hpp"
+#include "offline_measurements.hpp"
 
 struct Samples
 {
