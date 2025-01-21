@@ -658,6 +658,10 @@ void OfflineManager::sleepTimerTick()
             if (_sleepTimerElapsed >= (_config.sleepDelay * 1000))
                 enterSleep();
         }
+        else
+        {
+            _sleepTimerElapsed = 0;
+        }
 
         break;
     }
