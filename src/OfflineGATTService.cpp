@@ -548,7 +548,7 @@ void OfflineGATTService::sendData(const uint8_t* data, uint32_t size)
     do
     {
         OfflineDataPacket packet(buffer);
-        uint32_t len = WB_MIN(size, packet.MAX_PAYLOAD);
+        uint32_t len = WB_MIN(size, packet.getMaxSizeOfBytes());
         packet.setReference(pendingRequestId);
         packet.setOffset(sent);
         packet.setTotalBytes(size);
@@ -568,7 +568,7 @@ void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize,
     do
     {
         OfflineDataPacket packet(buffer);
-        uint32_t len = WB_MIN(partSize - sent, packet.MAX_PAYLOAD);
+        uint32_t len = WB_MIN(partSize - sent, packet.getMaxSizeOfBytes());
         packet.setReference(pendingRequestId);
         packet.setOffset(offset + sent);
         packet.setTotalBytes(totalSize);
@@ -595,7 +595,7 @@ void OfflineGATTService::sendSbem(wb::LocalResourceId resourceId, const wb::Valu
         packet.setTotalBytes(size);
 
         sent += writeToSbemBuffer(
-            packet.getRawBytes(), packet.MAX_PAYLOAD - 8,
+            packet.getRawBytes(), packet.getMaxSizeOfBytes(),
             sent, resourceId, data);
 
         sendPacket(packet);

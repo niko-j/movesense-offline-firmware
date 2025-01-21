@@ -27,11 +27,11 @@ enum OfflineCmd : uint8_t
     OfflineCmdCount
 };
 
-constexpr uint32_t OFFLINE_PACKET_MAX_PAYLOAD = 128;
-constexpr uint32_t OFFLINE_PACKET_HEADER_SIZE = 2;
-constexpr uint32_t OFFLINE_PACKET_BUFFER_SIZE = (
-    OFFLINE_PACKET_MAX_PAYLOAD + OFFLINE_PACKET_HEADER_SIZE
-    );
+constexpr uint32_t OFFLINE_BLE_MTU = 161;
+constexpr uint32_t OFFLINE_PACKET_SIZE = OFFLINE_BLE_MTU - 3;
+constexpr uint32_t OFFLINE_PACKET_HEADER_SIZE = 2; // Overhead for packet type and request reference
+constexpr uint32_t OFFLINE_PACKET_PAYLOAD_SIZE = OFFLINE_PACKET_SIZE - OFFLINE_PACKET_HEADER_SIZE;
+constexpr uint32_t OFFLINE_PACKET_BUFFER_SIZE = OFFLINE_PACKET_SIZE;
 
 #define OFFLINE_PACKET_PROPERTY(Type, __PropName__, Size, Offset) \
     static_assert(Offset + Size <= SIZE \
@@ -72,7 +72,9 @@ public: \
         memset(mBuffer + Offset, 0, Size * Length); \
         mCount##__PropName__ = 0; \
     } \
-    inline uint8_t* getRaw##__PropName__() { return (mBuffer + Offset); }
+    inline uint8_t* getRaw##__PropName__() { return (mBuffer + Offset); } \
+    inline size_t getMaxSizeOf##__PropName__() { return (Size * Length); } \
+    inline size_t getSizeOf##__PropName__() { return (mCount##__PropName__ * Size); }
 
 #define OFFLINE_PACKET_SBEM_PROPERTY(Type, LocalResourceId, __PropName__, Size, Offset) \
     static_assert(Offset + Size <= SIZE \
@@ -133,11 +135,10 @@ struct OfflineConfigPacket : public OfflinePacket
 
 struct OfflineDataPacket : public OfflinePacket
 {
-    static const uint32_t MAX_PAYLOAD = OFFLINE_PACKET_MAX_PAYLOAD - 8;
-    OFFLINE_PACKET(OfflineDataPacket, OfflinePacketTypeData, 2 + OFFLINE_PACKET_MAX_PAYLOAD);
-    OFFLINE_PACKET_PROPERTY(uint32_t, Offset, 4, 2);
-    OFFLINE_PACKET_PROPERTY(uint32_t, TotalBytes, 4, 6);
-    OFFLINE_PACKET_PROPERTY_ARRAY(uint8_t, Bytes, 1, MAX_PAYLOAD, 10);
+    OFFLINE_PACKET(OfflineDataPacket, OfflinePacketTypeData,  OFFLINE_PACKET_BUFFER_SIZE);
+    OFFLINE_PACKET_PROPERTY(uint32_t, Offset, 4, OFFLINE_PACKET_HEADER_SIZE);
+    OFFLINE_PACKET_PROPERTY(uint32_t, TotalBytes, 4, OFFLINE_PACKET_HEADER_SIZE + 4);
+    OFFLINE_PACKET_PROPERTY_ARRAY(uint8_t, Bytes, 1, OFFLINE_PACKET_PAYLOAD_SIZE - 8, OFFLINE_PACKET_HEADER_SIZE + 8);
 };
 
 constexpr uint32_t OFFLINE_LOG_LIST_PACKET_MAX_ITEMS = 6;
@@ -150,7 +151,7 @@ struct OfflineLogItem
 
 struct OfflineLogListPacket : public OfflinePacket
 {
-    OFFLINE_PACKET(OfflineLogListPacket, OfflinePacketTypeLogList, 2 + 2 + 96);
+    OFFLINE_PACKET(OfflineLogListPacket, OfflinePacketTypeLogList, OFFLINE_PACKET_HEADER_SIZE + 16 * OFFLINE_LOG_LIST_PACKET_MAX_ITEMS + 2);
     OFFLINE_PACKET_PROPERTY(uint8_t, Count, 1, 2);
     OFFLINE_PACKET_PROPERTY(bool, Complete, 1, 3);
     OFFLINE_PACKET_PROPERTY_ARRAY(OfflineLogItem, Items, 16, OFFLINE_LOG_LIST_PACKET_MAX_ITEMS, 4);
