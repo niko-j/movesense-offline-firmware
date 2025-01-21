@@ -189,3 +189,10 @@ definitions:
       description: Number of measurements
       value: 8
 
+datalogger:
+  version: "1.0"
+  type: "config"
+
+  resources:
+    /Offline/Config:
+      array-lengths: 8
