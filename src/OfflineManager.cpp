@@ -20,7 +20,7 @@ const char* const OfflineManager::LAUNCHABLE_NAME = "OfflineMan";
 
 constexpr uint8_t EEPROM_CONFIG_INDEX = 0;
 constexpr uint32_t EEPROM_CONFIG_ADDR = 0;
-constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0xA0;
+constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0xA0; // Change this for breaking changes
 
 constexpr size_t TIMER_TICK_SLEEP = 1000;
 constexpr size_t TIMER_TICK_LED = 250;
@@ -646,7 +646,14 @@ void OfflineManager::sleepTimerTick()
     {
         if (_config.sleepDelay > 0)
         {
-            _sleepTimerElapsed += TIMER_TICK_SLEEP;
+            if (_deviceMoving)
+            {
+                _sleepTimerElapsed = 0;
+            }
+            else
+            {
+                _sleepTimerElapsed += TIMER_TICK_SLEEP;
+            }
 
             if (_sleepTimerElapsed >= (_config.sleepDelay * 1000))
                 enterSleep();
@@ -756,13 +763,20 @@ void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateCha
 
     _sleepTimerElapsed = 0; // Any state change resets sleep timer
 
-    // Double tap turns off the device if sleep delay is not set
-    if (_config.sleepDelay == 0 &&
-        stateChange.stateId == WB_RES::StateId::DOUBLETAP &&
-        stateChange.newState == 1)
+    switch (stateChange.stateId)
     {
-        enterSleep();
-        return;
+    case WB_RES::StateId::DOUBLETAP:
+        // Double tap turns off the device if sleep delay is not set
+        if (_config.sleepDelay == 0 && stateChange.newState == 1)
+            enterSleep();
+        break;
+    case WB_RES::StateId::MOVEMENT:
+        // Track whether device is moving. 
+        // If sleep delay is set, the device will enter sleep after a period of not moving.
+        _deviceMoving = (stateChange.newState == 1);
+        break;
+    default:
+        break;
     }
 }
 
