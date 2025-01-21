@@ -131,8 +131,8 @@ bool OfflineTempData::readFrom(const std::vector<char>& data, size_t offset)
 bool OfflineActivityData::readFrom(const std::vector<char>& data, size_t offset)
 {
     return (
-        readValue<uint32>(data, offset, activity) &&
-        readValue<OfflineTimestamp>(data, offset + sizeof(uint32), timestamp)
+        readValue<OfflineTimestamp>(data, offset, timestamp) &&
+        activity.readFrom(data, offset + sizeof(timestamp))
         );
 }
 

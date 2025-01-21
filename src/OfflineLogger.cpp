@@ -618,7 +618,7 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
 {
     static uint32_t activity_start = data.timestamp;
     static uint32_t acc_count = 0;
-    static uint32_t accumulated_average = 0;
+    static float accumulated_average = 0;
 
     float total_len = 0.0f;
     size_t count = data.arrayAcc.size();
@@ -628,7 +628,7 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
     }
     float avg_len = total_len / count;
 
-    accumulated_average += (uint32_t)avg_len;
+    accumulated_average += avg_len;
     acc_count += 1;
 
     uint32_t timediff = data.timestamp - activity_start;
@@ -636,7 +636,7 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
     {
         WB_RES::OfflineActivityData activityData;
         activityData.timestamp = data.timestamp;
-        activityData.activity = accumulated_average / acc_count;
+        activityData.activity = float_to_fixed_point_Q10_6(accumulated_average * (1.0f / acc_count));
 
         updateResource(
             WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY(),

@@ -206,7 +206,7 @@ struct WB_ALIGN(4) OfflineActivityData : ISbemSerialized
 	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26122;
 
 	WB_ALIGN(4) OfflineTimestamp timestamp;
-	WB_ALIGN(4) uint32 activity;
+	WB_ALIGN(4) Q10_6 activity;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };

@@ -197,7 +197,7 @@ void utils::printActivitySamples(const Samples& samples)
     std::cout << "Activity {\n";
     for (const auto& sample : samples.activity)
     {
-        std::cout << " @" << sample.timestamp << " Value(" << sample.activity << ")\n";
+        std::cout << " @" << sample.timestamp << " Value(" << sample.activity.toFloat() << ")\n";
     }
     std::cout << "}\n";
 }
@@ -414,7 +414,7 @@ std::ostream& utils::printActivitySamplesCSV(const Samples& samples, std::ostrea
     {
         out
             << samples.activity[i].timestamp << CSV_DELIMITER
-            << samples.activity[i].activity << std::endl;
+            << samples.activity[i].activity.toFloat() << std::endl;
     }
 
     return out;

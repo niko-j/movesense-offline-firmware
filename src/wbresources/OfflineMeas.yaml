@@ -253,9 +253,8 @@ definitions:
         description: Local timestamp of the measurement
         $ref: "#/definitions/OfflineTimestamp"
       Activity:
-        type: integer
-        format: uint32
         description: Value representing user activity based on linear acceleration.
+        $ref: "#/definitions/Q10_6"
 
   OfflineTapData:
     required:
