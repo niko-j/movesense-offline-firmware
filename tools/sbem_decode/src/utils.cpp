@@ -147,7 +147,7 @@ void utils::printHRSamples(const Samples& samples)
     for (const auto& sample : samples.hr)
     {
         std::cout
-            << "Average(" << fixed_point_to_float<uint16_t, 8>(sample.average)
+            << "Average(" << (int) sample.average
             << ") RR[ ";
         for (const auto& rr : sample.rrValues)
         {
@@ -187,7 +187,7 @@ void utils::printTempSamples(const Samples& samples)
     std::cout << "Temp {\n";
     for (const auto& sample : samples.temp)
     {
-        std::cout << " @" << sample.timestamp << " Value(" << sample.measurement << ")\n";
+        std::cout << " @" << sample.timestamp << " Value(" << (int) sample.measurement << ")\n";
     }
     std::cout << "}\n";
 }
@@ -343,7 +343,7 @@ std::ostream& utils::printHRSamplesCSV(const Samples& samples, std::ostream& out
         for (size_t j = 0; j < entry.rrValues.size(); j++)
         {
             out
-                << fixed_point_to_float<uint16_t, 8>(entry.average) << CSV_DELIMITER
+                << (int) entry.average << CSV_DELIMITER
                 << entry.rrValues[j] << std::endl;
         }
     }
@@ -397,7 +397,7 @@ std::ostream& utils::printTempSamplesCSV(const Samples& samples, std::ostream& o
     {
         out
             << samples.temp[i].timestamp << CSV_DELIMITER
-            << samples.temp[i].measurement << std::endl;
+            << (int) samples.temp[i].measurement << std::endl;
     }
 
     return out;
@@ -433,7 +433,7 @@ std::ostream& utils::printTapDetectionSamplesCSV(const Samples& samples, std::os
         out
             << samples.taps[i].timestamp << CSV_DELIMITER
             << samples.taps[i].magnitude.toFloat() << CSV_DELIMITER
-            << samples.taps[i].count << std::endl;
+            << (int) samples.taps[i].count << std::endl;
     }
 
     return out;

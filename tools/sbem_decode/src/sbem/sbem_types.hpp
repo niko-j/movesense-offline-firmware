@@ -144,7 +144,7 @@ struct WB_ALIGN(4) OfflineHRData : ISbemSerialized
 	typedef int Structure;
 	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26114;
 
-	WB_ALIGN(2) uint16 average;
+	WB_ALIGN(2) uint8_t average;
 	WB_ALIGN(4) whiteboard::Array< uint16 > rrValues;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
