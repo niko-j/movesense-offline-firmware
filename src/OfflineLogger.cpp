@@ -673,6 +673,8 @@ void OfflineLogger::recordTemperatureSamples(const WB_RES::TemperatureValue& dat
 
 void OfflineLogger::recordActivity(const WB_RES::AccData& data)
 {
+    constexpr uint32_t ACTIVITY_INTERVAL = 60000;
+
     static uint32_t activity_start = data.timestamp;
     static uint32_t acc_count = 0;
     static float accumulated_average = 0;
@@ -685,11 +687,11 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
     }
     float avg_len = total_len / count;
 
-    accumulated_average += avg_len;
+    accumulated_average += MAX(avg_len - 9.81f, 0.0f);
     acc_count += 1;
 
     uint32_t timediff = data.timestamp - activity_start;
-    if (timediff >= 60000)
+    if (timediff >= ACTIVITY_INTERVAL)
     {
         WB_RES::OfflineActivityData activityData;
         activityData.timestamp = data.timestamp;
@@ -707,7 +709,7 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
 
 void OfflineLogger::tapDetection(const WB_RES::AccData& data)
 {
-    constexpr float TAP_DETECTION_THRESHOLD = 20.0f;
+    constexpr float TAP_DETECTION_THRESHOLD = 12.0f;
 
     static uint8_t tap_count = 0;
     static uint32_t tap_timestamp = 0;
