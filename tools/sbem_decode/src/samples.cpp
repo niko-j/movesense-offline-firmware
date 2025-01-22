@@ -12,18 +12,22 @@ const SbemDescriptor* getFirstItemName(const SbemDocument& sbem, const SbemChunk
         auto group = desc->getGroup();
         if (group.has_value())
         {
-            desc = sbem.getDescriptor(group->at(0));
-            if (desc)
+            for(auto i = 0; i < group->size(); i++)
             {
-                name = desc->getName();
+                desc = sbem.getDescriptor(group->at(i));
+                if (desc)
+                {
+                    name = desc->getName();
+                    if(name.has_value() && name.value() != "[")
+                    {
+                        return desc;
+                    }
+                }
             }
         }
     }
 
-    if (!name.has_value())
-        return nullptr;
-
-    return desc;
+    return nullptr;
 }
 
 Samples::Samples(const SbemDocument& sbem)
