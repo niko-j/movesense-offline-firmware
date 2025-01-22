@@ -108,7 +108,6 @@ bool OfflineECGData::readFrom(const std::vector<char>& data, size_t offset)
 
     readValue<OfflineTimestamp>(data, offset + 0, timestamp);
     offset += sizeof(OfflineTimestamp);
-    
     for (auto i = 0; i < samples; i++)
     {
         int16_t sample;
@@ -158,8 +157,9 @@ bool Vec3_Q16_8::readFrom(const std::vector<char>& data, size_t offset)
 bool Q16_8::readFrom(const std::vector<char>& data, size_t offset)
 {
     return (
-        readValue<uint8>(data, offset + 0, fraction) &&
-        readValue<int16>(data, offset + 1, integer)
+        readValue<uint8>(data, offset + 0, b0) &&
+        readValue<uint8>(data, offset + 1, b1) &&
+        readValue<int8>(data, offset + 2, b2)
         );
 }
 
@@ -194,5 +194,8 @@ bool Vec3_Q10_6::readFrom(const std::vector<char>& data, size_t offset)
 
 bool Q10_6::readFrom(const std::vector<char>& data, size_t offset)
 {
-    return readValue<int16>(data, offset, value);
+    return (
+        readValue<uint8>(data, offset + 0, b0) &&
+        readValue<int8>(data, offset + 1, b1)
+        );
 }
