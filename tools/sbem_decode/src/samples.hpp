@@ -9,6 +9,7 @@ struct Samples
     std::vector<OfflineGyroData> gyro;
     std::vector<OfflineMagnData> magn;
     std::vector<OfflineHRData> hr;
+    std::vector<OfflineRRData> rr;
     std::vector<OfflineECGData> ecg;
     std::vector<OfflineTempData> temp;
     std::vector<OfflineActivityData> activity;

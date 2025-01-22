@@ -62,6 +62,12 @@ Samples::Samples(const SbemDocument& sbem)
             if (chunk.tryRead(data))
                 hr.push_back(data);
         }
+        else if (measurement.find("OfflineMeasRR") != std::string::npos)
+        {
+            OfflineRRData data;
+            if (chunk.tryRead(data))
+                rr.push_back(data);
+        }
         else if (measurement.find("OfflineMeasECG") != std::string::npos)
         {
             OfflineECGData data;

@@ -19,7 +19,7 @@ void usage()
     printf("\n");
     printf("  Args:\n");
     printf("    measurement - Select measurement to show when using the '%s' command.\n", CMD_CSV);
-    printf("        valid values: acc|gyro|magn|ecg|hr|temp|activity|tap\n");
+    printf("        valid values: acc|gyro|magn|ecg|hr|rr|temp|activity|tap\n");
     printf("\n");
     printf("  Examples:\n");
     printf("    sbem_decode info samples.sbem\n");
@@ -81,6 +81,7 @@ int main(int argc, char* argv[])
         utils::printGyroSamples(samples);
         utils::printMagnSamples(samples);
         utils::printHRSamples(samples);
+        utils::printRRSamples(samples);
         utils::printECGSamples(samples);
         utils::printTempSamples(samples);
         utils::printActivitySamples(samples);
@@ -99,6 +100,8 @@ int main(int argc, char* argv[])
             utils::printMagnSamplesCSV(samples, std::cout);
         else if (meas == "hr")
             utils::printHRSamplesCSV(samples, std::cout);
+        else if (meas == "rr")
+            utils::printRRSamplesCSV(samples, std::cout);
         else if (meas == "ecg")
             utils::printECGSamplesCSV(samples, std::cout);
         else if (meas == "temp")

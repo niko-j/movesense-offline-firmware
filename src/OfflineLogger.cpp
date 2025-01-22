@@ -23,6 +23,7 @@ constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 13;
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_HR::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_RR::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_GYRO::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_MAGN::LID,
@@ -320,7 +321,10 @@ void OfflineLogger::onNotify(
     case WB_RES::LOCAL::MEAS_HR::LID:
     {
         auto data = value.convertTo<const WB_RES::HRData&>();
-        recordHeartRateSamples(data);
+        if (_loggedResource[WB_RES::OfflineMeasurement::HR])
+            recordHRAverages(data);
+        if (_loggedResource[WB_RES::OfflineMeasurement::RR])
+            recordRRIntervals(data);
         break;
     }
     case WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::LID:
@@ -386,6 +390,7 @@ bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
     static wb::ResourceId resourceIds[WB_RES::OfflineMeasurement::COUNT] = {
         WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID,
         WB_RES::LOCAL::MEAS_HR::ID,
+        wb::ID_INVALID_RESOURCE, // RR intervals use HR measurements
         WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID,
         WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::ID,
         WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID,
@@ -393,7 +398,7 @@ bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
         wb::ID_INVALID_RESOURCE, // Activity is based on acceleration, handle as special case
         wb::ID_INVALID_RESOURCE, // Tap detection is based on acceleration, handle as special case
     };
-    
+
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
         _loggedResource[i] = false;
@@ -413,9 +418,18 @@ bool OfflineLogger::configureMeasurements(const WB_RES::OfflineConfig& config)
                 _measurements[count].sampleRate = config.sampleRates[i];
                 count++;
             }
-            else // Handle special measurements that do not directly correspond to raw measurements
+            else // Handle special measurements
             {
-                if (i == WB_RES::OfflineMeasurement::ACTIVITY)
+                if (i == WB_RES::OfflineMeasurement::RR)
+                {
+                    if (config.sampleRates[WB_RES::OfflineMeasurement::HR] == 0)
+                    {
+                        _measurements[count].resourceId = resourceIds[WB_RES::OfflineMeasurement::HR];
+                        _measurements[count].sampleRate = 1;
+                        count++;
+                    }
+                }
+                else if (i == WB_RES::OfflineMeasurement::ACTIVITY)
                 {
                     if (config.sampleRates[WB_RES::OfflineMeasurement::ACC] == 0)
                     {
@@ -447,6 +461,7 @@ uint8_t OfflineLogger::configureDataLogger(const WB_RES::OfflineConfig& config)
     static const char* paths[WB_RES::OfflineMeasurement::COUNT] = {
         "/Offline/Meas/ECG",
         "/Offline/Meas/HR",
+        "/Offline/Meas/RR",
         "/Offline/Meas/Acc",
         "/Offline/Meas/Gyro",
         "/Offline/Meas/Magn",
@@ -526,16 +541,58 @@ void OfflineLogger::recordECGSamples(const WB_RES::ECGData& data)
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG(), ResponseOptions::ForceAsync, ecg);
 }
 
-void OfflineLogger::recordHeartRateSamples(const WB_RES::HRData& data)
+void OfflineLogger::recordHRAverages(const WB_RES::HRData& data)
 {
-    // RTOR Samples: 14 bits in registers
-    // TODO: RR: Maybe use delta compression?
-
     WB_RES::OfflineHRData hr;
     hr.average = static_cast<uint8_t>(roundf(data.average));
-    hr.rrValues = data.rrData; // max items 60
-
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_HR(), ResponseOptions::ForceAsync, hr);
+}
+
+void OfflineLogger::recordRRIntervals(const WB_RES::HRData& data)
+{
+    // RTOR samples: Bit-packed chunk of 12-bit values
+    // 4 x 12 bits = 48 bits = 6 bytes
+    constexpr uint8_t sampleBits = 12;
+    constexpr uint8_t chunkSamples = 4;
+    constexpr uint8_t bufferSize = sampleBits * chunkSamples / 8;
+
+    static uint8_t buffer[bufferSize] = {};
+    static uint8_t count = 0;
+
+    for (size_t i = 0; i < data.rrData.size(); i++)
+    {
+        uint16_t sample = data.rrData[i];
+        uint8_t bitsUsed = count * sampleBits;
+
+        uint8_t writtenBits = 0;
+        while (writtenBits < sampleBits)
+        {
+            uint8_t byteOffset = bitsUsed / 8;
+            uint8_t bitOffset = bitsUsed % 8;
+            uint8_t bitCount = MIN(8 - bitOffset, sampleBits - writtenBits);
+            uint8_t bitsLeft = sampleBits - writtenBits;
+
+            uint8_t value = sample >> (bitsLeft - bitCount);
+            uint8_t* out = buffer + byteOffset;
+            uint8_t mask = (0xFF << (8 - bitOffset));
+            uint8_t bits = (value << (8 - (bitCount + bitOffset)));
+            *out = (*out & mask) | (bits & ~mask);
+
+            bitsUsed += bitCount;
+            writtenBits += bitCount;
+        }
+
+        count += 1;
+
+        if (count == chunkSamples)
+        {
+            WB_RES::OfflineRRData rr;
+            rr.intervalData = wb::MakeArray(buffer, bufferSize);
+
+            updateResource(WB_RES::LOCAL::OFFLINE_MEAS_RR(), ResponseOptions::ForceAsync, rr);
+            count = 0;
+        }
+    }
 }
 
 void OfflineLogger::recordAccelerationSamples(const WB_RES::AccData& data)
@@ -749,7 +806,7 @@ void OfflineLogger::subscribeResources()
         auto& entry = _measurements[i];
         if (entry.resourceId != wb::ID_INVALID_RESOURCE && !entry.subscribed)
         {
-            DebugLogger::info("%s: Subscribing to measurement[%d]: %d", 
+            DebugLogger::info("%s: Subscribing to measurement[%d]: %d",
                 LAUNCHABLE_NAME, i, entry.resourceId.value);
 
             if (entry.sampleRate > 1)

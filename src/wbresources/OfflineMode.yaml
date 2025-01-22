@@ -165,29 +165,32 @@ definitions:
       description: ECG
       value: 0
     - name: 'HR'
-      description: Heartrate
+      description: Heartrate averages
       value: 1
+    - name: 'RR'
+      description: RR-intervals
+      value: 2
     - name: 'ACC'
       description: Acceleration
-      value: 2
+      value: 3
     - name: 'GYRO'
       description: Gyroscope
-      value: 3
+      value: 4
     - name: 'MAGN'
       description: Magnetometer
-      value: 4
+      value: 5
     - name: 'TEMP'
       description: Temperature
-      value: 5
+      value: 6
     - name: 'ACTIVITY'
       description: Activity
-      value: 6
+      value: 7
     - name: 'TAP'
       description: Tap detection
-      value: 7
+      value: 8
     - name: 'COUNT'
       description: Number of measurements
-      value: 8
+      value: 9
 
 datalogger:
   version: "1.0"
@@ -195,4 +198,4 @@ datalogger:
 
   resources:
     /Offline/Config:
-      array-lengths: 8
+      array-lengths: 9

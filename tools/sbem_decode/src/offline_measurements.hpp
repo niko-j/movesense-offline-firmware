@@ -112,16 +112,20 @@ struct WB_ALIGN(4) OfflineECGData : ISbemSerialized
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
 
-struct WB_ALIGN(4) OfflineHRData : ISbemSerialized
+struct WB_ALIGN(1) OfflineHRData : ISbemSerialized
 {
-	// Structure type identification and serialization
-	typedef int Structure;
-	static const whiteboard::LocalDataTypeId DATA_TYPE_ID = 26114;
-
-	WB_ALIGN(2) uint8_t average;
-	WB_ALIGN(4) whiteboard::Array< uint16 > rrValues;
+	WB_ALIGN(1) uint8 average;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+};
+
+struct WB_ALIGN(4) OfflineRRData : ISbemSerialized
+{
+	WB_ALIGN(4) whiteboard::Array< uint8 > intervals;
+
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+
+	std::vector<uint16_t> unpack() const;
 };
 
 struct WB_ALIGN(4) OfflineAccData : ISbemSerialized

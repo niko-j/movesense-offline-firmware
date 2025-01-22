@@ -1,4 +1,5 @@
 #include "offline_measurements.hpp"
+#include "utils.hpp"
 
 template<typename T>
 bool readValue(const std::vector<char>& data, size_t offset, T& out)
@@ -77,24 +78,26 @@ bool OfflineMagnData::readFrom(const std::vector<char>& data, size_t offset)
 
 bool OfflineHRData::readFrom(const std::vector<char>& data, size_t offset)
 {
-    int sampleDataSize = data.size() - sizeof(uint8); // Average BPM as u8 (0 - 250)
-    constexpr uint32_t sampleSize = sizeof(uint16_t); // 16-bit  samples
-    int samples = sampleDataSize / sampleSize;
+    return readValue<uint8>(data, offset + 0, average);
+}
 
-    if (sampleDataSize < 0 || samples <= 0)
+bool OfflineRRData::readFrom(const std::vector<char>& data, size_t offset)
+{
+    int sampleDataSizeInBits = data.size() * 8;
+    constexpr uint32_t sampleSizeInBits = 12; // 12-bit samples bit-packed
+    int samples = sampleDataSizeInBits / sampleSizeInBits;
+
+    if (sampleDataSizeInBits < 0 || samples <= 0 || sampleDataSizeInBits % 12)
         return false;
 
-    readValue<uint8>(data, offset + 0, average);
-    offset += sizeof(uint8);
-
-    for (auto i = 0; i < samples; i++)
-    {
-        uint16_t rr;
-        if (!readValue(data, offset + i * sampleSize, rr))
-            return false;
-        rrValues.push_back(rr);
-    }
+    intervals.resize(data.size());
+    memcpy(intervals.data(), data.data(), data.size());
     return true;
+}
+
+std::vector<uint16_t> OfflineRRData::unpack() const
+{
+    return utils::bitpack_unpack<uint16_t, 12>(intervals);
 }
 
 bool OfflineECGData::readFrom(const std::vector<char>& data, size_t offset)
@@ -108,6 +111,7 @@ bool OfflineECGData::readFrom(const std::vector<char>& data, size_t offset)
 
     readValue<OfflineTimestamp>(data, offset + 0, timestamp);
     offset += sizeof(OfflineTimestamp);
+
     for (auto i = 0; i < samples; i++)
     {
         int16_t sample;

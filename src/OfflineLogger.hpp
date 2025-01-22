@@ -70,7 +70,8 @@ private:
     void stopLogging();
 
     void recordECGSamples(const WB_RES::ECGData& data);
-    void recordHeartRateSamples(const WB_RES::HRData& data);
+    void recordHRAverages(const WB_RES::HRData& data);
+    void recordRRIntervals(const WB_RES::HRData& data);
     void recordAccelerationSamples(const WB_RES::AccData& data);
     void recordGyroscopeSamples(const WB_RES::GyroData& data);
     void recordMagnetometerSamples(const WB_RES::MagnData& data);

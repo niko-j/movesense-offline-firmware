@@ -147,9 +147,20 @@ void utils::printHRSamples(const Samples& samples)
     for (const auto& sample : samples.hr)
     {
         std::cout
-            << "Average(" << (int) sample.average
-            << ") RR[ ";
-        for (const auto& rr : sample.rrValues)
+            << " Average(" << (int) sample.average
+            << ")\n";
+    }
+    std::cout << "}\n";
+}
+
+void utils::printRRSamples(const Samples& samples)
+{
+    std::cout << "R-to-R {\n";
+    for (const auto& entries : samples.rr)
+    {
+        auto values = entries.unpack();
+        std::cout << " RR[ ";
+        for (const auto& rr : values)
         {
             std::cout << rr << " ";
         }
@@ -333,18 +344,29 @@ std::ostream& utils::printMagnSamplesCSV(const Samples& samples, std::ostream& o
 std::ostream& utils::printHRSamplesCSV(const Samples& samples, std::ostream& out)
 {
     // Title row
-    out << "Average" << CSV_DELIMITER
-        << "RR" << std::endl;
+    out << "Average" <<  std::endl;
 
     // Data rows
     for (size_t i = 0; i < samples.hr.size(); i++)
     {
-        const auto& entry = samples.hr[i];
-        for (size_t j = 0; j < entry.rrValues.size(); j++)
+        out << (int) samples.hr[i].average << std::endl;
+    }
+
+    return out;
+}
+
+std::ostream& utils::printRRSamplesCSV(const Samples& samples, std::ostream& out)
+{
+    // Title row
+    out << "RR" << std::endl;
+
+    // Data rows
+    for (size_t i = 0; i < samples.rr.size(); i++)
+    {
+        auto values = samples.rr[i].unpack();
+        for (size_t j = 0; j < values.size(); j++)
         {
-            out
-                << (int) entry.average << CSV_DELIMITER
-                << entry.rrValues[j] << std::endl;
+            out << values[j] << std::endl;
         }
     }
 
