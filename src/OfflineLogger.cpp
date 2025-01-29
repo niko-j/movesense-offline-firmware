@@ -1,6 +1,7 @@
 #include "movesense.h"
 #include "OfflineLogger.hpp"
 #include "OfflineTypes.hpp"
+#include "utils/BitPack.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -557,40 +558,21 @@ void OfflineLogger::recordRRIntervals(const WB_RES::HRData& data)
     constexpr uint8_t bufferSize = sampleBits * chunkSamples / 8;
 
     static uint8_t buffer[bufferSize] = {};
-    static uint8_t count = 0;
+    static uint8_t index = 0;
 
     for (size_t i = 0; i < data.rrData.size(); i++)
     {
         uint16_t sample = data.rrData[i];
-        uint8_t bitsUsed = count * sampleBits;
+        bit_pack::write<uint16_t, sampleBits, chunkSamples>(sample, buffer, index);
+        index += 1;
 
-        uint8_t writtenBits = 0;
-        while (writtenBits < sampleBits)
-        {
-            uint8_t byteOffset = bitsUsed / 8;
-            uint8_t bitOffset = bitsUsed % 8;
-            uint8_t bitCount = MIN(8 - bitOffset, sampleBits - writtenBits);
-            uint8_t bitsLeft = sampleBits - writtenBits;
-
-            uint8_t value = sample >> (bitsLeft - bitCount);
-            uint8_t* out = buffer + byteOffset;
-            uint8_t mask = (0xFF << (8 - bitOffset));
-            uint8_t bits = (value << (8 - (bitCount + bitOffset)));
-            *out = (*out & mask) | (bits & ~mask);
-
-            bitsUsed += bitCount;
-            writtenBits += bitCount;
-        }
-
-        count += 1;
-
-        if (count == chunkSamples)
+        if (index == chunkSamples)
         {
             WB_RES::OfflineRRData rr;
             rr.intervalData = wb::MakeArray(buffer, bufferSize);
 
             updateResource(WB_RES::LOCAL::OFFLINE_MEAS_RR(), ResponseOptions::ForceAsync, rr);
-            count = 0;
+            index = 0;
         }
     }
 }
