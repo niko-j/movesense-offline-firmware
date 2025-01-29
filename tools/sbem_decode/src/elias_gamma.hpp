@@ -45,7 +45,7 @@ namespace elias_gamma
     }
 
     template<typename T, bool Signed>
-    inline int encode_value(const T& value, uint64_t& outValue)
+    inline size_t encode_value(const T& value, uint64_t& outValue)
     {
         outValue = 0;
 
@@ -158,7 +158,7 @@ namespace elias_gamma
         for (size_t i = 0; i < count; i++)
         {
             uint64_t encodedValue = 0;
-            int sampleBits = encode_value<T, Signed>(samples[i], encodedValue);
+            size_t sampleBits = encode_value<T, Signed>(samples[i], encodedValue);
             if (!(writtenBits + sampleBits < bufferSize * 8))
                 break; // Out of buffer
 

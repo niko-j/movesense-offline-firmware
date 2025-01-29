@@ -124,6 +124,21 @@ bool OfflineECGData::readFrom(const std::vector<char>& data, size_t offset)
     return true;
 }
 
+bool OfflineECGCompressedData::readFrom(const std::vector<char>& data, size_t offset)
+{
+    constexpr size_t BlockSize = 32;
+    int payload = data.size() - sizeof(timestamp);
+    if (payload != BlockSize)
+        return false;
+
+    readValue<OfflineTimestamp>(data, offset, timestamp);
+    offset += sizeof(OfflineTimestamp);
+
+    DeltaCompression<int16, BlockSize> dc;
+    sampleData= dc.decompress_block(data.data() + offset);
+    return true;
+}
+
 bool OfflineTempData::readFrom(const std::vector<char>& data, size_t offset)
 {
     return (

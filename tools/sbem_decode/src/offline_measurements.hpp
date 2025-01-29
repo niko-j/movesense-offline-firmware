@@ -112,6 +112,11 @@ struct WB_ALIGN(4) OfflineECGData : ISbemSerialized
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
 
+struct WB_ALIGN(4) OfflineECGCompressedData : OfflineECGData
+{
+	virtual bool readFrom(const std::vector<char>&data, size_t offset);
+};
+
 struct WB_ALIGN(1) OfflineHRData : ISbemSerialized
 {
 	WB_ALIGN(1) uint8 average;

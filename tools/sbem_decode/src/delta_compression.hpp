@@ -11,7 +11,7 @@ public:
 private:
     static_assert(sizeof(TSample) <= (BlockSize + 1) && "Too small block size");
 
-    inline TSample calculate_diffs(
+    static inline TSample calculate_diffs(
         TSample init,
         const TSample* samples,
         size_t sampleCount,
@@ -26,7 +26,7 @@ private:
         return value;
     }
 
-    inline TSample calculate_values(
+    static inline TSample calculate_values(
         TSample init,
         const TSample* deltas,
         size_t deltaCount,
@@ -104,7 +104,7 @@ public:
         return processedSamples;
     }
 
-    std::vector<TSample> decompress_block(const char* data)
+    static std::vector<TSample> decompress_block(const char* data)
     {
         std::vector<TSample> samples;
         size_t sampleCount = data[0];

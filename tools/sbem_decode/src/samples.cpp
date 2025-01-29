@@ -54,7 +54,9 @@ Samples::Samples(const SbemDocument& sbem)
         }
         else if (measurement.find("OfflineMeasECGCompressed") != std::string::npos)
         {
-            // TODO
+            OfflineECGCompressedData data;
+            if (chunk.tryRead(data))
+                ecg.push_back(data);
         }
         else if (measurement.find("OfflineMeasTemp") != std::string::npos)
         {
