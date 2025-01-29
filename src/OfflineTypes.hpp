@@ -8,6 +8,7 @@ struct OfflineConfig
     uint8_t wakeUpBehavior = WB_RES::OfflineWakeup::DOUBLETAP;
     uint16_t sampleRates[WB_RES::OfflineMeasurement::COUNT] = {};
     uint16_t sleepDelay = 0;
+    uint8_t optionsFlags = 0;
 };
 
 WB_RES::OfflineConfig internalToWb(const OfflineConfig& config);

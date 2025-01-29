@@ -2,6 +2,7 @@
 #include "OfflineLogger.hpp"
 #include "OfflineTypes.hpp"
 #include "utils/BitPack.hpp"
+#include "utils/DeltaCompression.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -18,11 +19,15 @@
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
 
+#include <functional>
+
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 13;
+constexpr uint8_t ECG_COMPRESSION_BLOCKSIZE = 32;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_HR::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_RR::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID,
@@ -39,6 +44,7 @@ OfflineLogger::OfflineLogger()
     , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
     , _configured(false)
     , _logging(false)
+    , _ecgOptions({})
 {
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
@@ -316,7 +322,10 @@ void OfflineLogger::onNotify(
     case WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::LID:
     {
         auto data = value.convertTo<const WB_RES::ECGData&>();
-        recordECGSamples(data);
+        if (_ecgOptions.useCompression)
+            compressECGSamples(data);
+        else
+            recordECGSamples(data);
         break;
     }
     case WB_RES::LOCAL::MEAS_HR::LID:
@@ -372,7 +381,6 @@ void OfflineLogger::applyConfig(const WB_RES::OfflineConfig& config)
 {
     ASSERT(!_logging && !_configured);
     bool valid_measurements = configureMeasurements(config);
-
     if (!valid_measurements)
     {
         asyncPut(
@@ -381,6 +389,10 @@ void OfflineLogger::applyConfig(const WB_RES::OfflineConfig& config)
             WB_RES::OfflineState::ERROR_INVALID_CONFIG);
         return;
     }
+
+    _ecgOptions = {
+        .useCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES)
+    };
 
     configureDataLogger(config);
 }
@@ -477,7 +489,14 @@ uint8_t OfflineLogger::configureDataLogger(const WB_RES::OfflineConfig& config)
         _loggedResource[i] = (config.sampleRates[i] > 0);
         if (_loggedResource[i])
         {
-            entries[count].path = paths[i];
+            if (i == WB_RES::OfflineMeasurement::ECG && _ecgOptions.useCompression)
+            {
+                entries[count].path = "/Offline/Meas/ECG/Compressed";
+            }
+            else
+            {
+                entries[count].path = paths[i];
+            }
             count++;
         }
     }
@@ -540,6 +559,30 @@ void OfflineLogger::recordECGSamples(const WB_RES::ECGData& data)
     ecg.sampleData = wb::MakeArray(buffer, samples);
 
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG(), ResponseOptions::ForceAsync, ecg);
+}
+
+void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
+{
+    static DeltaCompression<int16_t, ECG_COMPRESSION_BLOCKSIZE> compressor;
+    static int16_t buffer[16];
+
+    static auto onWrite = [this](uint8_t block[ECG_COMPRESSION_BLOCKSIZE]) {
+        WbTime ts = WbTimeGet();
+        WB_RES::OfflineECGCompressedData ecg;
+        ecg.timestamp = ts / 1000; // as ms
+        ecg.bytes = wb::MakeArray(block, ECG_COMPRESSION_BLOCKSIZE);
+        updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED(), ResponseOptions::ForceAsync, ecg);
+        };
+
+    size_t samples = data.samples.size();
+    for (size_t i = 0; i < samples; i++)
+    {
+        buffer[i] = (data.samples[i] >> 2);
+    }
+
+    size_t compressed = compressor.pack_continuous(wb::MakeArray(buffer), onWrite);
+    if(compressed != samples)
+        DebugLogger::error("%s: Failure to compress ECG samples", LAUNCHABLE_NAME);
 }
 
 void OfflineLogger::recordHRAverages(const WB_RES::HRData& data)

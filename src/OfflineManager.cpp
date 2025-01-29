@@ -20,7 +20,7 @@ const char* const OfflineManager::LAUNCHABLE_NAME = "OfflineMan";
 
 constexpr uint8_t EEPROM_CONFIG_INDEX = 0;
 constexpr uint32_t EEPROM_CONFIG_ADDR = 0;
-constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0x42; // Change this for breaking changes
+constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0x40; // Change this for breaking changes
 
 constexpr uint32_t TIMER_TICK_SLEEP = 1000;
 constexpr uint32_t TIMER_TICK_LED = 250;

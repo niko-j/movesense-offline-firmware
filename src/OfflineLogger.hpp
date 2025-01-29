@@ -70,6 +70,7 @@ private:
     void stopLogging();
 
     void recordECGSamples(const WB_RES::ECGData& data);
+    void compressECGSamples(const WB_RES::ECGData& data);
     void recordHRAverages(const WB_RES::HRData& data);
     void recordRRIntervals(const WB_RES::HRData& data);
     void recordAccelerationSamples(const WB_RES::AccData& data);
@@ -82,6 +83,11 @@ private:
     bool _configured;
     bool _logging;
     bool _loggedResource[WB_RES::OfflineMeasurement::COUNT];
+
+    struct ECGOptions
+    {
+        bool useCompression;
+    } _ecgOptions;
     
     struct ResourceEntry
     {

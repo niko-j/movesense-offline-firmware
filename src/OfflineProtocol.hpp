@@ -127,10 +127,10 @@ struct OfflineStatusPacket : public OfflinePacket
 
 struct OfflineConfigPacket : public OfflinePacket
 {
-    OFFLINE_PACKET(OfflineConfigPacket, OfflinePacketTypeConfig, 2 + 3 + 2 * WB_RES::OfflineMeasurement::COUNT);
+    OFFLINE_PACKET(OfflineConfigPacket, OfflinePacketTypeConfig, 2 + 4 + 2 * WB_RES::OfflineMeasurement::COUNT);
     OFFLINE_PACKET_SBEM_PROPERTY(
         WB_RES::OfflineConfig, WB_RES::LOCAL::OFFLINE_CONFIG::LID,
-        Config, 3 + 2 * WB_RES::OfflineMeasurement::COUNT, 2);
+        Config, 4 + 2 * WB_RES::OfflineMeasurement::COUNT, 2);
 };
 
 struct OfflineDataPacket : public OfflinePacket

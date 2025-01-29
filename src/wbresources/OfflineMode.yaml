@@ -92,6 +92,7 @@ definitions:
       - WakeUpBehavior
       - SampleRates
       - SleepDelay
+      - Options
     properties:
       WakeUpBehavior:
         description: Configure how the device wakes up
@@ -110,6 +111,10 @@ definitions:
         type: integer
         format: uint16
         x-unit: s
+      Options:
+        description: Additional configuration flags
+        type: integer
+        format: uint8
           
   OfflineState:
     type: integer
@@ -191,6 +196,14 @@ definitions:
     - name: 'COUNT'
       description: Number of measurements
       value: 9
+
+  OfflineOptionsFlags:    
+    type: integer
+    format: uint8
+    enum:
+    - name: 'CompressECGSamples'
+      description: Set to enable additional ECG compression
+      value: 1
 
 datalogger:
   version: "1.0"

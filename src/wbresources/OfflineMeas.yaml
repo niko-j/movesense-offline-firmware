@@ -24,6 +24,24 @@ paths:
         200:
           description: Operation completed successfully
 
+  /Offline/Meas/ECG/Compressed/Subscription:
+    post:
+      description: 
+        Subscribe to offline optimized ECG measurements
+        that utilize additional compression techniques (experimental)
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Compressed ECG data
+          schema:
+            $ref: '#/definitions/OfflineECGCompressedData'
+    delete:
+      description: Unsubscribe from offline optimized ECG measurements
+      responses:
+        200:
+          description: Operation completed successfully
+
   /Offline/Meas/HR/Subscription:
     post:
       description: Subscribe to offline optimized HR (average) measurements
@@ -172,6 +190,23 @@ definitions:
           format: int16
           x-unit: bpm
 
+  OfflineECGCompressedData:
+    required:
+      - Timestamp
+      - Bytes
+    properties:
+      Timestamp:
+        description: Local timestamp of the first measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Bytes:
+        description:
+          16-bit samples compressed using deltas 
+          and variable-length coding as 32 byte chunks
+        type: array
+        items:
+          type: integer
+          format: uint8
+
   OfflineHRData:
     required:
         - Average
@@ -274,15 +309,11 @@ definitions:
   OfflineTapData:
     required:
       - Timestamp
-      - Magnitude
       - Count
     properties:
       Timestamp:
         description: Local timestamp of the measurement
         $ref: "#/definitions/OfflineTimestamp"
-      Magnitude:
-        description: Average magnitude of the taps
-        $ref: "#/definitions/Q10_6"
       Count:
         type: integer
         format: uint8
@@ -383,6 +414,8 @@ datalogger:
   resources:
     /Offline/Meas/ECG:
       array-lengths: 16
+    /Offline/Meas/ECG/Compressed:
+      array-lengths: 32
     /Offline/Meas/RR:
       array-lengths: 6
     /Offline/Meas/Acc:

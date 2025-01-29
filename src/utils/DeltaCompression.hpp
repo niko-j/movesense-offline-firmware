@@ -1,16 +1,25 @@
 #pragma once
 #include "EliasGamma.hpp"
+#include <functional>
 
 template<typename TSample, size_t BlockSize>
 class DeltaCompression
 {
 public:
-    typedef void (*write_callback)(char data[BlockSize]);
+    using write_callback = std::function<void(uint8_t[BlockSize])>;
 
 private:
     static_assert(sizeof(TSample) <= (BlockSize + 1) && "Too small block size");
 
-    inline TSample calculate_diffs(
+    bool m_initialize;
+    uint8_t m_buffer[BlockSize - 1];
+    size_t m_usedBits;
+    uint8_t m_bufferedSamples;
+    TSample m_value;
+
+    static constexpr size_t MAX_DIFFS = 8;
+
+    static inline TSample calculate_diffs(
         TSample init, const TSample* samples, size_t sampleCount, TSample* outDeltas)
     {
         TSample value = init;
@@ -27,23 +36,16 @@ private:
         m_buffer[0] = m_bufferedSamples;
         callback(m_buffer);
     }
-    
-    bool m_initialize;
-    char m_buffer[BlockSize - 1];
-    size_t m_usedBits;
-    uint8_t m_bufferedSamples;
-    TSample m_value;
-
-    constexpr size_t MAX_DIFFS = 8;
 
 public:
     DeltaCompression()
         : m_initialize(true)
-        , m_buffer({})
         , m_usedBits(0)
         , m_bufferedSamples(0)
         , m_value(0)
-    {}
+    {
+        memset(m_buffer, 0x00, BlockSize);
+    }
 
     size_t pack_continuous(const wb::Array<TSample>& samples, write_callback callback)
     {
