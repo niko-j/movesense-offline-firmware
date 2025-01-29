@@ -22,9 +22,9 @@ constexpr uint8_t EEPROM_CONFIG_INDEX = 0;
 constexpr uint32_t EEPROM_CONFIG_ADDR = 0;
 constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0x42; // Change this for breaking changes
 
-constexpr size_t TIMER_TICK_SLEEP = 1000;
-constexpr size_t TIMER_TICK_LED = 250;
-constexpr size_t TIMER_BLE_ADV_TIMEOUT = 60 * 1000;
+constexpr uint32_t TIMER_TICK_SLEEP = 1000;
+constexpr uint32_t TIMER_TICK_LED = 250;
+constexpr uint32_t TIMER_BLE_ADV_TIMEOUT = 60 * 1000;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_CONFIG::LID,
@@ -109,7 +109,6 @@ void OfflineManager::stopModule()
         asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 0); // Movement
     else
         asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 3); // Double tap
-
 
     mModuleState = WB_RES::ModuleStateValues::STOPPED;
 }
@@ -597,11 +596,9 @@ void OfflineManager::enterSleep()
     {
         if (_shouldReset)
         {
-            // Force reset and wakeup from single tap
+            // Force reset and wakeup from connectors
             _shouldReset = false;
-
-            WB_RES::WakeUpState wakeup = { .state = 3, .level = 0 };
-            asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
+            asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
             break;
         }
         else
@@ -614,6 +611,7 @@ void OfflineManager::enterSleep()
     }
     }
 
+    // TODO: Wait a few moments before powering off??
     DebugLogger::info("%s: Goodbye!", LAUNCHABLE_NAME);
     asyncPut(WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync, WB_RES::SystemModeValues::FULLPOWEROFF);
 }
