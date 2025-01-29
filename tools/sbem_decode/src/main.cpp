@@ -1,11 +1,9 @@
 #include <iostream>
 #include <string>
-#include <filesystem>
-
-#define SBEM_IMPL
-#include "sbem.hpp"
 
 #include "utils.hpp"
+#include "sbem_loader.hpp"
+#include "sbem_utils.hpp"
 
 constexpr const char* CMD_INFO = "info";
 constexpr const char* CMD_CSV = "csv";
@@ -72,9 +70,9 @@ int main(int argc, char* argv[])
     if (cmd == CMD_INFO)
     {
         printf("== SBEM File Info ==\n");
-        utils::printHeader(sbem);
-        utils::printDescriptors(sbem);
-        utils::printDataChunks(sbem);
+        sbem_utils::printHeader(sbem, std::cout);
+        sbem_utils::printDescriptors(sbem, std::cout);
+        sbem_utils::printDataChunks(sbem, std::cout);
 
         printf("== Decoded samples ==\n");
         utils::printAccSamples(samples);
@@ -93,23 +91,23 @@ int main(int argc, char* argv[])
         std::string meas(argv[2]);
 
         if (meas == "acc")
-            utils::printAccSamplesCSV(samples, std::cout);
+            samples.writeAccSamplesCSV(std::cout);
         else if (meas == "gyro")
-            utils::printGyroSamplesCSV(samples, std::cout);
+            samples.writeGyroSamplesCSV(std::cout);
         else if (meas == "magn")
-            utils::printMagnSamplesCSV(samples, std::cout);
+            samples.writeMagnSamplesCSV(std::cout);
         else if (meas == "hr")
-            utils::printHRSamplesCSV(samples, std::cout);
+            samples.writeHRSamplesCSV(std::cout);
         else if (meas == "rr")
-            utils::printRRSamplesCSV(samples, std::cout);
+            samples.writeRRSamplesCSV(std::cout);
         else if (meas == "ecg")
-            utils::printECGSamplesCSV(samples, std::cout);
+            samples.writeECGSamplesCSV(std::cout);
         else if (meas == "temp")
-            utils::printTempSamplesCSV(samples, std::cout);
+            samples.writeTempSamplesCSV(std::cout);
         else if (meas == "activity")
-            utils::printActivitySamplesCSV(samples, std::cout);
+            samples.writeActivitySamplesCSV(std::cout);
         else if (meas == "tap")
-            utils::printTapDetectionSamplesCSV(samples, std::cout);
+            samples.writeTapDetectionSamplesCSV(std::cout);
         else
         {
             printf("Error: Unknown measurement '%s'.\n", meas.c_str());

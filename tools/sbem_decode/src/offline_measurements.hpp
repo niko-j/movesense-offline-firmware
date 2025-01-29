@@ -171,7 +171,6 @@ struct WB_ALIGN(4) OfflineActivityData : ISbemSerialized
 struct WB_ALIGN(4) OfflineTapData : ISbemSerialized
 {
 	WB_ALIGN(4) OfflineTimestamp timestamp;
-	WB_ALIGN(2) Q10_6 magnitude;
 	WB_ALIGN(1) uint8 count;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);

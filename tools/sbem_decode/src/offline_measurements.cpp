@@ -1,5 +1,6 @@
 #include "offline_measurements.hpp"
-#include "utils.hpp"
+#include "delta_compression.hpp"
+#include "bit_pack.hpp"
 
 template<typename T>
 bool readValue(const std::vector<char>& data, size_t offset, T& out)
@@ -97,7 +98,7 @@ bool OfflineRRData::readFrom(const std::vector<char>& data, size_t offset)
 
 std::vector<uint16_t> OfflineRRData::unpack() const
 {
-    return utils::bitpack_unpack<uint16_t, 12>(intervals);
+    return bit_pack::unpack<uint16_t, 12>(intervals);
 }
 
 bool OfflineECGData::readFrom(const std::vector<char>& data, size_t offset)
@@ -143,8 +144,7 @@ bool OfflineTapData::readFrom(const std::vector<char>& data, size_t offset)
 {
     return (
         readValue<uint8>(data, offset + 0, count) &&
-        readValue<OfflineTimestamp>(data, offset + sizeof(count), timestamp) &&
-        magnitude.readFrom(data, offset + sizeof(count) + sizeof(timestamp))
+        readValue<OfflineTimestamp>(data, offset + sizeof(count), timestamp)
         );
 }
 
