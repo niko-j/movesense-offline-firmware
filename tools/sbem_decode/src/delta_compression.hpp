@@ -89,7 +89,7 @@ public:
                 size_t count = std::min(MAX_DIFFS, sampleCount - processedSamples);
                 m_value = calculate_diffs(m_value, &samples[processedSamples], count, diffs);
 
-                size_t encoded = elias_gamma::encode_buffer<TSample, true>(diffs, count, m_buffer + 1, BlockSize - 1, m_usedBits);
+                size_t encoded = elias_gamma::encode_buffer<TSample>(diffs, count, m_buffer + 1, BlockSize - 1, m_usedBits);
                 processedSamples += encoded;
                 m_bufferedSamples += encoded;
 
@@ -119,7 +119,7 @@ public:
         while (samples.size() < sampleCount)
         {
             TSample diff;
-            if (elias_gamma::decode_value<TSample, true>(data + deltasOffset, deltasLen, diff, bitOffset))
+            if (elias_gamma::decode_value<TSample>(data + deltasOffset, deltasLen, diff, bitOffset))
             {
                 TSample sample;
                 init = calculate_values(init, &diff, 1, &sample);

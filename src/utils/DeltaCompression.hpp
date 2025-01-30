@@ -71,7 +71,7 @@ public:
                 size_t count = WB_MIN(MAX_DIFFS, sampleCount - processedSamples);
                 m_value = calculate_diffs(m_value, &samples[processedSamples], count, diffs);
 
-                size_t encoded = elias_gamma::encode_buffer<TSample, true>(diffs, count, m_buffer + 1, BlockSize - 1, m_usedBits);
+                size_t encoded = elias_gamma::encode_buffer<TSample>(diffs, count, m_buffer + 1, BlockSize - 1, m_usedBits);
                 processedSamples += encoded;
                 m_bufferedSamples += encoded;
 
