@@ -19,6 +19,6 @@ struct OfflineLogPacket : public OfflinePacket
 
     OfflineLogPacket(uint8_t ref);
     virtual ~OfflineLogPacket();
-    virtual bool Read(ReadableStream& stream);
-    virtual bool Write(WritableStream& stream);
+    virtual bool Read(ReadableBuffer& stream);
+    virtual bool Write(WritableBuffer& stream);
 };

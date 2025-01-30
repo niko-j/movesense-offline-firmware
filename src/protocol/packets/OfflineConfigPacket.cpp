@@ -9,7 +9,7 @@ OfflineConfigPacket::~OfflineConfigPacket()
 {
 }
 
-bool OfflineConfigPacket::Read(ReadableStream& stream)
+bool OfflineConfigPacket::Read(ReadableBuffer& stream)
 {
     bool result = OfflinePacket::Read(stream);
     result &= stream.read(&config.wakeUpBehavior, 1);
@@ -19,7 +19,7 @@ bool OfflineConfigPacket::Read(ReadableStream& stream)
     return result;
 };
 
-bool OfflineConfigPacket::Write(WritableStream& stream)
+bool OfflineConfigPacket::Write(WritableBuffer& stream)
 {
     bool result = OfflinePacket::Write(stream);
     result &= stream.write(&config.wakeUpBehavior, 1);

@@ -8,6 +8,6 @@ struct OfflineConfigPacket : public OfflinePacket
 
     OfflineConfigPacket(uint8_t ref);
     virtual ~OfflineConfigPacket();
-    virtual bool Read(ReadableStream& stream);
-    virtual bool Write(WritableStream& stream);
+    virtual bool Read(ReadableBuffer& stream);
+    virtual bool Write(WritableBuffer& stream);
 };
