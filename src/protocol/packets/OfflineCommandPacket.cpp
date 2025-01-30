@@ -10,7 +10,7 @@ OfflineCommandPacket::~OfflineCommandPacket()
 {
 }
 
-bool OfflineCommandPacket::Read(ReadableStream& stream)
+bool OfflineCommandPacket::Read(ReadableBuffer& stream)
 {
     bool result = OfflinePacket::Read(stream);
     result &= stream.read(&command, sizeof(command));
@@ -18,7 +18,7 @@ bool OfflineCommandPacket::Read(ReadableStream& stream)
     return result;
 };
 
-bool OfflineCommandPacket::Write(WritableStream& stream)
+bool OfflineCommandPacket::Write(WritableBuffer& stream)
 {
     bool result = OfflinePacket::Write(stream);
     result &= stream.write(&command, sizeof(command));

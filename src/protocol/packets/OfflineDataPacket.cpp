@@ -12,7 +12,7 @@ OfflineDataPacket::~OfflineDataPacket()
 {
 }
 
-bool OfflineDataPacket::Read(ReadableStream& stream)
+bool OfflineDataPacket::Read(ReadableBuffer& stream)
 {
     bool result = OfflinePacket::Read(stream);
     result &= stream.read(&offset, sizeof(offset));
@@ -20,7 +20,7 @@ bool OfflineDataPacket::Read(ReadableStream& stream)
     return result;
 };
 
-bool OfflineDataPacket::Write(WritableStream& stream)
+bool OfflineDataPacket::Write(WritableBuffer& stream)
 {
     bool result = OfflinePacket::Write(stream);
     result &= stream.write(&offset, sizeof(offset));

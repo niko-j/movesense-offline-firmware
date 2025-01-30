@@ -10,7 +10,7 @@ OfflinePacket::~OfflinePacket()
 {
 }
 
-bool OfflinePacket::Read(ReadableStream& stream)
+bool OfflinePacket::Read(ReadableBuffer& stream)
 {
     bool result = true;
     result &= stream.read(&type, 1);
@@ -18,7 +18,7 @@ bool OfflinePacket::Read(ReadableStream& stream)
     return result;
 };
 
-bool OfflinePacket::Write(WritableStream& stream)
+bool OfflinePacket::Write(WritableBuffer& stream)
 {
     bool result = true;
     result &= stream.write(&type, 1);

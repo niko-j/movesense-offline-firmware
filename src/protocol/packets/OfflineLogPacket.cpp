@@ -11,7 +11,7 @@ OfflineLogPacket::~OfflineLogPacket()
 {
 }
 
-bool OfflineLogPacket::Read(ReadableStream& stream)
+bool OfflineLogPacket::Read(ReadableBuffer& stream)
 {
     bool result = OfflinePacket::Read(stream);
     result &= stream.read(&count, sizeof(count));
@@ -26,7 +26,7 @@ bool OfflineLogPacket::Read(ReadableStream& stream)
     return result;
 };
 
-bool OfflineLogPacket::Write(WritableStream& stream)
+bool OfflineLogPacket::Write(WritableBuffer& stream)
 {
     bool result = OfflinePacket::Write(stream);
     result &= stream.write(&count, sizeof(count));

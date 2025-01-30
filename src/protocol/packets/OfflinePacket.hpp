@@ -1,6 +1,5 @@
 #pragma once
 #include "../OfflineTypes.hpp"
-#include "buffer/ByteBuffer.hpp"
 
 #ifndef OFFLINE_BLE_MTU
 #define OFFLINE_BLE_MTU 161
@@ -24,6 +23,6 @@ struct OfflinePacket
 
     OfflinePacket(Type packetType, uint8_t ref);
     virtual ~OfflinePacket();
-    virtual bool Read(ReadableStream& stream);
-    virtual bool Write(WritableStream& stream);
+    virtual bool Read(ReadableBuffer& stream);
+    virtual bool Write(WritableBuffer& stream);
 };

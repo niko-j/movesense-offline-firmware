@@ -10,14 +10,14 @@ OfflineStatusPacket::~OfflineStatusPacket()
 {
 }
 
-bool OfflineStatusPacket::Read(ReadableStream& stream)
+bool OfflineStatusPacket::Read(ReadableBuffer& stream)
 {
     bool result = OfflinePacket::Read(stream);
     result &= stream.read(&status, sizeof(status));
     return result;
 };
 
-bool OfflineStatusPacket::Write(WritableStream& stream)
+bool OfflineStatusPacket::Write(WritableBuffer& stream)
 {
     bool result = OfflinePacket::Write(stream);
     result &= stream.write(&status, sizeof(status));

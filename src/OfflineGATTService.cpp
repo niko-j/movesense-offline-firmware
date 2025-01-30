@@ -357,7 +357,7 @@ void OfflineGATTService::onNotify(
         WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::SUBSCRIBE::ParameterListRef parameterRef(parameters);
         const auto& ch = value.convertTo<const WB_RES::Characteristic&>();
 
-        ByteBufferConstWrapper bytes = arrayToBuffer(ch.bytes);
+        auto bytes = arrayToBuffer(ch.bytes);
         OfflinePacket::Type type;
         uint8_t ref;
         bool valid = (
@@ -572,7 +572,7 @@ void OfflineGATTService::sendData(const uint8_t* data, uint32_t size)
         packet.totalBytes = size;
 
         uint32_t len = WB_MIN(size, OfflineDataPacket::MAX_PAYLOAD);
-        packet.data = ByteBufferConstWrapper(data + sent, len);
+        packet.data = ReadableBuffer(data + sent, len);
 
         sendPacket(packet);
         sent += len;
@@ -592,7 +592,7 @@ void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize,
         packet.totalBytes = totalSize;
 
         uint32_t len = WB_MIN(partSize - sent, OfflineDataPacket::MAX_PAYLOAD);
-        packet.data = ByteBufferConstWrapper(data + sent, len);
+        packet.data = ReadableBuffer(data + sent, len);
 
         sendPacket(packet);
         sent += len;
@@ -615,7 +615,7 @@ void OfflineGATTService::sendStatusResponse(uint8_t requestRef, uint16_t status)
 
 void OfflineGATTService::sendPacket(OfflinePacket& packet)
 {
-    ByteBufferWrapper packetBuffer(buffer, OfflinePacket::MAX_PACKET_SIZE);
+    ByteBuffer packetBuffer(buffer, OfflinePacket::MAX_PACKET_SIZE);
     packetBuffer.reset();
 
     if (!packet.Write(packetBuffer))

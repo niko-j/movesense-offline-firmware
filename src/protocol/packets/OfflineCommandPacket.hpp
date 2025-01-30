@@ -1,6 +1,5 @@
 #pragma once
 #include "OfflinePacket.hpp"
-#include "buffer/ByteBuffer.hpp"
 
 struct OfflineCommandPacket : public OfflinePacket
 {
@@ -16,10 +15,10 @@ struct OfflineCommandPacket : public OfflinePacket
         CmdCount
     } command;
 
-    ByteBuffer<MAX_PARAM_DATA> params;
+    AllocatedByteBuffer<MAX_PARAM_DATA> params;
 
     OfflineCommandPacket(uint8_t ref, Command cmd = CmdUnknown);
     virtual ~OfflineCommandPacket();
-    virtual bool Read(ReadableStream& stream);
-    virtual bool Write(WritableStream& stream);
+    virtual bool Read(ReadableBuffer& stream);
+    virtual bool Write(WritableBuffer& stream);
 };

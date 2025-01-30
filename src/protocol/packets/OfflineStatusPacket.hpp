@@ -7,6 +7,6 @@ struct OfflineStatusPacket : public OfflinePacket
 
     OfflineStatusPacket(uint8_t ref, uint16_t statusCode);
     virtual ~OfflineStatusPacket();
-    virtual bool Read(ReadableStream& stream);
-    virtual bool Write(WritableStream& stream);
+    virtual bool Read(ReadableBuffer& stream);
+    virtual bool Write(WritableBuffer& stream);
 };

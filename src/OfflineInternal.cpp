@@ -23,12 +23,12 @@ OfflineConfig wbToInternal(const WB_RES::OfflineConfig& config)
     return internal;
 }
 
-wb::Array<uint8_t> bufferToArray(const WritableStream& stream)
+wb::Array<uint8_t> bufferToArray(const WritableBuffer& stream)
 {
     return wb::MakeArray(stream.get_write_ptr(), stream.get_write_pos());
 }
 
-ByteBufferConstWrapper arrayToBuffer(const wb::Array<uint8_t>& array)
+ReadableBuffer arrayToBuffer(const wb::Array<uint8_t>& array)
 {
-    return ByteBufferConstWrapper(array.begin(), array.size());
+    return ReadableBuffer(array.begin(), array.size());
 }
