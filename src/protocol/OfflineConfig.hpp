@@ -1,14 +1,38 @@
 #pragma once
-#include "app-resources/resources.h"
+#include "OfflineTypes.hpp"
 
 struct OfflineConfig
 {
-    uint8_t wakeUpBehavior = WB_RES::OfflineWakeup::DOUBLETAP;
+    enum WakeUpBehavior : uint8_t
+    {
+        WakeUpAlwaysOn = 0U,
+		WakeUpConnector = 1U,
+		WakeUpMovement = 2U,
+		WakeUpSingleTap = 3U,
+		WakeUpDoubleTap = 4U
+    };
+    
+    enum Measurement
+    {
+        MeasECG = 0U,
+		MeasHR = 1U,
+		MeasRR = 2U,
+		MeasAcc = 3U,
+		MeasGyro = 4U,
+		MeasMagn = 5U,
+		MeasTemp = 6U,
+		MeasActivity = 7U,
+		MeasTapDetect = 8U,
+		MeasCount = 9U
+    };
+
+    enum class OptionsFlags : uint8_t
+    {
+        COMPRESS_ECG = (1 << 0)
+    };
+
     uint16_t sleepDelay = 0;
     uint8_t optionsFlags = 0;
-    uint16_t sampleRates[WB_RES::OfflineMeasurement::COUNT] = {};
+    WakeUpBehavior wakeUpBehavior = WakeUpConnector;
+    uint16_t sampleRates[MeasCount] = {};
 };
-
-WB_RES::OfflineConfig internalToWb(const OfflineConfig& config);
-OfflineConfig wbToInternal(const WB_RES::OfflineConfig& config);
-

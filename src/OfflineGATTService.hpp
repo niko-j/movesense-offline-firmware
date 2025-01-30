@@ -5,7 +5,7 @@
 
 #include "app-resources/resources.h"
 #include "mem_logbook/resources.h"
-#include "protocol/OfflinePacket.hpp"
+#include "protocol/packets/OfflinePacket.hpp"
 
 struct OfflineCommandPacket;
 
@@ -91,5 +91,5 @@ private:
     Characteristic txChar;
     Characteristic rxChar;
     uint8_t pendingRequestId;
-    uint8_t buffer[OFFLINE_PACKET_SIZE];
+    uint8_t buffer[OfflinePacket::MAX_PACKET_SIZE];
 };

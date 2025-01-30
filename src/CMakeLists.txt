@@ -12,8 +12,9 @@ endif()
 
 # Create a list with all the modules
 if(NOT DEFINED MOVESENSE_MODULES)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/utils)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/compression)
     list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/protocol)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/protocol/buffer)
     list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/protocol/packets)
 endif()
 

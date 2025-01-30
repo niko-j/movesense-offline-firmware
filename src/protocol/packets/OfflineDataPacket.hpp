@@ -1,10 +1,11 @@
 #pragma once
-#include <protocol/OfflinePacket.hpp>
+#include "OfflinePacket.hpp"
+#include "buffer/Stream.hpp"
 
 /// @brief Data packet header, read/write actual data after calling Read/Write
 struct OfflineDataPacket : public OfflinePacket
 {
-    static constexpr size_t MAX_PAYLOAD = OFFLINE_PACKET_SIZE - 8;
+    static constexpr size_t MAX_PAYLOAD = MAX_PACKET_SIZE - 8;
 
     uint32_t offset;
     uint32_t totalBytes;

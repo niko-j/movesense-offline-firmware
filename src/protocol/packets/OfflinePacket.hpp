@@ -1,13 +1,16 @@
 #pragma once
-#include <wb-resources/resources.h>
-#include <utils/ByteBuffer.hpp>
+#include "../OfflineTypes.hpp"
+#include "buffer/ByteBuffer.hpp"
 
-constexpr uint32_t OFFLINE_BLE_MTU = 161;
-constexpr uint32_t OFFLINE_PACKET_SIZE = OFFLINE_BLE_MTU - 3;
-constexpr uint8_t OFFLINE_PACKET_INVALID_REF = 0;
+#ifndef OFFLINE_BLE_MTU
+#define OFFLINE_BLE_MTU 161
+#endif
 
 struct OfflinePacket
 {
+    static constexpr uint8_t INVALID_REF = 0;
+    static constexpr uint32_t MAX_PACKET_SIZE = OFFLINE_BLE_MTU - 3;
+
     enum Type : uint8_t
     {
         TypeUnknown = 0x00,

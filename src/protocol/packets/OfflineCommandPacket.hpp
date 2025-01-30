@@ -1,9 +1,10 @@
 #pragma once
-#include <protocol/OfflinePacket.hpp>
+#include "OfflinePacket.hpp"
+#include "buffer/ByteBuffer.hpp"
 
 struct OfflineCommandPacket : public OfflinePacket
 {
-    static constexpr size_t MAX_PARAM_DATA = 32;
+    static constexpr size_t MAX_PARAM_DATA = 16;
 
     enum Command : uint8_t
     {

@@ -1,5 +1,5 @@
 #pragma once
-#include <wb-resources/resources.h>
+#include "../../OfflineTypes.hpp"
 
 class WritableStream
 {
@@ -18,7 +18,6 @@ public:
     size_t get_write_pos() const;
     size_t get_write_size() const;
     void reset();
-    wb::Array<uint8_t> asArray() const;
 };
 
 class ReadableStream

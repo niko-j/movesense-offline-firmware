@@ -1,6 +1,5 @@
 #pragma once
-#include <protocol/OfflinePacket.hpp>
-#include <protocol/OfflineLogItem.hpp>
+#include "OfflinePacket.hpp"
 
 struct OfflineLogPacket : public OfflinePacket
 {
@@ -8,7 +7,15 @@ struct OfflineLogPacket : public OfflinePacket
 
     uint8_t count;
     bool complete;
-    OfflineLogItem items[MAX_ITEMS];
+
+    struct LogItem
+    {
+        uint32_t id;
+        uint32_t size;
+        uint64_t modified;
+    };
+    
+    LogItem items[MAX_ITEMS];
 
     OfflineLogPacket(uint8_t ref);
     virtual ~OfflineLogPacket();

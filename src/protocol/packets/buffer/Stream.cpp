@@ -94,8 +94,3 @@ void WritableStream::reset()
 {
     memset(m_write_ptr, 0, m_write_size);
 }
-
-wb::Array<uint8_t> WritableStream::asArray() const
-{
-    return wb::MakeArray(m_write_ptr, m_write_pos);
-}

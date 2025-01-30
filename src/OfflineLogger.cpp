@@ -1,8 +1,8 @@
 #include "movesense.h"
 #include "OfflineLogger.hpp"
-#include "utils/BitPack.hpp"
-#include "utils/DeltaCompression.hpp"
-#include "utils/FixedPoint.hpp"
+#include "compression/BitPack.hpp"
+#include "compression/DeltaCompression.hpp"
+#include "compression/FixedPoint.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"

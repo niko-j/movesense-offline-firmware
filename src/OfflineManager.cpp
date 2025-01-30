@@ -1,5 +1,6 @@
 #include "movesense.h"
 #include "OfflineManager.hpp"
+#include "OfflineInternal.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -489,7 +490,7 @@ bool OfflineManager::startRecording()
         return false;
     }
 
-    if (_advOffTimer == wb::ID_INVALID_TIMER && _config.wakeUpBehavior != WB_RES::OfflineWakeup::ALWAYSON)
+    if (_advOffTimer == wb::ID_INVALID_TIMER && _config.wakeUpBehavior != OfflineConfig::WakeUpAlwaysOn)
         _advOffTimer = ResourceClient::startTimer(TIMER_BLE_ADV_TIMEOUT, false);
 
     setState(WB_RES::OfflineState::RUNNING);

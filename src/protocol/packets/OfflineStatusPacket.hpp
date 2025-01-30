@@ -1,5 +1,5 @@
 #pragma once
-#include <protocol/OfflinePacket.hpp>
+#include "OfflinePacket.hpp"
 
 struct OfflineStatusPacket : public OfflinePacket
 {
