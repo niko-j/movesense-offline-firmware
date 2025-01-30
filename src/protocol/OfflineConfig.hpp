@@ -26,13 +26,28 @@ struct OfflineConfig
 		MeasCount = 9U
     };
 
-    enum class OptionsFlags : uint8_t
+    enum OptionsFlags : uint8_t
     {
-        COMPRESS_ECG = (1 << 0)
+        OptionsCompressECG = (1 << 0)
     };
 
     uint16_t sleepDelay = 0;
     uint8_t optionsFlags = 0;
     WakeUpBehavior wakeUpBehavior = WakeUpConnector;
-    uint16_t sampleRates[MeasCount] = {};
+
+    union {
+        struct
+        {
+            uint16_t ECG;
+            uint16_t HeartRate;
+            uint16_t RtoR;            
+            uint16_t Acc;
+            uint16_t Gyro;
+            uint16_t Magn;
+            uint16_t Temp;
+            uint16_t Activity;
+            uint16_t TapDetection;
+        } bySensor;
+        uint16_t array[MeasCount] = {};
+    } sampleRates;
 };

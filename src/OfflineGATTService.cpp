@@ -362,7 +362,8 @@ void OfflineGATTService::onNotify(
         uint8_t ref;
         bool valid = (
             bytes.read(&type, sizeof(OfflinePacket::Type)) &&
-            bytes.read(&ref, sizeof(ref))
+            bytes.read(&ref, sizeof(ref)) &&
+            bytes.seek_read(0)
             );
 
         if (!valid || ref == OfflinePacket::INVALID_REF)
