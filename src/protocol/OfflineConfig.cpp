@@ -1,4 +1,4 @@
-#include "OfflineTypes.hpp"
+#include "OfflineConfig.hpp"
 
 WB_RES::OfflineConfig internalToWb(const OfflineConfig& config)
 {

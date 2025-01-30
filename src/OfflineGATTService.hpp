@@ -5,7 +5,9 @@
 
 #include "app-resources/resources.h"
 #include "mem_logbook/resources.h"
-#include "OfflineProtocol.hpp"
+#include "protocol/OfflinePacket.hpp"
+
+struct OfflineCommandPacket;
 
 class OfflineGATTService FINAL : private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -66,7 +68,6 @@ private:
 
     void sendData(const uint8_t* data, uint32_t size);
     void sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset);
-    void sendSbem(wb::LocalResourceId resource, const wb::Value& value);
     void sendStatusResponse(uint8_t requestRef, uint16_t status);
 
     void sendPacket(OfflinePacket& packet);
@@ -90,5 +91,5 @@ private:
     Characteristic txChar;
     Characteristic rxChar;
     uint8_t pendingRequestId;
-    uint8_t buffer[OFFLINE_PACKET_BUFFER_SIZE];
+    uint8_t buffer[OFFLINE_PACKET_SIZE];
 };

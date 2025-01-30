@@ -1,8 +1,8 @@
 #include "movesense.h"
 #include "OfflineLogger.hpp"
-#include "OfflineTypes.hpp"
 #include "utils/BitPack.hpp"
 #include "utils/DeltaCompression.hpp"
+#include "utils/FixedPoint.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -20,6 +20,8 @@
 #include "DebugLogger.hpp"
 
 #include <functional>
+
+#define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
 
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 13;

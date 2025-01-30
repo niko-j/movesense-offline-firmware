@@ -1,4 +1,5 @@
 #pragma once
+#include "protocol/OfflineConfig.hpp"
 
 #include <whiteboard/LaunchableModule.h>
 #include <whiteboard/ResourceClient.h>
@@ -7,7 +8,6 @@
 #include "app-resources/resources.h"
 #include "comm_ble/resources.h"
 #include "system_states/resources.h"
-#include "OfflineTypes.hpp"
 
 class OfflineManager FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {

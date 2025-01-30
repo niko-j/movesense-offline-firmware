@@ -1,19 +1,6 @@
 #pragma once
 #include "app-resources/resources.h"
 
-#define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
-
-struct OfflineConfig
-{
-    uint8_t wakeUpBehavior = WB_RES::OfflineWakeup::DOUBLETAP;
-    uint16_t sampleRates[WB_RES::OfflineMeasurement::COUNT] = {};
-    uint16_t sleepDelay = 0;
-    uint8_t optionsFlags = 0;
-};
-
-WB_RES::OfflineConfig internalToWb(const OfflineConfig& config);
-OfflineConfig wbToInternal(const WB_RES::OfflineConfig& config);
-
 template<typename T, uint8_t F_bits>
 inline T float_to_fixed_point(float value)
 {
