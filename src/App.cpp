@@ -34,7 +34,7 @@ OPTIONAL_CORE_MODULE(CustomGattService, true)
 // Define 16kB DEBUG message area
 // NOTE: If building a simulator build, these macros are obligatory!
 DEBUGSERVICE_BUFFER_SIZE(6, 120); // 6 lines, 120 characters total
-DEBUG_EEPROM_MEMORY_AREA(true, 0, 16384)
+DEBUG_EEPROM_MEMORY_AREA(true, 1024, 15360)
 // Rest of the EEPROM is for Logbook 
 LOGBOOK_EEPROM_MEMORY_AREA(16384, MEMORY_SIZE_FILL_REST);
 
