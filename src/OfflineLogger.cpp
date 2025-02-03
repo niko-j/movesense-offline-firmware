@@ -47,6 +47,7 @@ OfflineLogger::OfflineLogger()
     , _configured(false)
     , _logging(false)
     , _options({})
+    , _loggingStartTime(0)
 {
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
@@ -519,10 +520,13 @@ bool OfflineLogger::startLogging()
     if (isSubscribedToResources() && _configured)
     {
         DebugLogger::info("%s: Resources subscribed, starting DataLogger", LAUNCHABLE_NAME);
+        _loggingStartTime = WbTimestampGet();
+
         asyncPut(
             WB_RES::LOCAL::MEM_DATALOGGER_STATE(),
             AsyncRequestOptions::ForceAsync,
             WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+
         return true;
     }
     return false;
@@ -572,10 +576,6 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
 
     static DeltaCompression<int16_t, ECG_COMPRESSION_BLOCKSIZE> compressor;
 
-    // Need to track timestamps separately since the blocks are not in sync
-    // with incoming data
-    static WbTime start = WbTimeGet();
-
     static int16_t buffer[16];
     size_t samples = data.samples.size();
     ASSERT(samples <= 16);
@@ -587,7 +587,7 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
     // Callback to write blocks as they get completed
     static auto onWrite = [&](uint8_t block[ECG_COMPRESSION_BLOCKSIZE]) {
         WB_RES::OfflineECGCompressedData ecg;
-        ecg.timestamp = (WbTimeGet() - start) / 1000;
+        ecg.timestamp = WbTimestampDifferenceMs(_loggingStartTime, WbTimestampGet());
         ecg.bytes = wb::MakeArray(block, ECG_COMPRESSION_BLOCKSIZE);
         updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED(), ResponseOptions::ForceAsync, ecg);
         };
