@@ -3,8 +3,6 @@
 
 struct OfflineCommandPacket : public OfflinePacket
 {
-    static constexpr size_t MAX_PARAM_DATA = 16;
-
     enum Command : uint8_t
     {
         CmdUnknown,
