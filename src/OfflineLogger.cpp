@@ -24,7 +24,7 @@
 #define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
 
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
-constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 13;
+constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 104;
 constexpr uint8_t ECG_COMPRESSION_BLOCKSIZE = 32;
 
 static const wb::LocalResourceId sProviderResources[] = {
@@ -750,69 +750,77 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
 
 void OfflineLogger::tapDetection(const WB_RES::AccData& data)
 {
-    constexpr float TAP_DETECTION_THRESHOLD = 12.0f;
+    constexpr uint32_t THRESHOLD = 20; // ~2g threshold
+    constexpr uint32_t LATENCY = 80; // ms, should work with the lowest sample rate
+    constexpr uint32_t TIMEOUT = 2000;
 
-    static uint8_t tap_count = 0;
-    static uint32_t tap_timestamp = 0;
-    static float tap_magnitude = 0.0f;
+    static uint8_t tapCount = 0;
+    static uint32_t tapStart = 0;
+    static uint32_t lastTimestamp = data.timestamp;
+    static uint32_t sampleCount = data.arrayAcc.size();
+    uint32_t diffTime = data.timestamp - lastTimestamp;
+    
+    if(diffTime == 0)
+        return;
+    
+    float dt = diffTime / (float) sampleCount; // delta between samples
 
-    static struct {
-        wb::FloatVector3D vec = {};
-        float len = INFINITY;
-    } min;
+    lastTimestamp = data.timestamp;
+    sampleCount = data.arrayAcc.size();
 
-    static struct {
-        wb::FloatVector3D vec = {};
-        float len = 0.0f;
-    } max;
+    static float z_prev = data.arrayAcc[0].z;
+    static float z_base = 0.0f; // Baseline before trigger
+    static float t_rise = 0.0f; // t when triggered
 
-    for (size_t i = 0; i < data.arrayAcc.size(); i++)
+    for(size_t i = 0; i < data.arrayAcc.size(); i++)
     {
-        float len = data.arrayAcc[i].length<float>();
-        if (len < min.len)
-        {
-            min.len = len;
-            min.vec = data.arrayAcc[i];
-        }
+        float t = data.timestamp + i * dt;
+        float z = data.arrayAcc[i].z;
 
-        if (len > max.len)
+        if(t_rise > 0.0f) // Threshold triggered
         {
-            max.len = len;
-            max.vec = data.arrayAcc[i];
+            if(t - t_rise < LATENCY)
+            {
+                float diff = abs(z - z_base);
+                if(diff > THRESHOLD)
+                {
+                    tapStart = data.timestamp;
+                    tapCount += 1;
+                    t_rise = 0.0f;
+                }
+            }
+            else // reset threshold
+            {
+                t_rise = 0.0f;
+            }
         }
+        else // Threshold not triggered
+        {
+            float diff = z - z_prev;
+            if(abs(diff) > THRESHOLD)
+            {
+                t_rise = t;
+                z_base = z_prev + 0.9f * diff;
+            }
+        }
+        
+        z_prev = z;
     }
 
-    float magnitude = max.vec.distance<float>(min.vec);
-    if (magnitude > TAP_DETECTION_THRESHOLD)
+    if(tapStart > 0 && data.timestamp - tapStart > TIMEOUT)
     {
-        tap_count += 1;
-        tap_timestamp = data.timestamp;
-        tap_magnitude += magnitude;
-        min = {}; max = {};
-
-        DebugLogger::info("%s: Tap detected, count %u", LAUNCHABLE_NAME, tap_count);
-    }
-
-    // No new taps within a couple seconds
-    if (tap_count > 0 && data.timestamp - tap_timestamp > 2000)
-    {
-        if (tap_count > 1) // Ignore single taps
+        if(tapCount > 1)
         {
-            WB_RES::OfflineTapData tap;
-            tap.timestamp = data.timestamp;
-            tap.magnitude = float_to_fixed_point_Q10_6(tap_magnitude / tap_count);
-            tap.count = tap_count;
+            WB_RES::OfflineTapData tapData;
+            tapData.timestamp = data.timestamp;
+            tapData.count = tapCount;
 
             updateResource(
                 WB_RES::LOCAL::OFFLINE_MEAS_TAP(),
-                ResponseOptions::ForceAsync, tap);
-
-            tap_timestamp = 0;
+                ResponseOptions::ForceAsync, tapData);
         }
-
-        tap_count = 0;
-        tap_magnitude = 0.0f;
-        min = {}; max = {};
+        tapCount = 0;
+        tapStart = 0;
     }
 }
 
