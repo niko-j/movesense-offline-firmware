@@ -56,7 +56,17 @@ Samples::Samples(const SbemDocument& sbem)
         {
             OfflineECGCompressedData data;
             if (chunk.tryRead(data))
-                ecg.push_back(data);
+            {
+                if (!ecg.empty() && data.timestamp == ecg.back().timestamp)
+                {
+                    for (const auto& s : data.sampleData)
+                        ecg.back().sampleData.push_back(s);
+                }
+                else
+                {
+                    ecg.push_back(data);
+                }
+            }
         }
         else if (measurement.find("OfflineMeasTemp") != std::string::npos)
         {
@@ -202,12 +212,12 @@ std::ostream& Samples::writeMagnSamplesCSV(std::ostream& out) const
 std::ostream& Samples::writeHRSamplesCSV(std::ostream& out) const
 {
     // Title row
-    out << "Average" <<  std::endl;
+    out << "Average" << std::endl;
 
     // Data rows
     for (size_t i = 0; i < hr.size(); i++)
     {
-        out << (int) hr[i].average << std::endl;
+        out << (int)hr[i].average << std::endl;
     }
 
     return out;
@@ -277,7 +287,7 @@ std::ostream& Samples::writeTempSamplesCSV(std::ostream& out) const
     {
         out
             << temp[i].timestamp << CSV_DELIMITER
-            << (int) temp[i].measurement << std::endl;
+            << (int)temp[i].measurement << std::endl;
     }
 
     return out;
@@ -311,7 +321,7 @@ std::ostream& Samples::writeTapDetectionSamplesCSV(std::ostream& out) const
     {
         out
             << taps[i].timestamp << CSV_DELIMITER
-            << (int) taps[i].count << std::endl;
+            << (int)taps[i].count << std::endl;
     }
 
     return out;

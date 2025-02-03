@@ -84,10 +84,10 @@ private:
     bool _logging;
     bool _loggedResource[WB_RES::OfflineMeasurement::COUNT];
 
-    struct ECGOptions
+    struct LoggerOptions
     {
-        bool useCompression;
-    } _ecgOptions;
+        bool useEcgCompression;
+    } _options;
     
     struct ResourceEntry
     {

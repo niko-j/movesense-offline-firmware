@@ -46,7 +46,7 @@ OfflineLogger::OfflineLogger()
     , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
     , _configured(false)
     , _logging(false)
-    , _ecgOptions({})
+    , _options({})
 {
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
@@ -324,7 +324,7 @@ void OfflineLogger::onNotify(
     case WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::LID:
     {
         auto data = value.convertTo<const WB_RES::ECGData&>();
-        if (_ecgOptions.useCompression)
+        if (_options.useEcgCompression)
             compressECGSamples(data);
         else
             recordECGSamples(data);
@@ -392,8 +392,8 @@ void OfflineLogger::applyConfig(const WB_RES::OfflineConfig& config)
         return;
     }
 
-    _ecgOptions = {
-        .useCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES)
+    _options = {
+        .useEcgCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES)
     };
 
     configureDataLogger(config);
@@ -491,7 +491,7 @@ uint8_t OfflineLogger::configureDataLogger(const WB_RES::OfflineConfig& config)
         _loggedResource[i] = (config.sampleRates[i] > 0);
         if (_loggedResource[i])
         {
-            if (i == WB_RES::OfflineMeasurement::ECG && _ecgOptions.useCompression)
+            if (i == WB_RES::OfflineMeasurement::ECG && _options.useEcgCompression)
             {
                 entries[count].path = "/Offline/Meas/ECG/Compressed";
             }
@@ -565,26 +565,35 @@ void OfflineLogger::recordECGSamples(const WB_RES::ECGData& data)
 
 void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
 {
-    static DeltaCompression<int16_t, ECG_COMPRESSION_BLOCKSIZE> compressor;
-    static int16_t buffer[16];
+    // EXPERIMENTAL
+    // Calculates deltas and encodes them using Elias Gamma coding with bijection
+    // This has potential compression ratio of around 60%, but it might also
+    // consume a lot more data if the signal is noisy.
 
-    static auto onWrite = [this](uint8_t block[ECG_COMPRESSION_BLOCKSIZE]) {
-        WbTime ts = WbTimeGet();
+    static DeltaCompression<int16_t, ECG_COMPRESSION_BLOCKSIZE> compressor;
+
+    // Need to track timestamps separately since the blocks are not in sync
+    // with incoming data
+    static WbTime start = WbTimeGet();
+
+    static int16_t buffer[16];
+    size_t samples = data.samples.size();
+    ASSERT(samples <= 16);
+    for (size_t i = 0; i < samples; i++)
+    {
+        buffer[i] = (data.samples[i] >> 2); // Discard 2 LSBs
+    }
+
+    // Callback to write blocks as they get completed
+    static auto onWrite = [&](uint8_t block[ECG_COMPRESSION_BLOCKSIZE]) {
         WB_RES::OfflineECGCompressedData ecg;
-        ecg.timestamp = ts / 1000; // as ms
+        ecg.timestamp = (WbTimeGet() - start) / 1000;
         ecg.bytes = wb::MakeArray(block, ECG_COMPRESSION_BLOCKSIZE);
         updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED(), ResponseOptions::ForceAsync, ecg);
         };
 
-    size_t samples = data.samples.size();
-    for (size_t i = 0; i < samples; i++)
-    {
-        buffer[i] = (data.samples[i] >> 2);
-    }
-
     size_t compressed = compressor.pack_continuous(wb::MakeArray(buffer), onWrite);
-    if(compressed != samples)
-        DebugLogger::error("%s: Failure to compress ECG samples", LAUNCHABLE_NAME);
+    ASSERT(compressed == samples);
 }
 
 void OfflineLogger::recordHRAverages(const WB_RES::HRData& data)
