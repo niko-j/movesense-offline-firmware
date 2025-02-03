@@ -25,7 +25,7 @@ constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0x40; // Change this for breaking c
 
 constexpr uint32_t TIMER_TICK_SLEEP = 1000;
 constexpr uint32_t TIMER_TICK_LED = 250;
-constexpr uint32_t TIMER_BLE_ADV_TIMEOUT = 60 * 1000;
+constexpr uint32_t TIMER_BLE_ADV_TIMEOUT = 60 * 1000 * 1000;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_CONFIG::LID,
