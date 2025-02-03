@@ -32,7 +32,7 @@ public:
     virtual ~ReadableBuffer();
 
     bool read(void* dst, size_t len);
-    bool write_to(WritableBuffer& stream);
+    bool write_to(WritableBuffer& stream, size_t len = 0);
     bool seek_read(size_t pos);
     const uint8_t* get_read_ptr() const;
     size_t get_read_pos() const;

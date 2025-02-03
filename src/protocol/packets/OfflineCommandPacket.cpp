@@ -22,6 +22,9 @@ bool OfflineCommandPacket::Write(WritableBuffer& stream)
 {
     bool result = OfflinePacket::Write(stream);
     result &= stream.write(&command, sizeof(command));
-    result &= params.write_to(stream);
+
+    if(params.get_write_pos() > 0)
+        result &= params.write_to(stream, params.get_write_pos());
+
     return result;
 }

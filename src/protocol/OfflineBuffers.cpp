@@ -63,14 +63,16 @@ bool ReadableBuffer::read(void* dst, size_t len)
     return true;
 }
 
-bool ReadableBuffer::write_to(WritableBuffer& stream)
+bool ReadableBuffer::write_to(WritableBuffer& stream, size_t len)
 {
     size_t space = stream.get_write_size() - stream.get_write_pos();
+    if(len == 0)
+        len = m_read_size;
 
-    if (m_read_size > space)
+    if (len > space)
         return false;
 
-    return stream.write(m_read_ptr, m_read_size);
+    return stream.write(m_read_ptr, len);
 }
 
 bool ReadableBuffer::seek_read(size_t pos)
