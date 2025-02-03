@@ -16,43 +16,43 @@ Samples::Samples(const SbemDocument& sbem)
         }
         auto measurement = desc->getName().value_or("");
 
-        if (measurement.find("OfflineMeasAcc") != std::string::npos)
+        if (measurement.find("OfflineMeasAcc.") != std::string::npos)
         {
             OfflineAccData data;
             if (chunk.tryRead(data))
                 acc.push_back(data);
         }
-        else if (measurement.find("OfflineMeasGyro") != std::string::npos)
+        else if (measurement.find("OfflineMeasGyro.") != std::string::npos)
         {
             OfflineGyroData data;
             if (chunk.tryRead(data))
                 gyro.push_back(data);
         }
-        else if (measurement.find("OfflineMeasMagn") != std::string::npos)
+        else if (measurement.find("OfflineMeasMagn.") != std::string::npos)
         {
             OfflineMagnData data;
             if (chunk.tryRead(data))
                 magn.push_back(data);
         }
-        else if (measurement.find("OfflineMeasHR") != std::string::npos)
+        else if (measurement.find("OfflineMeasHR.") != std::string::npos)
         {
             OfflineHRData data;
             if (chunk.tryRead(data))
                 hr.push_back(data);
         }
-        else if (measurement.find("OfflineMeasRR") != std::string::npos)
+        else if (measurement.find("OfflineMeasRR.") != std::string::npos)
         {
             OfflineRRData data;
             if (chunk.tryRead(data))
                 rr.push_back(data);
         }
-        else if (measurement.find("OfflineMeasECG") != std::string::npos)
+        else if (measurement.find("OfflineMeasECG.") != std::string::npos)
         {
             OfflineECGData data;
             if (chunk.tryRead(data))
                 ecg.push_back(data);
         }
-        else if (measurement.find("OfflineMeasECGCompressed") != std::string::npos)
+        else if (measurement.find("OfflineMeasECGCompressed.") != std::string::npos)
         {
             OfflineECGCompressedData data;
             if (chunk.tryRead(data))
@@ -68,19 +68,19 @@ Samples::Samples(const SbemDocument& sbem)
                 }
             }
         }
-        else if (measurement.find("OfflineMeasTemp") != std::string::npos)
+        else if (measurement.find("OfflineMeasTemp.") != std::string::npos)
         {
             OfflineTempData data;
             if (chunk.tryRead(data))
                 temp.push_back(data);
         }
-        else if (measurement.find("OfflineMeasActivity") != std::string::npos)
+        else if (measurement.find("OfflineMeasActivity.") != std::string::npos)
         {
             OfflineActivityData data;
             if (chunk.tryRead(data))
                 activity.push_back(data);
         }
-        else if (measurement.find("OfflineMeasTap") != std::string::npos)
+        else if (measurement.find("OfflineMeasTap.") != std::string::npos)
         {
             OfflineTapData data;
             if (chunk.tryRead(data))
