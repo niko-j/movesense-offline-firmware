@@ -15,9 +15,15 @@ struct OfflineCommandPacket : public OfflinePacket
         CmdCount
     } command;
 
-    AllocatedByteBuffer<MAX_PARAM_DATA> params;
+    union CommandParams
+    {
+        struct 
+        {
+            uint16_t logIndex;
+        } ReadLogParams;
+    } params;
 
-    OfflineCommandPacket(uint8_t ref, Command cmd = CmdUnknown);
+    OfflineCommandPacket(uint8_t ref, Command cmd = CmdUnknown, CommandParams args = {});
     virtual ~OfflineCommandPacket();
     virtual bool Read(ReadableBuffer& stream);
     virtual bool Write(WritableBuffer& stream);

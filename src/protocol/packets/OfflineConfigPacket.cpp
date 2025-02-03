@@ -1,8 +1,8 @@
 #include "OfflineConfigPacket.hpp"
 
-OfflineConfigPacket::OfflineConfigPacket(uint8_t ref)
+OfflineConfigPacket::OfflineConfigPacket(uint8_t ref, OfflineConfig conf)
     : OfflinePacket(OfflinePacket::TypeConfig, ref)
-    , config({})
+    , config(conf)
 {
 }
 OfflineConfigPacket::~OfflineConfigPacket()

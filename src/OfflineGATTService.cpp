@@ -512,20 +512,10 @@ void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
     }
     case OfflineCommandPacket::CmdReadLog:
     {
-        const auto& params = bufferToArray(packet.params);
-        if (params.size() == 2)
-        {
-            uint16_t id = *reinterpret_cast<const uint16_t*>(params.begin());
-            DebugLogger::info("%s: Requested log (ref: %u) (id: %u)",
-                LAUNCHABLE_NAME, pendingRequestId, id);
-            asyncSendLog(id);
-        }
-        else
-        {
-            DebugLogger::error("%s: Missing parameters (ref: %u) Expected: 2 bytes, got %u",
-                LAUNCHABLE_NAME, pendingRequestId, params.size());
-            sendStatusResponse(packet.reference, wb::HTTP_CODE_BAD_REQUEST);
-        }
+        uint16_t id = packet.params.ReadLogParams.logIndex;
+        DebugLogger::info("%s: Requested log (ref: %u) (id: %u)",
+            LAUNCHABLE_NAME, pendingRequestId, id);
+        asyncSendLog(id);
         break;
     }
     case OfflineCommandPacket::CmdClearLogs:
