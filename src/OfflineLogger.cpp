@@ -710,11 +710,16 @@ void OfflineLogger::recordActivity(const WB_RES::AccData& data)
     size_t count = data.arrayAcc.size();
     for (size_t i = 0; i < count; i++)
     {
-        total_len += data.arrayAcc[i].length<float>();
+        const auto& s = data.arrayAcc[i];
+
+        // Remove gravity, we do not care about the orientation, 
+        // only the lengths of components and total acceleration
+        wb::FloatVector3D v(s.x, s.y, fabs(s.z) - 9.81);
+        total_len += v.length<float>();
     }
     float avg_len = total_len / count;
 
-    accumulated_average += MAX(avg_len - 9.81f, 0.0f);
+    accumulated_average += avg_len;
     acc_count += 1;
 
     uint32_t timediff = data.timestamp - activity_start;
