@@ -25,7 +25,6 @@
 
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
 constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 104;
-constexpr uint8_t ECG_COMPRESSION_BLOCKSIZE = 32;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,
@@ -574,7 +573,8 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
     // This has potential compression ratio of around 60%, but it might also
     // consume a lot more data if the signal is noisy.
 
-    static DeltaCompression<int16_t, ECG_COMPRESSION_BLOCKSIZE> compressor;
+    constexpr uint8_t BLOCK_SIZE = 48;
+    static DeltaCompression<int16_t, BLOCK_SIZE> compressor;
 
     static int16_t buffer[16];
     size_t samples = data.samples.size();
@@ -585,10 +585,10 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
     }
 
     // Callback to write blocks as they get completed
-    static auto onWrite = [&](uint8_t block[ECG_COMPRESSION_BLOCKSIZE]) {
+    static auto onWrite = [&](uint8_t block[BLOCK_SIZE]) {
         WB_RES::OfflineECGCompressedData ecg;
         ecg.timestamp = WbTimestampDifferenceMs(_loggingStartTime, WbTimestampGet());
-        ecg.bytes = wb::MakeArray(block, ECG_COMPRESSION_BLOCKSIZE);
+        ecg.bytes = wb::MakeArray(block, BLOCK_SIZE);
         updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED(), ResponseOptions::ForceAsync, ecg);
         };
 
@@ -598,24 +598,37 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
 
 void OfflineLogger::recordHRAverages(const WB_RES::HRData& data)
 {
+    static uint8_t last = 0;
+    uint8_t average = static_cast<uint8_t>(roundf(data.average));
+
+    if (last != average)
+        return;
+    last = average;
+
     WB_RES::OfflineHRData hr;
-    hr.average = static_cast<uint8_t>(roundf(data.average));
+    hr.timestamp = WbTimestampDifferenceMs(_loggingStartTime, WbTimestampGet());
+    hr.average = average;
+
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_HR(), ResponseOptions::ForceAsync, hr);
 }
 
 void OfflineLogger::recordRRIntervals(const WB_RES::HRData& data)
 {
     // RTOR samples: Bit-packed chunk of 12-bit values
-    // 4 x 12 bits = 48 bits = 6 bytes
+    // 8 x 12 bits = 96 bits = 8 bytes
     constexpr uint8_t sampleBits = 12;
-    constexpr uint8_t chunkSamples = 4;
+    constexpr uint8_t chunkSamples = 8;
     constexpr uint8_t bufferSize = sampleBits * chunkSamples / 8;
 
     static uint8_t buffer[bufferSize] = {};
     static uint8_t index = 0;
+    static uint32_t timestamp = 0;
 
     for (size_t i = 0; i < data.rrData.size(); i++)
     {
+        if (index == 0) // Update timestamp on first sample
+            timestamp = WbTimestampDifferenceMs(_loggingStartTime, WbTimestampGet());
+
         uint16_t sample = data.rrData[i];
         bit_pack::write<uint16_t, sampleBits, chunkSamples>(sample, buffer, index);
         index += 1;
@@ -623,6 +636,7 @@ void OfflineLogger::recordRRIntervals(const WB_RES::HRData& data)
         if (index == chunkSamples)
         {
             WB_RES::OfflineRRData rr;
+            rr.timestamp = timestamp;
             rr.intervalData = wb::MakeArray(buffer, bufferSize);
 
             updateResource(WB_RES::LOCAL::OFFLINE_MEAS_RR(), ResponseOptions::ForceAsync, rr);
@@ -759,11 +773,11 @@ void OfflineLogger::tapDetection(const WB_RES::AccData& data)
     static uint32_t lastTimestamp = data.timestamp;
     static uint32_t sampleCount = data.arrayAcc.size();
     uint32_t diffTime = data.timestamp - lastTimestamp;
-    
-    if(diffTime == 0)
+
+    if (diffTime == 0)
         return;
-    
-    float dt = diffTime / (float) sampleCount; // delta between samples
+
+    float dt = diffTime / (float)sampleCount; // delta between samples
 
     lastTimestamp = data.timestamp;
     sampleCount = data.arrayAcc.size();
@@ -772,17 +786,17 @@ void OfflineLogger::tapDetection(const WB_RES::AccData& data)
     static float z_base = 0.0f; // Baseline before trigger
     static float t_rise = 0.0f; // t when triggered
 
-    for(size_t i = 0; i < data.arrayAcc.size(); i++)
+    for (size_t i = 0; i < data.arrayAcc.size(); i++)
     {
         float t = data.timestamp + i * dt;
         float z = data.arrayAcc[i].z;
 
-        if(t_rise > 0.0f) // Threshold triggered
+        if (t_rise > 0.0f) // Threshold triggered
         {
-            if(t - t_rise < LATENCY)
+            if (t - t_rise < LATENCY)
             {
                 float diff = abs(z - z_base);
-                if(diff > THRESHOLD)
+                if (diff > THRESHOLD)
                 {
                     tapStart = data.timestamp;
                     tapCount += 1;
@@ -797,19 +811,19 @@ void OfflineLogger::tapDetection(const WB_RES::AccData& data)
         else // Threshold not triggered
         {
             float diff = z - z_prev;
-            if(abs(diff) > THRESHOLD)
+            if (abs(diff) > THRESHOLD)
             {
                 t_rise = t;
                 z_base = z_prev + 0.9f * diff;
             }
         }
-        
+
         z_prev = z;
     }
 
-    if(tapStart > 0 && data.timestamp - tapStart > TIMEOUT)
+    if (tapStart > 0 && data.timestamp - tapStart > TIMEOUT)
     {
-        if(tapCount > 1)
+        if (tapCount > 1)
         {
             WB_RES::OfflineTapData tapData;
             tapData.timestamp = data.timestamp;

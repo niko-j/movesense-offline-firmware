@@ -209,8 +209,12 @@ definitions:
 
   OfflineHRData:
     required:
+        - Timestamp
         - Average
     properties:
+      Timestamp:
+        description: Local timestamp
+        $ref: "#/definitions/OfflineTimestamp"
       Average:
         description: Average heartrate
         type: integer
@@ -221,8 +225,12 @@ definitions:
 
   OfflineRRData:
     required:
+      - Timestamp
       - IntervalData
     properties:
+      Timestamp:
+        description: Local timestamp of the first measurement
+        $ref: "#/definitions/OfflineTimestamp"
       IntervalData:
         description: |
           Bit-packed chunk of 4 x 12-bit RR-intervals (6 bytes in total).
@@ -417,7 +425,7 @@ datalogger:
     /Offline/Meas/ECG/Compressed:
       array-lengths: 32
     /Offline/Meas/RR:
-      array-lengths: 6
+      array-lengths: 12
     /Offline/Meas/Acc:
       array-lengths: 1,2,4,8
     /Offline/Meas/Gyro:
