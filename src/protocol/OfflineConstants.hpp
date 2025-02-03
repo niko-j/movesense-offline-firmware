@@ -1,0 +1,8 @@
+#pragma once
+#include "OfflineTypes.hpp"
+
+constexpr uint16_t SENSOR_SAMPLERATE_OFF = 0;
+constexpr uint16_t SENSOR_SAMPLERATE_ON = 1;
+constexpr uint16_t SENSOR_SAMPLERATES_ECG[] = { SENSOR_SAMPLERATE_OFF, 125, 128, 200, 250, 256, 500, 512 };
+constexpr uint16_t SENSOR_SAMPLERATES_IMU[] = { SENSOR_SAMPLERATE_OFF, 13, 26, 52, 104, 208, 416, 833, 1666 };
+constexpr uint16_t SENSOR_SAMPLERATES_TOGGLE[] = { SENSOR_SAMPLERATE_OFF, SENSOR_SAMPLERATE_ON };
