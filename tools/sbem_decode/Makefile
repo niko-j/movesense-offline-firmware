@@ -16,9 +16,10 @@ executable:
 		-I./src \
 		./src/offline_measurements.cpp \
 		./src/samples.cpp \
+		./src/sample_utils.cpp \
+		./src/sample_csv.cpp \
 		./src/sbem_loader.cpp \
 		./src/sbem_utils.cpp \
-		./src/utils.cpp \
 		./src/main.cpp
 
 clean:

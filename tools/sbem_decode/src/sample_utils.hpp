@@ -6,7 +6,7 @@
 #include "sbem.hpp"
 #include "samples.hpp"
 
-namespace utils
+namespace sample_utils
 {
     void printAccSamples(const Samples& samples);
     void printGyroSamples(const Samples& samples);

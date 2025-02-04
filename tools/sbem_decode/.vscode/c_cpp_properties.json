@@ -1,14 +1,13 @@
 {
     "configurations": [
         {
-            "name": "SBEM Decoder",
+            "name": "Default",
             "includePath": [
                 "${workspaceFolder}/src/**"
             ],
             "defines": [],
             "cStandard": "c11",
             "cppStandard": "gnu++17",
-            "intelliSenseMode": "macos-gcc-arm64",
             "compilerPath": "/usr/bin/gcc"
         }
     ],

@@ -1,7 +1,8 @@
 #include <iostream>
 #include <string>
 
-#include "utils.hpp"
+#include "sample_utils.hpp"
+#include "sample_csv.hpp"
 #include "sbem_loader.hpp"
 #include "sbem_utils.hpp"
 
@@ -40,7 +41,7 @@ int main(int argc, char* argv[])
 
     if (cmd != CMD_INFO && cmd != CMD_CSV)
     {
-        printf("Error: Unknown command: %10s\n", cmd.c_str());
+        printf("Error: Unknown command: %s\n", cmd.c_str());
         usage();
         return EXIT_FAILURE;
     }
@@ -62,7 +63,7 @@ int main(int argc, char* argv[])
     auto parseResult = sbem.parse(filepath.c_str());
     if (parseResult != SbemDocument::ParseResult::Success)
     {
-        printf("Failed to parse: (%u)\n", parseResult);
+        printf("Failed to parse: %s (%u)\n", filepath.c_str(), parseResult);
         return EXIT_FAILURE;
     }
     Samples samples(sbem);
@@ -75,15 +76,15 @@ int main(int argc, char* argv[])
         sbem_utils::printDataChunks(sbem, std::cout);
 
         printf("== Decoded samples ==\n");
-        utils::printAccSamples(samples);
-        utils::printGyroSamples(samples);
-        utils::printMagnSamples(samples);
-        utils::printHRSamples(samples);
-        utils::printRRSamples(samples);
-        utils::printECGSamples(samples);
-        utils::printTempSamples(samples);
-        utils::printActivitySamples(samples);
-        utils::printTapDetectionSamples(samples);
+        sample_utils::printAccSamples(samples);
+        sample_utils::printGyroSamples(samples);
+        sample_utils::printMagnSamples(samples);
+        sample_utils::printHRSamples(samples);
+        sample_utils::printRRSamples(samples);
+        sample_utils::printECGSamples(samples);
+        sample_utils::printTempSamples(samples);
+        sample_utils::printActivitySamples(samples);
+        sample_utils::printTapDetectionSamples(samples);
     }
 
     if (cmd == CMD_CSV)
@@ -91,23 +92,23 @@ int main(int argc, char* argv[])
         std::string meas(argv[2]);
 
         if (meas == "acc")
-            samples.writeAccSamplesCSV(std::cout);
+            sample_csv::writeAccSamplesCSV(samples, std::cout);
         else if (meas == "gyro")
-            samples.writeGyroSamplesCSV(std::cout);
+            sample_csv::writeGyroSamplesCSV(samples, std::cout);
         else if (meas == "magn")
-            samples.writeMagnSamplesCSV(std::cout);
+            sample_csv::writeMagnSamplesCSV(samples, std::cout);
         else if (meas == "hr")
-            samples.writeHRSamplesCSV(std::cout);
+            sample_csv::writeHRSamplesCSV(samples, std::cout);
         else if (meas == "rr")
-            samples.writeRRSamplesCSV(std::cout);
+            sample_csv::writeRRSamplesCSV(samples, std::cout);
         else if (meas == "ecg")
-            samples.writeECGSamplesCSV(std::cout);
+            sample_csv::writeECGSamplesCSV(samples, std::cout);
         else if (meas == "temp")
-            samples.writeTempSamplesCSV(std::cout);
+            sample_csv::writeTempSamplesCSV(samples, std::cout);
         else if (meas == "activity")
-            samples.writeActivitySamplesCSV(std::cout);
+            sample_csv::writeActivitySamplesCSV(samples, std::cout);
         else if (meas == "tap")
-            samples.writeTapDetectionSamplesCSV(std::cout);
+            sample_csv::writeTapDetectionSamplesCSV(samples, std::cout);
         else
         {
             printf("Error: Unknown measurement '%s'.\n", meas.c_str());

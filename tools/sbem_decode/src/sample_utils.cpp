@@ -1,4 +1,4 @@
-#include "utils.hpp"
+#include "sample_utils.hpp"
 
 template<typename T>
 void printImuSamples(const std::string& name, const std::vector<T>& samples)
@@ -8,8 +8,8 @@ void printImuSamples(const std::string& name, const std::vector<T>& samples)
     {
         const auto& a = samples.at(0);
         const auto& b = samples.at(1);
-        double interval = utils::calculateSampleInterval(a.timestamp, a.measurements.size(), b.timestamp);
-        samplerate = utils::calculateSampleRate(interval);
+        double interval = sample_utils::calculateSampleInterval(a.timestamp, a.measurements.size(), b.timestamp);
+        samplerate = sample_utils::calculateSampleRate(interval);
     }
 
     std::cout << name << " SampleRate(" << samplerate << " Hz) {\n";
@@ -29,40 +29,41 @@ void printImuSamples(const std::string& name, const std::vector<T>& samples)
     std::cout << "}\n";
 }
 
-void utils::printAccSamples(const Samples& samples)
+void sample_utils::printAccSamples(const Samples& samples)
 {
     printImuSamples("Acc", samples.acc);
 }
 
-void utils::printGyroSamples(const Samples& samples)
+void sample_utils::printGyroSamples(const Samples& samples)
 {
     printImuSamples("Gyro", samples.gyro);
 }
 
-void utils::printMagnSamples(const Samples& samples)
+void sample_utils::printMagnSamples(const Samples& samples)
 {
     printImuSamples("Magn", samples.magn);
 }
 
-void utils::printHRSamples(const Samples& samples)
+void sample_utils::printHRSamples(const Samples& samples)
 {
     std::cout << "HR {\n";
     for (const auto& sample : samples.hr)
     {
-        std::cout
+        std::cout 
+            << " @" << sample.timestamp
             << " Average(" << (int) sample.average
             << ")\n";
     }
     std::cout << "}\n";
 }
 
-void utils::printRRSamples(const Samples& samples)
+void sample_utils::printRRSamples(const Samples& samples)
 {
     std::cout << "R-to-R {\n";
     for (const auto& entries : samples.rr)
     {
         auto values = entries.unpack();
-        std::cout << " RR[ ";
+        std::cout << " @" << entries.timestamp << " [ ";
         for (const auto& rr : values)
         {
             std::cout << rr << " ";
@@ -72,7 +73,7 @@ void utils::printRRSamples(const Samples& samples)
     std::cout << "}\n";
 }
 
-void utils::printECGSamples(const Samples& samples)
+void sample_utils::printECGSamples(const Samples& samples)
 {
     uint16_t samplerate = 0;
     if (samples.ecg.size() > 1)
@@ -96,33 +97,41 @@ void utils::printECGSamples(const Samples& samples)
     std::cout << "}\n";
 }
 
-void utils::printTempSamples(const Samples& samples)
+void sample_utils::printTempSamples(const Samples& samples)
 {
     std::cout << "Temp {\n";
     for (const auto& sample : samples.temp)
     {
-        std::cout << " @" << sample.timestamp << " Value(" << (int) sample.measurement << ")\n";
+        std::cout 
+            << " @" << sample.timestamp 
+            << " Value(" << (int) sample.measurement 
+            << ")\n";
     }
     std::cout << "}\n";
 }
 
-void utils::printActivitySamples(const Samples& samples)
+void sample_utils::printActivitySamples(const Samples& samples)
 {
     std::cout << "Activity {\n";
     for (const auto& sample : samples.activity)
     {
-        std::cout << " @" << sample.timestamp << " Value(" << sample.activity.toFloat() << ")\n";
+        std::cout 
+            << " @" << sample.timestamp 
+            << " Value(" << sample.activity.toFloat() 
+            << ")\n";
     }
     std::cout << "}\n";
 }
 
-void utils::printTapDetectionSamples(const Samples& samples)
+void sample_utils::printTapDetectionSamples(const Samples& samples)
 {
     std::cout << "TapDetection {\n";
     for (const auto& sample : samples.taps)
     {
-        std::cout << " @" << sample.timestamp 
-            << " Count(" << (int) sample.count << ")\n";
+        std::cout 
+            << " @" << sample.timestamp 
+            << " Count(" << (int) sample.count 
+            << ")\n";
     }
     std::cout << "}\n";
 }
