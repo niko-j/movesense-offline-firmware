@@ -1,4 +1,4 @@
 build/**
-/bak
+**.bak
 /.tmp
 *_metadata.bin
