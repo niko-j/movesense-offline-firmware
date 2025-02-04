@@ -573,7 +573,7 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
     // This has potential compression ratio of around 60%, but it might also
     // consume a lot more data if the signal is noisy.
 
-    constexpr uint8_t BLOCK_SIZE = 48;
+    constexpr uint8_t BLOCK_SIZE = 32;
     static DeltaCompression<int16_t, BLOCK_SIZE> compressor;
     static int32_t sample_offset = 0;
 

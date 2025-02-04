@@ -423,7 +423,7 @@ datalogger:
     /Offline/Meas/ECG:
       array-lengths: 16
     /Offline/Meas/ECG/Compressed:
-      array-lengths: 48
+      array-lengths: 32
     /Offline/Meas/RR:
       array-lengths: 12
     /Offline/Meas/Acc:
