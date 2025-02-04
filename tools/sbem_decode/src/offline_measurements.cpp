@@ -79,26 +79,33 @@ bool OfflineMagnData::readFrom(const std::vector<char>& data, size_t offset)
 
 bool OfflineHRData::readFrom(const std::vector<char>& data, size_t offset)
 {
-    return readValue<uint8>(data, offset + 0, average);
+    return (
+        readValue<OfflineTimestamp>(data, offset + 0, timestamp) &&
+        readValue<uint8>(data, offset + sizeof(timestamp), average)
+        );
 }
 
 bool OfflineRRData::readFrom(const std::vector<char>& data, size_t offset)
 {
-    int sampleDataSizeInBits = data.size() * 8;
+    int payload = data.size() - sizeof(timestamp);
+    int sampleDataSizeInBits = payload * 8;
     constexpr uint32_t sampleSizeInBits = 12; // 12-bit samples bit-packed
     int samples = sampleDataSizeInBits / sampleSizeInBits;
 
     if (sampleDataSizeInBits < 0 || samples <= 0 || sampleDataSizeInBits % 12)
         return false;
 
-    intervals.resize(data.size());
-    memcpy(intervals.data(), data.data(), data.size());
+    readValue<OfflineTimestamp>(data, offset + 0, timestamp);
+    offset += sizeof(OfflineTimestamp);
+
+    intervalData.resize(payload);
+    memcpy(intervalData.data(), data.data() + offset, payload);
     return true;
 }
 
 std::vector<uint16_t> OfflineRRData::unpack() const
 {
-    return bit_pack::unpack<uint16_t, 12>(intervals);
+    return bit_pack::unpack<uint16_t, 12>(intervalData);
 }
 
 bool OfflineECGData::readFrom(const std::vector<char>& data, size_t offset)
@@ -135,7 +142,7 @@ bool OfflineECGCompressedData::readFrom(const std::vector<char>& data, size_t of
     offset += sizeof(OfflineTimestamp);
 
     DeltaCompression<int16, BlockSize> dc;
-    sampleData= dc.decompress_block(data.data() + offset);
+    sampleData = dc.decompress_block(data.data() + offset);
     return true;
 }
 

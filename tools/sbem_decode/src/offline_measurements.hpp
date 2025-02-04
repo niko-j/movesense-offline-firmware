@@ -117,8 +117,9 @@ struct WB_ALIGN(4) OfflineECGCompressedData : OfflineECGData
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
 };
 
-struct WB_ALIGN(1) OfflineHRData : ISbemSerialized
+struct WB_ALIGN(4) OfflineHRData : ISbemSerialized
 {
+	WB_ALIGN(4) OfflineTimestamp timestamp;
 	WB_ALIGN(1) uint8 average;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
@@ -126,10 +127,10 @@ struct WB_ALIGN(1) OfflineHRData : ISbemSerialized
 
 struct WB_ALIGN(4) OfflineRRData : ISbemSerialized
 {
-	WB_ALIGN(4) whiteboard::Array< uint8 > intervals;
+	WB_ALIGN(4) OfflineTimestamp timestamp;
+	WB_ALIGN(4) whiteboard::Array< uint8 > intervalData;
 
 	virtual bool readFrom(const std::vector<char>&data, size_t offset);
-
 	std::vector<uint16_t> unpack() const;
 };
 
