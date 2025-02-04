@@ -83,7 +83,6 @@ private:
     bool _configured;
     bool _logging;
     bool _loggedResource[WB_RES::OfflineMeasurement::COUNT];
-    WbTimestamp _loggingStartTime;
 
     struct LoggerOptions
     {

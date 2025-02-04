@@ -46,7 +46,6 @@ OfflineLogger::OfflineLogger()
     , _configured(false)
     , _logging(false)
     , _options({})
-    , _loggingStartTime(0)
 {
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
@@ -519,8 +518,6 @@ bool OfflineLogger::startLogging()
     if (isSubscribedToResources() && _configured)
     {
         DebugLogger::info("%s: Resources subscribed, starting DataLogger", LAUNCHABLE_NAME);
-        _loggingStartTime = WbTimestampGet();
-
         asyncPut(
             WB_RES::LOCAL::MEM_DATALOGGER_STATE(),
             AsyncRequestOptions::ForceAsync,
@@ -587,7 +584,7 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
     // Callback to write blocks as they get completed
     static auto onWrite = [&](uint8_t block[BLOCK_SIZE]) {
         WB_RES::OfflineECGCompressedData ecg;
-        ecg.timestamp = WbTimestampDifferenceMs(_loggingStartTime, WbTimestampGet());
+        ecg.timestamp = WbTimestampGet();
         ecg.bytes = wb::MakeArray(block, BLOCK_SIZE);
         updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED(), ResponseOptions::ForceAsync, ecg);
         };
@@ -606,7 +603,7 @@ void OfflineLogger::recordHRAverages(const WB_RES::HRData& data)
     last = average;
 
     WB_RES::OfflineHRData hr;
-    hr.timestamp = WbTimestampDifferenceMs(_loggingStartTime, WbTimestampGet());
+    hr.timestamp = WbTimestampGet();
     hr.average = average;
 
     updateResource(WB_RES::LOCAL::OFFLINE_MEAS_HR(), ResponseOptions::ForceAsync, hr);
@@ -627,7 +624,7 @@ void OfflineLogger::recordRRIntervals(const WB_RES::HRData& data)
     for (size_t i = 0; i < data.rrData.size(); i++)
     {
         if (index == 0) // Update timestamp on first sample
-            timestamp = WbTimestampDifferenceMs(_loggingStartTime, WbTimestampGet());
+            timestamp = WbTimestampGet();
 
         uint16_t sample = data.rrData[i];
         bit_pack::write<uint16_t, sampleBits, chunkSamples>(sample, buffer, index);
