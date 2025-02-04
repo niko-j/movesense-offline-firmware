@@ -83,6 +83,7 @@ private:
     bool _configured;
     bool _logging;
     bool _loggedResource[WB_RES::OfflineMeasurement::COUNT];
+    uint16_t _ecgSampleRate;
 
     struct LoggerOptions
     {
@@ -95,6 +96,7 @@ private:
         uint16_t sampleRate = 0;
         wb::ResourceId resourceId = wb::ID_INVALID_RESOURCE;
     };
+
     ResourceEntry _measurements[MAX_MEASUREMENT_SUBSCRIPTIONS];
     ResourceEntry* findResourceEntry(wb::ResourceId id);
     bool isSubscribedToResources() const;

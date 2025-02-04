@@ -46,6 +46,7 @@ OfflineLogger::OfflineLogger()
     , _configured(false)
     , _logging(false)
     , _options({})
+    , _ecgSampleRate(0)
 {
     for (size_t i = 0; i < MAX_MEASUREMENT_SUBSCRIPTIONS; i++)
     {
@@ -395,6 +396,8 @@ void OfflineLogger::applyConfig(const WB_RES::OfflineConfig& config)
         .useEcgCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES)
     };
 
+    _ecgSampleRate = config.sampleRates[WB_RES::OfflineMeasurement::ECG];
+
     configureDataLogger(config);
 }
 
@@ -572,6 +575,7 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
 
     constexpr uint8_t BLOCK_SIZE = 48;
     static DeltaCompression<int16_t, BLOCK_SIZE> compressor;
+    static int32_t sample_offset = 0;
 
     static int16_t buffer[16];
     size_t samples = data.samples.size();
@@ -583,14 +587,21 @@ void OfflineLogger::compressECGSamples(const WB_RES::ECGData& data)
 
     // Callback to write blocks as they get completed
     static auto onWrite = [&](uint8_t block[BLOCK_SIZE]) {
+        uint8_t blockSamples = block[0];
+        int32_t offset = int32_t((1000.0f / _ecgSampleRate) * sample_offset);
+
         WB_RES::OfflineECGCompressedData ecg;
-        ecg.timestamp = WbTimestampGet();
+        ecg.timestamp = data.timestamp + offset;
         ecg.bytes = wb::MakeArray(block, BLOCK_SIZE);
         updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED(), ResponseOptions::ForceAsync, ecg);
+
+        sample_offset += blockSamples;
         };
 
     size_t compressed = compressor.pack_continuous(wb::MakeArray(buffer), onWrite);
     ASSERT(compressed == samples);
+
+    sample_offset -= samples;
 }
 
 void OfflineLogger::recordHRAverages(const WB_RES::HRData& data)
