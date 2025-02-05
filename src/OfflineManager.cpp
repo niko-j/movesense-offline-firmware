@@ -72,12 +72,14 @@ void OfflineManager::deinitModule()
 
 bool OfflineManager::startModule()
 {
+#if DEBUG
     // Setup debugging
     WB_RES::DebugLogConfig logConfig = {
         .minimalLevel = WB_RES::DebugLevel::VERBOSE
     };
     asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG(), AsyncRequestOptions::Empty, logConfig);
     asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, true);
+#endif
 
     asyncReadConfigFromEEPROM();
 

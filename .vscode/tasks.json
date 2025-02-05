@@ -25,6 +25,23 @@
             }
         },
         {
+            "label": "Build (release)",
+            "type": "shell",
+            "command": "docker",
+            "args": [
+                "exec",
+                "-it",
+                "movesense-build-env",
+                "/movesense/scripts/build.sh",
+                "release"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
             "label": "Docker build env",
             "type": "shell",
             "command": "docker",

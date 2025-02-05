@@ -2,7 +2,6 @@
 #include "OfflineInternal.hpp"
 
 #include "app-resources/resources.h"
-#include "comm_ble/resources.h"
 #include "comm_ble_gattsvc/resources.h"
 #include "sbem_types.h"
 #include "mem_logbook/resources.h"

@@ -6,7 +6,8 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [
-                "WB_HAVE_TIMERS"
+                "WB_HAVE_TIMERS",
+                "DEBUG"
             ],
             "cStandard": "c11",
             "cppStandard": "gnu++11",
