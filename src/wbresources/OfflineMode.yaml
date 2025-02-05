@@ -129,18 +129,21 @@ definitions:
     - name: "CONNECTED"
       description: Device is connected with Bluetooth
       value: 2
+    - name: "SLEEP"
+      description: Powersave mode with BLE advertising turned off, logging disabled
+      value: 3
     - name: "ERROR_SYSTEM_FAILURE"
       description: Generic failure mode
-      value: 3
+      value: 4
     - name: "ERROR_INVALID_CONFIG"
       description: Offline mode configuration is invalid
-      value: 4 
+      value: 5 
     - name: "ERROR_STORAGE_FULL"
       description: Offline data storage is full
-      value: 5
+      value: 6
     - name: "ERROR_BATTERY_LOW"
       description: "The battery is low. Writing to flash is no longer reliable."
-      value: 6
+      value: 7
 
   OfflineWakeup:
     type: integer

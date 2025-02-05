@@ -24,7 +24,7 @@
 #define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
 
 const char* const OfflineLogger::LAUNCHABLE_NAME = "OfflineLog";
-constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 104;
+constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 104; // Enough to run tap detection
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,

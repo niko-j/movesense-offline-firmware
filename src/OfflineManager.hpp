@@ -39,7 +39,19 @@ private: /* wb::ResourceClient */
         whiteboard::Result resultCode,
         const whiteboard::Value& result) OVERRIDE;
 
+    virtual void onPostResult(
+        whiteboard::RequestId requestId,
+        whiteboard::ResourceId resourceId,
+        whiteboard::Result resultCode,
+        const whiteboard::Value& result) OVERRIDE;
+
     virtual void onPutResult(
+        whiteboard::RequestId requestId,
+        whiteboard::ResourceId resourceId,
+        whiteboard::Result resultCode,
+        const whiteboard::Value& result) OVERRIDE;
+
+    virtual void onDeleteResult(
         whiteboard::RequestId requestId,
         whiteboard::ResourceId resourceId,
         whiteboard::Result resultCode,
@@ -75,14 +87,16 @@ private:
     bool validateConfig(const WB_RES::OfflineConfig& config);
 
     void enterSleep();
+    void wakeUp();
     void setState(WB_RES::OfflineState state);
+    void powerOff();
 
     void sleepTimerTick();
     void ledTimerTick();
 
     void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);
-    void handleBleAdvTimeout();
+    void setBleAdv(bool enabled);
 
     OfflineConfig _config;
 
@@ -90,6 +104,7 @@ private:
     uint8_t _connections;
     bool _deviceMoving;
     bool _shouldReset;
+    bool _bleAdvertising;
 
     wb::TimerId _sleepTimer;
     uint32_t _sleepTimerElapsed;
