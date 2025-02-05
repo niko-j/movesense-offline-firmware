@@ -5,6 +5,7 @@
 #include "comm_ble_gattsvc/resources.h"
 #include "sbem_types.h"
 #include "mem_logbook/resources.h"
+#include "movesense_time/resources.h"
 
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
@@ -14,6 +15,7 @@
 #include "protocol/packets/OfflineConfigPacket.hpp"
 #include "protocol/packets/OfflineDataPacket.hpp"
 #include "protocol/packets/OfflineLogPacket.hpp"
+#include "protocol/packets/OfflineTimePacket.hpp"
 
 const char* const OfflineGATTService::LAUNCHABLE_NAME = "OfflineGATT";
 
@@ -396,8 +398,7 @@ void OfflineGATTService::onNotify(
             OfflineCommandPacket cmd(ref);
             if (!cmd.Read(bytes))
             {
-                DebugLogger::error("%s: Corrupted command packet (ref %u) (type %u)",
-                    LAUNCHABLE_NAME, ref, type);
+                DebugLogger::error("%s: Corrupted command packet (ref %u)", LAUNCHABLE_NAME, ref);
                 sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
                 return;
             }
@@ -409,16 +410,25 @@ void OfflineGATTService::onNotify(
             OfflineConfigPacket pkt(ref);
             if (!pkt.Read(bytes))
             {
-                DebugLogger::error("%s: Corrupted config packet (ref %u) (type %u)",
-                    LAUNCHABLE_NAME, ref, type);
+                DebugLogger::error("%s: Corrupted config packet (ref %u)", LAUNCHABLE_NAME, ref);
                 sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
                 return;
             }
 
-            asyncPut(
-                WB_RES::LOCAL::OFFLINE_CONFIG(),
-                AsyncRequestOptions::Empty,
-                internalToWb(pkt.config));
+            asyncPut(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::Empty, internalToWb(pkt.config));
+            break;
+        }
+        case OfflinePacket::TypeTime:
+        {
+            OfflineTimePacket pkt(ref);
+            if (!pkt.Read(bytes))
+            {
+                DebugLogger::error("%s: Corrupted time packet (ref %u)", LAUNCHABLE_NAME, ref);
+                sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
+                return;
+            }
+
+            asyncPut(WB_RES::LOCAL::TIME(), AsyncRequestOptions::Empty, pkt.time);
             break;
         }
         default:
@@ -445,15 +455,11 @@ void OfflineGATTService::onNotify(
             DebugLogger::info("%s: Sending log data %u of %u bytes, offset %u",
                 LAUNCHABLE_NAME, data.bytes.size(), logDownload.size, data.offset);
 
-            sendPartialData(
-                &data.bytes[0], data.bytes.size(),
-                logDownload.size, data.offset);
+            sendPartialData(&data.bytes[0], data.bytes.size(), logDownload.size, data.offset);
         }
         else
         {
             // completed 
-            // TODO: (do we need to unsubscribe?)
-            // asyncUnsubscribe(resourceId, AsyncRequestOptions::Empty, index);
             logDownload = {};
         }
         break;

@@ -17,7 +17,8 @@ struct OfflinePacket
         TypeStatus = 0x02,
         TypeData = 0x03,
         TypeConfig = 0x04,
-        TypeLogList = 0x05
+        TypeLogList = 0x05,
+        TypeTime = 0x06,
     } type;
     uint8_t reference;
 
