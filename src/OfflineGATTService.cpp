@@ -389,8 +389,6 @@ void OfflineGATTService::onNotify(
             return;
         }
 
-        pendingRequestId = ref;
-
         switch (type)
         {
         case OfflinePacket::TypeCommand:
@@ -402,6 +400,8 @@ void OfflineGATTService::onNotify(
                 sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
                 return;
             }
+            
+            pendingRequestId = ref;
             handleCommand(cmd);
             break;
         }
