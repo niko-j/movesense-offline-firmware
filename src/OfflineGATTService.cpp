@@ -241,6 +241,11 @@ void OfflineGATTService::onPutResult(
         sendStatusResponse(pendingRequestId, resultCode);
         break;
     }
+    case WB_RES::LOCAL::TIME::LID:
+    {
+        sendStatusResponse(pendingRequestId, resultCode);
+        break;
+    }
     case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
     {
         if (resultCode != wb::HTTP_CODE_OK)
@@ -389,6 +394,8 @@ void OfflineGATTService::onNotify(
             return;
         }
 
+        pendingRequestId = ref;
+
         switch (type)
         {
         case OfflinePacket::TypeCommand:
@@ -401,7 +408,6 @@ void OfflineGATTService::onNotify(
                 return;
             }
             
-            pendingRequestId = ref;
             handleCommand(cmd);
             break;
         }
