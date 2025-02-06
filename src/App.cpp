@@ -1,5 +1,5 @@
 #include "OfflineManager.hpp"
-#include "OfflineLogger.hpp"
+#include "OfflineMeasurements.hpp"
 #include "OfflineGATTService.hpp"
 #include "movesense.h"
 
@@ -7,7 +7,7 @@ MOVESENSE_APPLICATION_STACKSIZE(1024)
 
 MOVESENSE_PROVIDERS_BEGIN(3)
 MOVESENSE_PROVIDER_DEF(OfflineManager)
-MOVESENSE_PROVIDER_DEF(OfflineLogger)
+MOVESENSE_PROVIDER_DEF(OfflineMeasurements)
 MOVESENSE_PROVIDER_DEF(OfflineGATTService)
 MOVESENSE_PROVIDERS_END(3)
 

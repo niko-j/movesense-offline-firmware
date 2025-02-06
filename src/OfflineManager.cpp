@@ -274,8 +274,7 @@ void OfflineManager::onPostResult(
     {
     case WB_RES::LOCAL::COMM_BLE_ADV::LID:
     {
-        DebugLogger::info("%s: BLE ADV enable, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+        DebugLogger::info("%s: BLE ADV enable, status: %d", LAUNCHABLE_NAME, resultCode);
         break;
     }
     default:
@@ -364,8 +363,7 @@ void OfflineManager::onDeleteResult(
     {
     case WB_RES::LOCAL::COMM_BLE_ADV::LID:
     {
-        DebugLogger::info("%s: BLE ADV disable, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+        DebugLogger::info("%s: BLE ADV disable, status: %d", LAUNCHABLE_NAME, resultCode);
         break;
     }
     default:

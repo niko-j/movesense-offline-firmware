@@ -172,6 +172,22 @@ paths:
         200:
           description: Operation completed successfully
 
+  /Offline/Meas/Shake/Subscription:
+    post:
+      description: Subscribe to shake detection events.
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Information about detected shaking
+          schema:
+            $ref: '#/definitions/OfflineShakeData'
+    delete:
+      description: Unsubscribe from shake detection events.
+      responses:
+        200:
+          description: Operation completed successfully
+
 definitions:
 
   OfflineECGData:
@@ -326,6 +342,20 @@ definitions:
         type: integer
         format: uint8
         description: Number of consequtive taps detected
+
+  OfflineShakeData:
+    required:
+      - Timestamp
+      - Duration
+    properties:
+      Timestamp:
+        description: Local timestamp of the measurement
+        $ref: "#/definitions/OfflineTimestamp"
+      Duration:
+        type: integer
+        format: uint32
+        description: Duration in milliseconds
+        x-unit: millisecond
 
   OfflineTimestamp:
     type: integer

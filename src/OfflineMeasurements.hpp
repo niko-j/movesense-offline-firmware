@@ -1,0 +1,129 @@
+#pragma once
+
+#include <whiteboard/LaunchableModule.h>
+#include <whiteboard/ResourceClient.h>
+#include <whiteboard/ResourceProvider.h>
+
+#include "app-resources/resources.h"
+#include "meas_ecg/resources.h"
+#include "meas_hr/resources.h"
+#include "meas_acc/resources.h"
+#include "meas_gyro/resources.h"
+#include "meas_magn/resources.h"
+#include "meas_temp/resources.h"
+
+constexpr uint8_t MAX_MEASUREMENT_SUBSCRIPTIONS = 4;
+
+class OfflineMeasurements FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
+{
+public:
+    static const char* const LAUNCHABLE_NAME;
+
+    OfflineMeasurements();
+    ~OfflineMeasurements();
+
+private: /* wb::LaunchableModule*/
+    virtual bool initModule() OVERRIDE;
+    virtual void deinitModule() OVERRIDE;
+    virtual bool startModule() OVERRIDE;
+    virtual void stopModule() OVERRIDE;
+
+private: /* wb::ResourceProvider */
+    virtual void onGetRequest(
+        const wb::Request& request,
+        const wb::ParameterList& parameters) OVERRIDE;
+
+    virtual void onPostRequest(
+        const wb::Request& request,
+        const wb::ParameterList& parameters) OVERRIDE;
+
+    virtual void onSubscribe(
+        const wb::Request& request, 
+        const wb::ParameterList& parameters) OVERRIDE;
+
+    virtual void onUnsubscribe(
+        const wb::Request& rRequest, 
+        const wb::ParameterList& parameters) OVERRIDE;
+
+private: /* wb::ResourceClient */
+    virtual void onGetResult(
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
+
+    virtual void onPostResult(
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
+
+    virtual void onPutResult(
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
+
+    virtual void onSubscribeResult(
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
+
+    virtual void onUnsubscribeResult(
+        wb::RequestId requestId, 
+        wb::ResourceId resourceId, 
+        wb::Result resultCode, 
+        const wb::Value& rResultData) OVERRIDE;
+
+    virtual void onNotify(
+        wb::ResourceId resourceId,
+        const wb::Value& value,
+        const wb::ParameterList& parameters) OVERRIDE;
+
+private:
+    bool startLogging();
+    void stopLogging();
+    uint8_t configureLogger(const WB_RES::OfflineConfig& config);
+
+    void subscribeAcc(wb::LocalResourceId resourceId);
+    void subscribeGyro(wb::LocalResourceId resourceId);
+    void subscribeMagn(wb::LocalResourceId resourceId);
+    void subscribeHR(wb::LocalResourceId resourceId);
+    void subscribeECG(wb::LocalResourceId resourceId);
+    void subscribeTemp(wb::LocalResourceId resourceId);
+
+    void dropAccSubscription(wb::LocalResourceId resourceId);
+    void dropGyroSubscription(wb::LocalResourceId resourceId);
+    void dropMagnSubscription(wb::LocalResourceId resourceId);
+    void dropHRSubscription(wb::LocalResourceId resourceId);
+    void dropECGSubscription(wb::LocalResourceId resourceId);
+    void dropTempSubscription(wb::LocalResourceId resourceId);
+
+    void recordECGSamples(const WB_RES::ECGData& data);
+    void compressECGSamples(const WB_RES::ECGData& data);
+    void recordHRAverages(const WB_RES::HRData& data);
+    void recordRRIntervals(const WB_RES::HRData& data);
+    void recordAccelerationSamples(const WB_RES::AccData& data);
+    void recordGyroscopeSamples(const WB_RES::GyroData& data);
+    void recordMagnetometerSamples(const WB_RES::MagnData& data);
+    void recordTemperatureSamples(const WB_RES::TemperatureValue& data);
+    void recordActivity(const WB_RES::AccData& data);
+    void tapDetection(const WB_RES::AccData& data);
+    void shakeDetection(const WB_RES::AccData& data);
+
+    uint16_t getSubbedAccSampleRate();
+
+    struct State
+    {
+        uint8_t subscriberCount[WB_RES::OfflineMeasurement::COUNT];
+        uint16_t measurements[WB_RES::OfflineMeasurement::COUNT];
+        bool logging = false;
+        bool configured = false;
+    } m_state;
+
+    struct Options
+    {
+        bool useEcgCompression;
+    } m_options;
+};

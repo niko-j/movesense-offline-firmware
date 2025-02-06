@@ -23,12 +23,14 @@ struct OfflineConfig
 		MeasTemp = 6U,
 		MeasActivity = 7U,
 		MeasTapDetect = 8U,
-		MeasCount = 9U
+        MeasShakeDetect = 9U,
+		MeasCount = 10U
     };
 
     enum OptionsFlags : uint8_t
     {
-        OptionsCompressECG = (1 << 0)
+        OptionsCompressECG      = (1 << 0),
+        OptionsShakeToConnect   = (1 << 1)
     };
 
     uint16_t sleepDelay = 0;
@@ -47,6 +49,7 @@ struct OfflineConfig
             uint16_t Temp;
             uint16_t Activity;
             uint16_t TapDetection;
+            uint16_t ShakeDetection;
         } bySensor;
         uint16_t array[MeasCount] = {};
     } sampleRates;
