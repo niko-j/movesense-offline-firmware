@@ -108,7 +108,7 @@ private:
         uint8_t measurements = 0;
         bool deviceMoving = true;
         bool bleAdvertising = true;
-        bool shouldReset = false;
+        bool createNewLog = false;
     } m_state;
 
     struct

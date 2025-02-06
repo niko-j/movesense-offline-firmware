@@ -283,8 +283,11 @@ void OfflineManager::onPutResult(
         if (resultCode == wb::HTTP_CODE_OK)
         {
             // Start new log after stopping data logger
-            if (m_state.id.getValue() != WB_RES::OfflineState::RUNNING)
+            if (m_state.createNewLog)
+            {
+                m_state.createNewLog = false;
                 asyncPost(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::Empty);
+            }
         }
         else
         {
@@ -474,10 +477,6 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
                 WB_RES::StateId::DOUBLETAP);
         }
     }
-    else
-    {
-        m_state.shouldReset = true; // Always reset when config changed
-    }
 
     m_config = wbToInternal(config);
     m_state.measurements = configureLogger(config);
@@ -592,6 +591,7 @@ void OfflineManager::stopLogging()
     if (m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
     {
         DebugLogger::info("%s: Stopping Data Logger...", LAUNCHABLE_NAME);
+        m_state.createNewLog = true; // Start a new entry
         asyncPut(
             WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
             WB_RES::DataLoggerState::DATALOGGER_READY);
@@ -708,20 +708,10 @@ void OfflineManager::powerOff()
     default:
     case WB_RES::OfflineWakeup::ALWAYSON:
     {
-        if (m_state.shouldReset)
-        {
-            // Force reset and wakeup from connectors
-            m_state.shouldReset = false;
-            asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
-            break;
-        }
-        else
-        {
-            DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
-                LAUNCHABLE_NAME);
-            m_timers.sleep.elapsed = 0;
-            return;
-        }
+        DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
+            LAUNCHABLE_NAME);
+        m_timers.sleep.elapsed = 0;
+        return;
     }
     }
 
@@ -865,15 +855,7 @@ void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
     }
 
     if (m_state.connections == 0) {
-        if (m_state.shouldReset)
-        {
-            // Configuration changed, needs to reset
-            powerOff();
-        }
-        else
-        {
-            startLogging();
-        }
+        startLogging();
     }
     else if (m_state.connections == 1) {
         onConnected();

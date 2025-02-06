@@ -12,8 +12,6 @@
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
 
-constexpr uint8_t MAX_MEASUREMENT_SUBSCRIPTIONS = 4;
-
 class OfflineMeasurements FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
 public:
