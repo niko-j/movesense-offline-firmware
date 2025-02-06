@@ -311,12 +311,10 @@ void OfflineManager::onPutResult(
                 WB_RES::LOCAL::OFFLINE_STATE(),
                 AsyncRequestOptions::Empty,
                 WB_RES::OfflineState::ERROR_INVALID_CONFIG);
-            m_state.configured = false;
             break;
         }
         case wb::HTTP_CODE_OK:
         {
-            m_state.configured = true;
             break;
         }
         default:
@@ -458,7 +456,6 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
     }
 
     // TODO: Validate config??
-
     bool init = m_state.id.getValue() == WB_RES::OfflineState::INIT;
     if (init)
     {
@@ -483,10 +480,11 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
     }
 
     m_config = wbToInternal(config);
-    return configureLogger(config);
+    m_state.measurements = configureLogger(config);
+    return true;
 }
 
-bool OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
+uint8_t OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
 {
     if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
         m_state.id.getValue() != WB_RES::OfflineState::CONNECTED)
@@ -494,7 +492,7 @@ bool OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
         DebugLogger::error(
             "%s: Cannot configure logger when not either in INIT or CONNECTED state",
             LAUNCHABLE_NAME);
-        return false;
+        return 0;
     }
 
     uint8_t count = 0;
@@ -552,7 +550,7 @@ bool OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
     WB_RES::DataLoggerConfig logConfig = {};
     logConfig.dataEntries.dataEntry = wb::MakeArray(entries, count);
     asyncPut(WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(), AsyncRequestOptions::Empty, logConfig);
-    return true;
+    return count;
 }
 
 bool OfflineManager::startLogging()
@@ -572,8 +570,15 @@ bool OfflineManager::startLogging()
         return true;
     }
 
-    DebugLogger::info("%s: Starting Data Logger...", LAUNCHABLE_NAME);
     setState(WB_RES::OfflineState::RUNNING);
+
+    if (m_state.measurements == 0)
+    {
+        DebugLogger::info("%s: No configured measurements.", LAUNCHABLE_NAME);
+        return true;
+    }
+
+    DebugLogger::info("%s: Starting Data Logger...", LAUNCHABLE_NAME);
 
     asyncPut(
         WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::ForceAsync,
@@ -813,7 +818,7 @@ void OfflineManager::ledTimerTick()
     bool ledOn = m_timers.led.blinks % 2;
     uint16_t nextTimeout = 0;
 
-    switch (m_state.id)
+    switch (m_state.id.getValue())
     {
     case WB_RES::OfflineState::INIT:
         nextTimeout = LED_BLINK_SERIES_INIT[blinks % 2]; break;

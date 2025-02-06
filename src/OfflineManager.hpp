@@ -83,7 +83,7 @@ private:
 
     bool startLogging();
     void stopLogging();
-    bool configureLogger(const WB_RES::OfflineConfig& config);
+    uint8_t configureLogger(const WB_RES::OfflineConfig& config);
 
     void enterSleep();
     void wakeUp();
@@ -105,9 +105,9 @@ private:
     {
         WB_RES::OfflineState id = WB_RES::OfflineState::INIT;
         uint8_t connections = 0;
+        uint8_t measurements = 0;
         bool deviceMoving = true;
         bool bleAdvertising = true;
-        bool configured = false;
         bool shouldReset = false;
     } m_state;
 
