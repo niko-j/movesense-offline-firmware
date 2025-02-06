@@ -406,13 +406,13 @@ void OfflineManager::onTimer(whiteboard::TimerId timerId)
         return;
     }
 
-    if (timerId == m_timers.sleep.id)
+    if (timerId == m_timers.led.id)
     {
         ledTimerTick();
         return;
     }
 
-    if (timerId == m_timers.sleep.id)
+    if (timerId == m_timers.ble_adv_off.id)
     {
         setBleAdv(false);
         return;
