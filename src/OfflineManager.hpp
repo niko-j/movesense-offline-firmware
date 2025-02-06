@@ -79,17 +79,17 @@ private: /* wb::ResourceClient */
 private:
     void asyncReadConfigFromEEPROM();
     void asyncSaveConfigToEEPROM();
-
-    bool startRecording();
-    bool onConnected();
-
     bool applyConfig(const WB_RES::OfflineConfig& config);
-    bool validateConfig(const WB_RES::OfflineConfig& config);
+
+    bool startLogging();
+    void stopLogging();
+    bool configureLogger(const WB_RES::OfflineConfig& config);
 
     void enterSleep();
     void wakeUp();
     void setState(WB_RES::OfflineState state);
     void powerOff();
+    bool onConnected();
 
     void sleepTimerTick();
     void ledTimerTick();
@@ -98,20 +98,37 @@ private:
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);
     void setBleAdv(bool enabled);
 
-    OfflineConfig _config;
+    OfflineConfig m_config = {};
+    char m_paths[42][WB_RES::OfflineMeasurement::COUNT];
 
-    WB_RES::OfflineState _state;
-    uint8_t _connections;
-    bool _deviceMoving;
-    bool _shouldReset;
-    bool _bleAdvertising;
+    struct
+    {
+        WB_RES::OfflineState id = WB_RES::OfflineState::INIT;
+        uint8_t connections = 0;
+        bool deviceMoving = true;
+        bool bleAdvertising = true;
+        bool configured = false;
+        bool shouldReset = false;
+    } m_state;
 
-    wb::TimerId _sleepTimer;
-    uint32_t _sleepTimerElapsed;
+    struct
+    {
+        struct
+        {
+            wb::TimerId id = wb::ID_INVALID_TIMER;
+            uint32_t elapsed = 0;
+        } sleep;
 
-    wb::TimerId _ledTimer;
-    uint32_t _ledTimerElapsed;
-    uint8_t _ledBlinks;
+        struct
+        {
+            wb::TimerId id = wb::ID_INVALID_TIMER;
+            uint32_t elapsed = 0;
+            uint8_t blinks = 0;
+        } led;
 
-    wb::TimerId _advOffTimer;
+        struct
+        {
+            wb::TimerId id = wb::ID_INVALID_TIMER;
+        } ble_adv_off;
+    } m_timers;
 };

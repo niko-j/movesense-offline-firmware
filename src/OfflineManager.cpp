@@ -12,6 +12,7 @@
 #include "component_lsm6ds3/resources.h"
 #include "component_led/resources.h"
 #include "comm_ble/resources.h"
+#include "mem_datalogger/resources.h"
 #include "mem_logbook/resources.h"
 
 #include "common/core/dbgassert.h"
@@ -36,18 +37,9 @@ OfflineManager::OfflineManager()
     : ResourceProvider(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
     , ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
     , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
-    , _state(WB_RES::OfflineState::INIT)
-    , _config({})
-    , _connections(0)
-    , _deviceMoving(true)
-    , _shouldReset(false)
-    , _bleAdvertising(true)
-    , _sleepTimer(wb::ID_INVALID_TIMER)
-    , _sleepTimerElapsed(0)
-    , _ledTimer(wb::ID_INVALID_TIMER)
-    , _ledTimerElapsed(0)
-    , _ledBlinks(0)
-    , _advOffTimer(wb::ID_INVALID_TIMER)
+    , m_config({})
+    , m_state({})
+    , m_timers({})
 {
 }
 
@@ -95,8 +87,8 @@ bool OfflineManager::startModule()
     asyncSubscribe(WB_RES::LOCAL::MEM_LOGBOOK_ISFULL());
 
     // Setup timers
-    _sleepTimer = ResourceClient::startTimer(TIMER_TICK_SLEEP, true);
-    _ledTimer = ResourceClient::startTimer(TIMER_TICK_LED, true);
+    m_timers.sleep.id = ResourceClient::startTimer(TIMER_TICK_SLEEP, true);
+    m_timers.led.id = ResourceClient::startTimer(TIMER_TICK_LED, true);
 
     // Make sure BLE advertising is on
     setBleAdv(true);
@@ -112,7 +104,7 @@ void OfflineManager::stopModule()
     asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 1); // Battery low
     asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 2); // Connectors
 
-    if (_config.sleepDelay)
+    if (m_config.sleepDelay)
         asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 0); // Movement
     else
         asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 3); // Double tap
@@ -137,12 +129,12 @@ void OfflineManager::onGetRequest(
     {
     case WB_RES::LOCAL::OFFLINE_STATE::LID:
     {
-        returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, _state);
+        returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, m_state.id);
         break;
     }
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
     {
-        WB_RES::OfflineConfig data = internalToWb(_config);
+        WB_RES::OfflineConfig data = internalToWb(m_config);
         returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, data);
         break;
     }
@@ -223,6 +215,9 @@ void OfflineManager::onGetResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
+    DebugLogger::info("%s: onGetResult (res: %d), status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX::LID:
@@ -247,7 +242,7 @@ void OfflineManager::onGetResult(
             }
 
             if (applyConfig(internalToWb(conf)))
-                startRecording();
+                startLogging();
         }
         else
         {
@@ -256,8 +251,6 @@ void OfflineManager::onGetResult(
         break;
     }
     default:
-        DebugLogger::warning("%s: Unhandled GET result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
 
@@ -270,18 +263,8 @@ void OfflineManager::onPostResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    switch (resourceId.localResourceId)
-    {
-    case WB_RES::LOCAL::COMM_BLE_ADV::LID:
-    {
-        DebugLogger::info("%s: BLE ADV enable, status: %d", LAUNCHABLE_NAME, resultCode);
-        break;
-    }
-    default:
-        DebugLogger::warning("%s: Unhandled POST result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-        break;
-    }
+    DebugLogger::info("%s: onPostResult (res: %d), status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
 void OfflineManager::onPutResult(
@@ -290,65 +273,65 @@ void OfflineManager::onPutResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
+    DebugLogger::info("%s: onGetResult (res: %d), status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+
     switch (resourceId.localResourceId)
     {
-    case WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX::LID:
+    case WB_RES::LOCAL::MEM_DATALOGGER_STATE::LID:
     {
-        if (resultCode == whiteboard::HTTP_CODE_OK)
+        if (resultCode == wb::HTTP_CODE_OK)
         {
-            DebugLogger::info("%s: Offline config saved to EEPROM", LAUNCHABLE_NAME);
+            // Start new log after stopping data logger
+            if (m_state.id.getValue() != WB_RES::OfflineState::RUNNING)
+                asyncPost(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::Empty);
         }
         else
         {
-            DebugLogger::error("%s: Failed to save offline config to EEPROM: %d",
-                LAUNCHABLE_NAME, resultCode);
+            switch (resultCode)
+            {
+            case wb::HTTP_CODE_INSUFFICIENT_STORAGE:
+                setState(WB_RES::OfflineState::ERROR_STORAGE_FULL);
+                break;
+            default:
+                setState(WB_RES::OfflineState::ERROR_SYSTEM_FAILURE);
+                break;
+            }
+            stopLogging();
         }
         break;
     }
-    case WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG::LID:
+    case WB_RES::LOCAL::MEM_DATALOGGER_CONFIG::LID:
     {
-        DebugLogger::info("%s: Debug log config PUT result: %d",
-            LAUNCHABLE_NAME, resultCode);
-        break;
-    }
-    case WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON::LID:
-    {
-        DebugLogger::info("%s: UartOn PUT result: %d",
-            LAUNCHABLE_NAME, resultCode);
-        break;
-    }
-    case WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP::LID:
-    case WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP::LID:
-    {
-        if (resultCode != wb::HTTP_CODE_OK)
+        switch (resultCode)
         {
-            DebugLogger::error("%s: Failed to set wake up for %d, status %d",
-                LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+        case wb::HTTP_CODE_BAD_REQUEST:
+        {
+            asyncPut(
+                WB_RES::LOCAL::OFFLINE_STATE(),
+                AsyncRequestOptions::Empty,
+                WB_RES::OfflineState::ERROR_INVALID_CONFIG);
+            m_state.configured = false;
+            break;
         }
-        ASSERT(resultCode == wb::HTTP_CODE_OK);
-        break;
-    }
-    case WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX::LID:
-    {
-        if (resultCode != wb::HTTP_CODE_OK)
+        case wb::HTTP_CODE_OK:
         {
-            DebugLogger::error("%s: Failed to set LED state, status %d",
-                LAUNCHABLE_NAME, resultCode);
+            m_state.configured = true;
+            break;
         }
-        break;
-    }
-    case WB_RES::LOCAL::SYSTEM_MODE::LID:
-    {
-        if (resultCode != wb::HTTP_CODE_ACCEPTED)
+        default:
         {
-            DebugLogger::error("%s: Failed to set system mode, status %d",
-                LAUNCHABLE_NAME, resultCode);
+            asyncPut(
+                WB_RES::LOCAL::OFFLINE_STATE(),
+                AsyncRequestOptions::Empty,
+                WB_RES::OfflineState::ERROR_SYSTEM_FAILURE);
+            stopLogging();
+            break;
+        }
         }
         break;
     }
     default:
-        DebugLogger::warning("%s: Unhandled PUT result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
 }
@@ -359,18 +342,8 @@ void OfflineManager::onDeleteResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    switch (resourceId.localResourceId)
-    {
-    case WB_RES::LOCAL::COMM_BLE_ADV::LID:
-    {
-        DebugLogger::info("%s: BLE ADV disable, status: %d", LAUNCHABLE_NAME, resultCode);
-        break;
-    }
-    default:
-        DebugLogger::warning("%s: Unhandled DELETE result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-        break;
-    }
+    DebugLogger::info("%s: onDeleteResult (res: %d), status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
 void OfflineManager::onSubscribeResult(
@@ -379,45 +352,8 @@ void OfflineManager::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    switch (resourceId.localResourceId)
-    {
-    case WB_RES::LOCAL::COMM_BLE_PEERS::LID:
-    {
-        if (resultCode == wb::HTTP_CODE_OK)
-        {
-            DebugLogger::info("%s: Subscribed to BLE peers", LAUNCHABLE_NAME);
-        }
-        else
-        {
-            DebugLogger::error("%s: Failed to subscribe BLE peers: %d", LAUNCHABLE_NAME, resultCode);
-        }
-        break;
-    }
-    case WB_RES::LOCAL::SYSTEM_STATES_STATEID::LID:
-    {
-        if (resultCode != wb::HTTP_CODE_OK)
-        {
-            DebugLogger::error("%s: Failed to subscribe to state id, status: %d",
-                LAUNCHABLE_NAME, resultCode);
-        }
-        ASSERT(resultCode == wb::HTTP_CODE_OK);
-        break;
-    }
-    case WB_RES::LOCAL::MEM_LOGBOOK_ISFULL::LID:
-    {
-        if (resultCode != wb::HTTP_CODE_OK)
-        {
-            DebugLogger::error("%s: Failed to subscribe logbook isfull, status: %d",
-                LAUNCHABLE_NAME, resultCode);
-        }
-        ASSERT(resultCode == wb::HTTP_CODE_OK);
-        break;
-    }
-    default:
-        DebugLogger::warning("%s: Unhandled SUBSCRIBE result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-        break;
-    }
+    DebugLogger::info("%s: onSubscribeResult (res: %d), status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
 void OfflineManager::onUnsubscribeResult(
@@ -426,23 +362,8 @@ void OfflineManager::onUnsubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    switch (resourceId.localResourceId)
-    {
-    case WB_RES::LOCAL::SYSTEM_STATES_STATEID::LID:
-
-    {
-        if (resultCode != wb::HTTP_CODE_OK)
-        {
-            DebugLogger::error("%s: Failed to unsubscribe resource %d status: %d",
-                LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-        }
-        break;
-    }
-    default:
-        DebugLogger::warning("%s: Unhandled UNSUBSCRIBE result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-        break;
-    }
+    DebugLogger::info("%s: onUnsubscribeResult (res: %d), status: %d",
+        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
 void OfflineManager::onNotify(
@@ -481,19 +402,19 @@ void OfflineManager::onNotify(
 
 void OfflineManager::onTimer(whiteboard::TimerId timerId)
 {
-    if (timerId == _sleepTimer)
+    if (timerId == m_timers.sleep.id)
     {
         sleepTimerTick();
         return;
     }
 
-    if (timerId == _ledTimer)
+    if (timerId == m_timers.sleep.id)
     {
         ledTimerTick();
         return;
     }
 
-    if (timerId == _advOffTimer)
+    if (timerId == m_timers.sleep.id)
     {
         setBleAdv(false);
         return;
@@ -505,7 +426,7 @@ void OfflineManager::asyncReadConfigFromEEPROM()
     asyncGet(
         WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(),
         AsyncRequestOptions::ForceAsync,
-        EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, 1 + sizeof(_config));
+        EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, 1 + sizeof(m_config));
 }
 
 void OfflineManager::asyncSaveConfigToEEPROM()
@@ -514,12 +435,12 @@ void OfflineManager::asyncSaveConfigToEEPROM()
     {
         static uint16_t failsave = 0;
         failsave++;
-        ASSERT(failsave < 1000);
+        ASSERT(failsave < 100);
     }
 
-    uint8_t data[1 + sizeof(_config)] = {};
+    uint8_t data[1 + sizeof(m_config)] = {};
     data[0] = EEPROM_CONFIG_INIT_MAGIC;
-    memcpy(data + 1, &_config, sizeof(_config));
+    memcpy(data + 1, &m_config, sizeof(m_config));
 
     WB_RES::EepromData eepromData = { .bytes = wb::MakeArray(data) };
 
@@ -527,51 +448,18 @@ void OfflineManager::asyncSaveConfigToEEPROM()
         EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, eepromData);
 }
 
-bool OfflineManager::startRecording()
-{
-    if (_state.getValue() != WB_RES::OfflineState::CONNECTED &&
-        _state.getValue() != WB_RES::OfflineState::INIT &&
-        _connections == 0)
-    {
-        return false;
-    }
-
-    setState(WB_RES::OfflineState::RUNNING);
-    return true;
-}
-
-bool OfflineManager::onConnected()
-{
-    if (_state.getValue() == WB_RES::OfflineState::ERROR_BATTERY_LOW ||
-        _state.getValue() == WB_RES::OfflineState::ERROR_SYSTEM_FAILURE ||
-        _connections == 0)
-    {
-        return false;
-    }
-
-    if (_advOffTimer != wb::ID_INVALID_TIMER)
-    {
-        ResourceClient::stopTimer(_advOffTimer);
-        _advOffTimer = wb::ID_INVALID_TIMER;
-    }
-
-    setState(WB_RES::OfflineState::CONNECTED);
-    return true;
-}
-
 bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
 {
-    if (_state.getValue() != WB_RES::OfflineState::INIT &&
-        _state.getValue() != WB_RES::OfflineState::CONNECTED &&
-        _state.getValue() != WB_RES::OfflineState::ERROR_INVALID_CONFIG)
+    if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
+        m_state.id.getValue() != WB_RES::OfflineState::CONNECTED &&
+        m_state.id.getValue() != WB_RES::OfflineState::ERROR_INVALID_CONFIG)
     {
         return false;
     }
 
-    if (!validateConfig(config))
-        return false;
+    // TODO: Validate config??
 
-    bool init = _state.getValue() == WB_RES::OfflineState::INIT;
+    bool init = m_state.id.getValue() == WB_RES::OfflineState::INIT;
     if (init)
     {
         if (config.sleepDelay > 0)
@@ -591,18 +479,118 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
     }
     else
     {
-        _shouldReset = true; // Always reset when config changed
+        m_state.shouldReset = true; // Always reset when config changed
     }
 
-    _config = wbToInternal(config);
+    m_config = wbToInternal(config);
+    return configureLogger(config);
+}
+
+bool OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
+{
+    if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
+        m_state.id.getValue() != WB_RES::OfflineState::CONNECTED)
+    {
+        DebugLogger::error(
+            "%s: Cannot configure logger when not either in INIT or CONNECTED state",
+            LAUNCHABLE_NAME);
+        return false;
+    }
+
+    uint8_t count = 0;
+    memset(m_paths, 0, sizeof(m_paths));
+
+    bool ecgCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES);
+
+    WB_RES::DataEntry entries[WB_RES::OfflineMeasurement::COUNT] = {};
+    for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
+    {
+        if (config.sampleRates[i])
+        {
+            switch (i)
+            {
+            case WB_RES::OfflineMeasurement::ECG:
+                if (ecgCompression)
+                    sprintf(m_paths[count], "/Offline/Meas/ECG/Compressed/%u", config.sampleRates[i]);
+                else
+                    sprintf(m_paths[count], "/Offline/Meas/ECG/%u", config.sampleRates[i]);
+                break;
+            case WB_RES::OfflineMeasurement::ACC:
+                sprintf(m_paths[count], "/Offline/Meas/Acc/%u", config.sampleRates[i]);
+                break;
+            case WB_RES::OfflineMeasurement::GYRO:
+                sprintf(m_paths[count], "/Offline/Meas/Gyro/%u", config.sampleRates[i]);
+                break;
+            case WB_RES::OfflineMeasurement::MAGN:
+                sprintf(m_paths[count], "/Offline/Meas/Magn/%u", config.sampleRates[i]);
+                break;
+            case WB_RES::OfflineMeasurement::HR:
+                strcpy(m_paths[count], "/Offline/Meas/HR");
+                break;
+            case WB_RES::OfflineMeasurement::RR:
+                strcpy(m_paths[count], "/Offline/Meas/RR");
+                break;
+            case WB_RES::OfflineMeasurement::TEMP:
+                strcpy(m_paths[count], "/Offline/Meas/Temp");
+                break;
+            case WB_RES::OfflineMeasurement::ACTIVITY:
+                strcpy(m_paths[count], "/Offline/Meas/Activity");
+                break;
+            case WB_RES::OfflineMeasurement::TAP:
+                strcpy(m_paths[count], "/Offline/Meas/Tap");
+                break;
+            case WB_RES::OfflineMeasurement::SHAKE:
+                strcpy(m_paths[count], "/Offline/Meas/Shake");
+                break;
+            }
+
+            entries[count].path = m_paths[count];
+            count++;
+        }
+    }
+
+    WB_RES::DataLoggerConfig logConfig = {};
+    logConfig.dataEntries.dataEntry = wb::MakeArray(entries, count);
+    asyncPut(WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(), AsyncRequestOptions::Empty, logConfig);
     return true;
 }
 
-bool OfflineManager::validateConfig(const WB_RES::OfflineConfig& config)
+bool OfflineManager::startLogging()
 {
-    // TODO: Add more validations
-    bool sampleRatesDefined = config.sampleRates.size() == WB_RES::OfflineMeasurement::COUNT;
-    return (sampleRatesDefined);
+    if (m_state.id.getValue() != WB_RES::OfflineState::CONNECTED &&
+        m_state.id.getValue() != WB_RES::OfflineState::INIT)
+    {
+        DebugLogger::error(
+            "%s: Can start logging only when either in INIT or CONNECTED states",
+            LAUNCHABLE_NAME);
+        return false;
+    }
+
+    if (m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
+    {
+        DebugLogger::info("%s: Already running", LAUNCHABLE_NAME);
+        return true;
+    }
+
+    DebugLogger::info("%s: Starting Data Logger...", LAUNCHABLE_NAME);
+    setState(WB_RES::OfflineState::RUNNING);
+
+    asyncPut(
+        WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::ForceAsync,
+        WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+
+    return true;
+}
+
+void OfflineManager::stopLogging()
+{
+    if (m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
+    {
+        DebugLogger::info("%s: Stopping Data Logger...", LAUNCHABLE_NAME);
+        asyncPut(
+            WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
+            WB_RES::DataLoggerState::DATALOGGER_READY);
+    }
 }
 
 void OfflineManager::enterSleep()
@@ -636,7 +624,7 @@ void OfflineManager::enterSleep()
 
 void OfflineManager::wakeUp()
 {
-    if (_state != WB_RES::OfflineState::SLEEP)
+    if (m_state.id.getValue() != WB_RES::OfflineState::SLEEP)
         return;
 
     // Enable BLE ADV
@@ -644,11 +632,11 @@ void OfflineManager::wakeUp()
 
     // Start timers
     {
-        _ledTimerElapsed = 0;
-        _ledTimer = ResourceClient::startTimer(TIMER_TICK_LED);
+        m_timers.led.elapsed = 0;
+        m_timers.led.id = ResourceClient::startTimer(TIMER_TICK_LED);
 
-        _sleepTimerElapsed = 0;
-        _sleepTimer = ResourceClient::startTimer(TIMER_TICK_SLEEP);
+        m_timers.sleep.elapsed = 0;
+        m_timers.sleep.id = ResourceClient::startTimer(TIMER_TICK_SLEEP);
     }
 
     // Logging will be started autometically when entering RUNNING
@@ -658,18 +646,19 @@ void OfflineManager::wakeUp()
 
 void OfflineManager::setState(WB_RES::OfflineState state)
 {
-    if (state == _state)
+    if (state == m_state.id)
     {
-        DebugLogger::warning("%s: BUG: State change to active state", LAUNCHABLE_NAME);
+        DebugLogger::warning("%s: setState: already in state %u",
+            LAUNCHABLE_NAME, state.getValue());
         return;
     }
 
-    _state = state;
-    _ledTimerElapsed = 0;
-    _sleepTimerElapsed = 0;
+    m_state.id = state;
+    m_timers.led.elapsed = 0;
+    m_timers.sleep.elapsed = 0;
 
-    DebugLogger::info("%s: STATE -> %u", LAUNCHABLE_NAME, _state.getValue());
-    updateResource(WB_RES::LOCAL::OFFLINE_STATE(), ResponseOptions::Empty, _state);
+    DebugLogger::info("%s: STATE -> %u", LAUNCHABLE_NAME, m_state.id.getValue());
+    updateResource(WB_RES::LOCAL::OFFLINE_STATE(), ResponseOptions::Empty, m_state.id);
 }
 
 void OfflineManager::powerOff()
@@ -678,7 +667,7 @@ void OfflineManager::powerOff()
 
     // Stop LED timer and turn the LED on
     {
-        ResourceClient::stopTimer(_ledTimer);
+        ResourceClient::stopTimer(m_timers.led.id);
 
         WB_RES::LedState ledState = {};
         ledState.isOn = true;
@@ -686,7 +675,7 @@ void OfflineManager::powerOff()
     }
 
     // Configure wake up triggers
-    switch (_config.wakeUpBehavior)
+    switch (m_config.wakeUpBehavior)
     {
     case WB_RES::OfflineWakeup::CONNECTOR:
     {
@@ -714,10 +703,10 @@ void OfflineManager::powerOff()
     default:
     case WB_RES::OfflineWakeup::ALWAYSON:
     {
-        if (_shouldReset)
+        if (m_state.shouldReset)
         {
             // Force reset and wakeup from connectors
-            _shouldReset = false;
+            m_state.shouldReset = false;
             asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
             break;
         }
@@ -725,7 +714,7 @@ void OfflineManager::powerOff()
         {
             DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
                 LAUNCHABLE_NAME);
-            _sleepTimerElapsed = 0;
+            m_timers.sleep.elapsed = 0;
             return;
         }
     }
@@ -735,9 +724,30 @@ void OfflineManager::powerOff()
     asyncPut(WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync, WB_RES::SystemModeValues::FULLPOWEROFF);
 }
 
+
+bool OfflineManager::onConnected()
+{
+    if (m_state.id.getValue() == WB_RES::OfflineState::ERROR_BATTERY_LOW ||
+        m_state.id.getValue() == WB_RES::OfflineState::ERROR_SYSTEM_FAILURE ||
+        m_state.connections == 0)
+    {
+        return false;
+    }
+
+    if (m_timers.ble_adv_off.id != wb::ID_INVALID_TIMER)
+    {
+        ResourceClient::stopTimer(m_timers.ble_adv_off.id);
+        m_timers.ble_adv_off.id = wb::ID_INVALID_TIMER;
+    }
+
+    stopLogging();
+    setState(WB_RES::OfflineState::CONNECTED);
+    return true;
+}
+
 void OfflineManager::sleepTimerTick()
 {
-    switch (_state.getValue())
+    switch (m_state.id.getValue())
     {
     case WB_RES::OfflineState::CONNECTED:
     {
@@ -745,23 +755,23 @@ void OfflineManager::sleepTimerTick()
     }
     case WB_RES::OfflineState::RUNNING:
     {
-        if (_config.sleepDelay > 0)
+        if (m_config.sleepDelay > 0)
         {
-            if (_deviceMoving)
+            if (m_state.deviceMoving)
             {
-                _sleepTimerElapsed = 0;
+                m_timers.sleep.elapsed = 0;
             }
             else
             {
-                _sleepTimerElapsed += TIMER_TICK_SLEEP;
+                m_timers.sleep.elapsed += TIMER_TICK_SLEEP;
             }
 
-            if (_sleepTimerElapsed >= (_config.sleepDelay * 1000))
+            if (m_timers.sleep.elapsed >= (m_config.sleepDelay * 1000))
                 enterSleep();
         }
         else
         {
-            _sleepTimerElapsed = 0;
+            m_timers.sleep.elapsed = 0;
         }
 
         break;
@@ -772,9 +782,9 @@ void OfflineManager::sleepTimerTick()
     case WB_RES::OfflineState::ERROR_BATTERY_LOW:
     case WB_RES::OfflineState::ERROR_SYSTEM_FAILURE:
     {
-        _sleepTimerElapsed += TIMER_TICK_SLEEP;
+        m_timers.sleep.elapsed += TIMER_TICK_SLEEP;
 
-        if (_sleepTimerElapsed >= 30000)
+        if (m_timers.sleep.elapsed >= 30000)
             powerOff();
 
         break;
@@ -798,36 +808,37 @@ void OfflineManager::ledTimerTick()
     constexpr uint16_t LED_BLINK_SERIES_SYSTEM_FAILURE[] = { 2000, 500, 500, 500, 500, 500 };
     constexpr uint16_t LED_BLINK_SERIES_LOW_BATTERY[] = { 2000, 2000 };
 
-    _ledTimerElapsed += TIMER_TICK_LED;
-    bool ledOn = _ledBlinks % 2;
+    m_timers.led.elapsed += TIMER_TICK_LED;
+    uint8_t& blinks = m_timers.led.blinks;
+    bool ledOn = m_timers.led.blinks % 2;
     uint16_t nextTimeout = 0;
 
-    switch (_state)
+    switch (m_state.id)
     {
     case WB_RES::OfflineState::INIT:
-        nextTimeout = LED_BLINK_SERIES_INIT[_ledBlinks % 2]; break;
+        nextTimeout = LED_BLINK_SERIES_INIT[blinks % 2]; break;
     case WB_RES::OfflineState::RUNNING:
-        if (_bleAdvertising)
-            nextTimeout = LED_BLINK_SERIES_RUN_ADV[_ledBlinks % 4];
+        if (m_state.bleAdvertising)
+            nextTimeout = LED_BLINK_SERIES_RUN_ADV[blinks % 4];
         else
-            nextTimeout = LED_BLINK_SERIES_RUN[_ledBlinks % 2];
+            nextTimeout = LED_BLINK_SERIES_RUN[blinks % 2];
         break;
     case WB_RES::OfflineState::CONNECTED:
-        nextTimeout = LED_BLINK_SERIES_CONN[_ledBlinks % 2]; break;
+        nextTimeout = LED_BLINK_SERIES_CONN[blinks % 2]; break;
     case WB_RES::OfflineState::ERROR_SYSTEM_FAILURE:
-        nextTimeout = LED_BLINK_SERIES_SYSTEM_FAILURE[_ledBlinks % 6]; break;
+        nextTimeout = LED_BLINK_SERIES_SYSTEM_FAILURE[blinks % 6]; break;
     case WB_RES::OfflineState::ERROR_INVALID_CONFIG:
-        nextTimeout = LED_BLINK_SERIES_CONFIG_ERROR[_ledBlinks % 4]; break;
+        nextTimeout = LED_BLINK_SERIES_CONFIG_ERROR[blinks % 4]; break;
     case WB_RES::OfflineState::ERROR_STORAGE_FULL:
-        nextTimeout = LED_BLINK_SERIES_FULL_STORAGE[_ledBlinks % 2]; break;
+        nextTimeout = LED_BLINK_SERIES_FULL_STORAGE[blinks % 2]; break;
     case WB_RES::OfflineState::ERROR_BATTERY_LOW:
-        nextTimeout = LED_BLINK_SERIES_LOW_BATTERY[_ledBlinks % 2]; break;
+        nextTimeout = LED_BLINK_SERIES_LOW_BATTERY[blinks % 2]; break;
     }
 
-    if (nextTimeout > 0 && _ledTimerElapsed >= nextTimeout)
+    if (nextTimeout > 0 && m_timers.led.elapsed >= nextTimeout)
     {
-        _ledTimerElapsed = 0;
-        _ledBlinks++;
+        m_timers.led.elapsed = 0;
+        m_timers.led.blinks++;
 
         WB_RES::LedState ledState = {};
         ledState.isOn = !ledOn;
@@ -841,29 +852,29 @@ void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
     DebugLogger::info("%s: BLE PeerChange", LAUNCHABLE_NAME);
     if (peerChange.state == WB_RES::PeerStateValues::DISCONNECTED)
     {
-        _connections--;
+        m_state.connections--;
     }
     else if (peerChange.peer.handle.hasValue())
     {
-        _connections++;
+        m_state.connections++;
     }
 
-    if (_connections == 0) {
-        if (_shouldReset)
+    if (m_state.connections == 0) {
+        if (m_state.shouldReset)
         {
             // Configuration changed, needs to reset
             powerOff();
         }
         else
         {
-            startRecording();
+            startLogging();
         }
     }
-    else if (_connections == 1) {
+    else if (m_state.connections == 1) {
         onConnected();
     }
 
-    DebugLogger::info("%s: BLE connections: %d", LAUNCHABLE_NAME, _connections);
+    DebugLogger::info("%s: BLE connections: %d", LAUNCHABLE_NAME, m_state.connections);
 }
 
 void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateChange)
@@ -871,19 +882,19 @@ void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateCha
     DebugLogger::info("%s: System state change: id (%u) state (%u)",
         LAUNCHABLE_NAME, stateChange.stateId.getValue(), stateChange.newState);
 
-    _sleepTimerElapsed = 0; // Any state change resets sleep timer
+    m_timers.sleep.elapsed = 0; // Any state change resets sleep timer
 
     switch (stateChange.stateId)
     {
     case WB_RES::StateId::DOUBLETAP:
         // Double tap turns off the device if sleep delay is not set
-        if (_config.sleepDelay == 0 && stateChange.newState == 1)
+        if (m_config.sleepDelay == 0 && stateChange.newState == 1)
             enterSleep();
         break;
     case WB_RES::StateId::MOVEMENT:
         // Track whether device is moving. 
         // If sleep delay is set, the device will enter sleep after a period of not moving.
-        _deviceMoving = (stateChange.newState == 1);
+        m_state.deviceMoving = (stateChange.newState == 1);
         break;
     default:
         break;
@@ -892,22 +903,22 @@ void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateCha
 
 void OfflineManager::setBleAdv(bool enabled)
 {
-    _bleAdvertising = enabled;
+    m_state.bleAdvertising = enabled;
     if (enabled)
     {
-        ResourceClient::stopTimer(_advOffTimer);
-        _advOffTimer = ResourceClient::startTimer(TIMER_BLE_ADV_TIMEOUT, true);
+        ResourceClient::stopTimer(m_timers.ble_adv_off.id);
+        m_timers.ble_adv_off.id = ResourceClient::startTimer(TIMER_BLE_ADV_TIMEOUT, true);
 
         DebugLogger::info("%s: Turning on BLE advertising", LAUNCHABLE_NAME);
-        _advOffTimer = wb::ID_INVALID_TIMER;
+        m_timers.ble_adv_off.id = wb::ID_INVALID_TIMER;
         asyncPost(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::ForceAsync);
     }
     else
     {
-        ResourceClient::stopTimer(_advOffTimer);
+        ResourceClient::stopTimer(m_timers.ble_adv_off.id);
 
         DebugLogger::info("%s: Turning off BLE advertising", LAUNCHABLE_NAME);
-        _advOffTimer = wb::ID_INVALID_TIMER;
+        m_timers.ble_adv_off.id = wb::ID_INVALID_TIMER;
         asyncDelete(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::ForceAsync);
     }
 }

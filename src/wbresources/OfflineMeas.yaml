@@ -8,7 +8,14 @@ info:
   x-api-required: false
 
 paths:
-  /Offline/Meas/ECG/Subscription:
+
+  /Offline/Meas/ECG/{SampleRate}:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
+
+  /Offline/Meas/ECG/{SampleRate}/Subscription:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
     post:
       description: Subscribe to offline optimized ECG measurements
       responses:
@@ -24,7 +31,13 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/ECG/Compressed/Subscription:
+  /Offline/Meas/ECG/Compressed/{SampleRate}:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
+       
+  /Offline/Meas/ECG/Compressed/{SampleRate}/Subscription:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
     post:
       description: 
         Subscribe to offline optimized ECG measurements
@@ -74,7 +87,13 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Acc/Subscription:
+  /Offline/Meas/Acc/{SampleRate}:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
+
+  /Offline/Meas/Acc/{SampleRate}/Subscription:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
     post:
       description: Subscribe to offline optimized acceleration measurements
       responses:
@@ -90,7 +109,13 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Gyro/Subscription:
+  /Offline/Meas/Gyro/{SampleRate}:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
+
+  /Offline/Meas/Gyro/{SampleRate}/Subscription:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
     post:
       description: Subscribe to offline optimized angular velocity measurements
       responses:
@@ -106,7 +131,13 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Magn/Subscription:
+  /Offline/Meas/Magn/{SampleRate}:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
+
+  /Offline/Meas/Magn/{SampleRate}/Subscription:
+    parameters:
+      - $ref: '#/parameters/SampleRate'
     post:
       description: Subscribe to offline optimized magnetometer measurements
       responses:
@@ -187,6 +218,15 @@ paths:
       responses:
         200:
           description: Operation completed successfully
+
+parameters:
+
+  SampleRate:
+    name: SampleRate
+    in: path
+    required: true
+    type: integer
+    format: int32
 
 definitions:
 
@@ -450,15 +490,15 @@ datalogger:
   type: "config"
 
   resources:
-    /Offline/Meas/ECG:
+    /Offline/Meas/ECG/.*:
       array-lengths: 16
-    /Offline/Meas/ECG/Compressed:
+    /Offline/Meas/ECG/Compressed/.*:
       array-lengths: 32
     /Offline/Meas/RR:
       array-lengths: 12
-    /Offline/Meas/Acc:
+    /Offline/Meas/Acc/.*:
       array-lengths: 1,2,4,8
-    /Offline/Meas/Gyro:
+    /Offline/Meas/Gyro/.*:
       array-lengths: 1,2,4,8
-    /Offline/Meas/Magn:
+    /Offline/Meas/Magn/.*:
       array-lengths: 1,2,4,8

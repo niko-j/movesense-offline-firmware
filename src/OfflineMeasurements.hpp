@@ -82,16 +82,12 @@ private: /* wb::ResourceClient */
         const wb::ParameterList& parameters) OVERRIDE;
 
 private:
-    bool startLogging();
-    void stopLogging();
-    uint8_t configureLogger(const WB_RES::OfflineConfig& config);
-
-    void subscribeAcc(wb::LocalResourceId resourceId);
-    void subscribeGyro(wb::LocalResourceId resourceId);
-    void subscribeMagn(wb::LocalResourceId resourceId);
-    void subscribeHR(wb::LocalResourceId resourceId);
-    void subscribeECG(wb::LocalResourceId resourceId);
-    void subscribeTemp(wb::LocalResourceId resourceId);
+    bool subscribeAcc(wb::LocalResourceId resourceId, int32_t sampleRate);
+    bool subscribeGyro(wb::LocalResourceId resourceId, int32_t sampleRate);
+    bool subscribeMagn(wb::LocalResourceId resourceId, int32_t sampleRate);
+    bool subscribeHR(wb::LocalResourceId resourceId);
+    bool subscribeECG(wb::LocalResourceId resourceId, int32_t sampleRate);
+    bool subscribeTemp(wb::LocalResourceId resourceId);
 
     void dropAccSubscription(wb::LocalResourceId resourceId);
     void dropGyroSubscription(wb::LocalResourceId resourceId);
@@ -117,7 +113,7 @@ private:
     struct State
     {
         uint8_t subscriberCount[WB_RES::OfflineMeasurement::COUNT];
-        uint16_t measurements[WB_RES::OfflineMeasurement::COUNT];
+        uint16_t sampleRates[WB_RES::OfflineMeasurement::COUNT];
         bool logging = false;
         bool configured = false;
     } m_state;

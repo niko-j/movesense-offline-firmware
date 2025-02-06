@@ -14,8 +14,6 @@
 #include "meas_gyro/resources.h"
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
-#include "mem_datalogger/resources.h"
-#include "mem_logbook/resources.h"
 
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
@@ -31,13 +29,13 @@ constexpr uint16_t DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE = 13;
 constexpr uint16_t DEFAULT_ACTIGRAPHY_ACC_SAMPLE_RATE = 13;
 
 static const wb::LocalResourceId sProviderResources[] = {
-    WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_HR::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_RR::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_GYRO::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_MAGN::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID,
@@ -77,13 +75,11 @@ void OfflineMeasurements::deinitModule()
 bool OfflineMeasurements::startModule()
 {
     mModuleState = WB_RES::ModuleStateValues::STARTED;
-    asyncSubscribe(WB_RES::LOCAL::OFFLINE_STATE());
     return true;
 }
 
 void OfflineMeasurements::stopModule()
 {
-    asyncUnsubscribe(WB_RES::LOCAL::OFFLINE_STATE());
     mModuleState = WB_RES::ModuleStateValues::STOPPED;
 }
 
@@ -144,24 +140,59 @@ void OfflineMeasurements::onSubscribe(
         return;
     }
 
+    wb::Result result = wb::HTTP_CODE_NOT_FOUND;
+
     switch (lid)
     {
-    case WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID:
+    {
+        const auto& params = WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::SUBSCRIBE::ParameterListRef(parameters);
+        if (subscribeAcc(lid, params.getSampleRate()))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
+        break;
+    }
     case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID:
+    {
+        if (subscribeAcc(lid, DEFAULT_ACTIGRAPHY_ACC_SAMPLE_RATE))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
+        break;
+    }
     case WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID:
+    {
+        if (subscribeAcc(lid, DEFAULT_TAP_DETECTION_ACC_SAMPLE_RATE))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
+        break;
+    }
     case WB_RES::LOCAL::OFFLINE_MEAS_SHAKE::LID:
     {
-        subscribeAcc(lid);
+        if (subscribeAcc(lid, DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_MEAS_GYRO::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE::LID:
     {
-        subscribeGyro(lid);
+        const auto& params = WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE::SUBSCRIBE::ParameterListRef(parameters);
+        if (subscribeGyro(lid, params.getSampleRate()))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_MEAS_MAGN::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE::LID:
     {
-        subscribeMagn(lid);
+        const auto& params = WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE::SUBSCRIBE::ParameterListRef(parameters);
+        if (subscribeMagn(lid, params.getSampleRate()))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
         break;
     }
     case WB_RES::LOCAL::OFFLINE_MEAS_HR::LID:
@@ -170,10 +201,22 @@ void OfflineMeasurements::onSubscribe(
         subscribeHR(lid);
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID:
-    case WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE::LID:
     {
-        subscribeECG(lid);
+        const auto& params = WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE::SUBSCRIBE::ParameterListRef(parameters);
+        if (subscribeECG(lid, params.getSampleRate()))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
+        break;
+    }
+    case WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE::LID:
+    {
+        const auto& params = WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE::SUBSCRIBE::ParameterListRef(parameters);
+        if (subscribeECG(lid, params.getSampleRate()))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
         break;
     }
     case WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID:
@@ -188,7 +231,7 @@ void OfflineMeasurements::onSubscribe(
     }
     }
 
-    returnResult(request, wb::HTTP_CODE_OK);
+    returnResult(request, result);
 }
 
 void OfflineMeasurements::onUnsubscribe(
@@ -206,7 +249,7 @@ void OfflineMeasurements::onUnsubscribe(
 
     switch (lid)
     {
-    case WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID:
     case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID:
     case WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID:
     case WB_RES::LOCAL::OFFLINE_MEAS_SHAKE::LID:
@@ -214,12 +257,12 @@ void OfflineMeasurements::onUnsubscribe(
         dropAccSubscription(lid);
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_MEAS_GYRO::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE::LID:
     {
         dropGyroSubscription(lid);
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_MEAS_MAGN::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE::LID:
     {
         dropMagnSubscription(lid);
         break;
@@ -230,8 +273,8 @@ void OfflineMeasurements::onUnsubscribe(
         dropHRSubscription(lid);
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_MEAS_ECG::LID:
-    case WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE::LID:
     {
         dropECGSubscription(lid);
         break;
@@ -257,21 +300,8 @@ void OfflineMeasurements::onGetResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onGetResult - res: %d, status: %d",
+    DebugLogger::info("%s: onGetResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
-    switch (resourceId.localResourceId)
-    {
-    case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
-    {
-        ASSERT(resultCode == wb::HTTP_CODE_OK);
-        auto config = result.convertTo<WB_RES::OfflineConfig>();
-        configureLogger(config);
-        break;
-    }
-    default:
-        break;
-    }
 }
 
 void OfflineMeasurements::onPostResult(
@@ -280,7 +310,7 @@ void OfflineMeasurements::onPostResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPostResult - res: %d, status: %d",
+    DebugLogger::info("%s: onPostResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
@@ -290,78 +320,8 @@ void OfflineMeasurements::onPutResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPutResult - res: %d, status: %d",
+    DebugLogger::info("%s: onPutResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
-    switch (resourceId.localResourceId)
-    {
-    case WB_RES::LOCAL::MEM_DATALOGGER_STATE::LID:
-    {
-        if (resultCode == wb::HTTP_CODE_OK)
-        {
-            // Start new log after stopping data logger
-            if (m_state.configured && !m_state.logging)
-                asyncPost(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::Empty);
-        }
-        else
-        {
-            switch (resultCode)
-            {
-            case wb::HTTP_CODE_INSUFFICIENT_STORAGE:
-            {
-                asyncPut(
-                    WB_RES::LOCAL::OFFLINE_STATE(),
-                    AsyncRequestOptions::Empty,
-                    WB_RES::OfflineState::ERROR_STORAGE_FULL);
-                break;
-            }
-            default:
-            {
-                asyncPut(
-                    WB_RES::LOCAL::OFFLINE_STATE(),
-                    AsyncRequestOptions::Empty,
-                    WB_RES::OfflineState::ERROR_SYSTEM_FAILURE);
-                break;
-            }
-            }
-            stopLogging();
-        }
-        break;
-    }
-    case WB_RES::LOCAL::MEM_DATALOGGER_CONFIG::LID:
-    {
-        switch (resultCode)
-        {
-        case wb::HTTP_CODE_BAD_REQUEST:
-        {
-            asyncPut(
-                WB_RES::LOCAL::OFFLINE_STATE(),
-                AsyncRequestOptions::Empty,
-                WB_RES::OfflineState::ERROR_INVALID_CONFIG);
-            m_state.configured = false;
-            break;
-        }
-        case wb::HTTP_CODE_OK:
-        {
-            m_state.configured = true;
-            startLogging();
-            break;
-        }
-        default:
-        {
-            asyncPut(
-                WB_RES::LOCAL::OFFLINE_STATE(),
-                AsyncRequestOptions::Empty,
-                WB_RES::OfflineState::ERROR_SYSTEM_FAILURE);
-            stopLogging();
-            break;
-        }
-        }
-        break;
-    }
-    default:
-        break;
-    }
 }
 
 void OfflineMeasurements::onSubscribeResult(
@@ -370,16 +330,11 @@ void OfflineMeasurements::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::info("%s: onSubscribeResult - res: %d, status: %d",
+    DebugLogger::info("%s: onSubscribeResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 
     switch (resourceId.localResourceId)
     {
-    case WB_RES::LOCAL::OFFLINE_STATE::LID:
-    {
-        ASSERT(resultCode == wb::HTTP_CODE_OK);
-        break;
-    }
     case WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::LID:
     case WB_RES::LOCAL::MEAS_HR::LID:
     case WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::LID:
@@ -389,10 +344,8 @@ void OfflineMeasurements::onSubscribeResult(
     {
         if (resultCode != wb::HTTP_CODE_OK)
         {
-            stopLogging();
             asyncPut(
-                WB_RES::LOCAL::OFFLINE_STATE(),
-                AsyncRequestOptions::Empty,
+                WB_RES::LOCAL::OFFLINE_STATE(), AsyncRequestOptions::Empty,
                 WB_RES::OfflineState::ERROR_INVALID_CONFIG);
         }
         break;
@@ -420,19 +373,6 @@ void OfflineMeasurements::onNotify(
 {
     switch (resourceId.localResourceId)
     {
-    case WB_RES::LOCAL::OFFLINE_STATE::LID:
-    {
-        auto state = value.convertTo<WB_RES::OfflineState>();
-
-        stopLogging();
-
-        if (state == WB_RES::OfflineState::RUNNING)
-        {
-            asyncGet(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync);
-        }
-
-        break;
-    }
     case WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::LID:
     {
         auto data = value.convertTo<const WB_RES::ECGData&>();
@@ -445,9 +385,9 @@ void OfflineMeasurements::onNotify(
     case WB_RES::LOCAL::MEAS_HR::LID:
     {
         auto data = value.convertTo<const WB_RES::HRData&>();
-        if (m_state.measurements[WB_RES::OfflineMeasurement::HR])
+        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::HR])
             recordHRAverages(data);
-        if (m_state.measurements[WB_RES::OfflineMeasurement::RR])
+        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::RR])
             recordRRIntervals(data);
         break;
     }
@@ -455,13 +395,13 @@ void OfflineMeasurements::onNotify(
     {
         auto data = value.convertTo<const WB_RES::AccData&>();
 
-        if (m_state.measurements[WB_RES::OfflineMeasurement::ACC])
+        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC])
             recordAccelerationSamples(data);
 
-        if (m_state.measurements[WB_RES::OfflineMeasurement::ACTIVITY])
+        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY])
             recordActivity(data);
 
-        if (m_state.measurements[WB_RES::OfflineMeasurement::TAP])
+        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::TAP])
             tapDetection(data);
 
         break;
@@ -491,84 +431,18 @@ void OfflineMeasurements::onNotify(
     }
 }
 
-uint8_t OfflineMeasurements::configureLogger(const WB_RES::OfflineConfig& config)
-{
-    ASSERT(!m_state.logging);
-    m_options = {
-        .useEcgCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES)
-    };
-
-    uint8_t count = 0;
-    static const char* paths[WB_RES::OfflineMeasurement::COUNT] = {
-        "/Offline/Meas/ECG",
-        "/Offline/Meas/HR",
-        "/Offline/Meas/RR",
-        "/Offline/Meas/Acc",
-        "/Offline/Meas/Gyro",
-        "/Offline/Meas/Magn",
-        "/Offline/Meas/Temp",
-        "/Offline/Meas/Activity",
-        "/Offline/Meas/Tap",
-        "/Offline/Meas/Shake",
-    };
-
-    WB_RES::DataEntry entries[WB_RES::OfflineMeasurement::COUNT] = {};
-    for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
-    {
-        m_state.measurements[i] = config.sampleRates[i];
-        if (config.sampleRates[i])
-        {
-            if (i == WB_RES::OfflineMeasurement::ECG && m_options.useEcgCompression)
-                entries[count].path = "/Offline/Meas/ECG/Compressed";
-            else
-                entries[count].path = paths[i];
-
-            count++;
-        }
-    }
-
-    WB_RES::DataLoggerConfig logConfig = {};
-    logConfig.dataEntries.dataEntry = wb::MakeArray(entries, count);
-    asyncPut(WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(), AsyncRequestOptions::Empty, logConfig);
-
-    return count;
-}
-
-bool OfflineMeasurements::startLogging()
-{
-    if (!m_state.logging)
-    {
-        DebugLogger::info("%s: Starting Data Logger...", LAUNCHABLE_NAME);
-        m_state.logging = true;
-
-        asyncPut(
-            WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::ForceAsync,
-            WB_RES::DataLoggerState::DATALOGGER_LOGGING);
-
-        return true;
-    }
-    return false;
-}
-
-void OfflineMeasurements::stopLogging()
-{
-    if (m_state.logging)
-    {
-        DebugLogger::info("%s: Stopping Data Logger...", LAUNCHABLE_NAME);
-        m_state.logging = false;
-
-        asyncPut(
-            WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
-            WB_RES::DataLoggerState::DATALOGGER_READY);
-    }
-}
-
-void OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId)
+bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t sampleRate)
 {
     uint16_t currentSampleRate = getSubbedAccSampleRate();
 
-    if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID)
+    if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID)
+    {
+        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] > 0)
+            return false; // Only one subscriber allowed at a time            
+
         m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] += 1;
+        m_state.sampleRates[WB_RES::OfflineMeasurement::ACC] = sampleRate;
+    }
     else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID)
         m_state.subscriberCount[WB_RES::OfflineMeasurement::TAP] += 1;
     else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID)
@@ -586,17 +460,18 @@ void OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId)
         DebugLogger::info("%s: Subscribing to /Meas/Acc/%u", LAUNCHABLE_NAME, requiredSampleRate);
         asyncSubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), AsyncRequestOptions::Empty, requiredSampleRate);
     }
+
+    return true;
 }
 
-void OfflineMeasurements::subscribeGyro(wb::LocalResourceId resourceId)
+bool OfflineMeasurements::subscribeGyro(wb::LocalResourceId resourceId, int32_t sampleRate)
 {
     auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::GYRO];
-    subscribers += 1;
+    if (subscribers > 0)
+        return false; // Only one subscriber allowed at a time
 
-    uint16_t sampleRate = m_state.measurements[WB_RES::OfflineMeasurement::GYRO];
-    constexpr uint16_t DEFAULT_SAMPLE_RATE = 13;
-    if (sampleRate == 0)
-        sampleRate = DEFAULT_SAMPLE_RATE;
+    subscribers += 1;
+    m_state.sampleRates[WB_RES::OfflineMeasurement::MAGN] = sampleRate;
 
     if (subscribers == 1)
     {
@@ -604,17 +479,18 @@ void OfflineMeasurements::subscribeGyro(wb::LocalResourceId resourceId)
         asyncSubscribe(
             WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE(), AsyncRequestOptions::Empty, sampleRate);
     }
+
+    return true;
 }
 
-void OfflineMeasurements::subscribeMagn(wb::LocalResourceId resourceId)
+bool OfflineMeasurements::subscribeMagn(wb::LocalResourceId resourceId, int32_t sampleRate)
 {
     auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::MAGN];
-    subscribers += 1;
+    if (subscribers > 0)
+        return false; // Only one subscriber allowed at a time
 
-    uint16_t sampleRate = m_state.measurements[WB_RES::OfflineMeasurement::MAGN];
-    constexpr uint16_t DEFAULT_SAMPLE_RATE = 13;
-    if (sampleRate == 0)
-        sampleRate = DEFAULT_SAMPLE_RATE;
+    subscribers += 1;
+    m_state.sampleRates[WB_RES::OfflineMeasurement::MAGN] = sampleRate;
 
     if (subscribers == 1)
     {
@@ -622,9 +498,11 @@ void OfflineMeasurements::subscribeMagn(wb::LocalResourceId resourceId)
         asyncSubscribe(
             WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE(), AsyncRequestOptions::Empty, sampleRate);
     }
+
+    return true;
 }
 
-void OfflineMeasurements::subscribeHR(wb::LocalResourceId resourceId)
+bool OfflineMeasurements::subscribeHR(wb::LocalResourceId resourceId)
 {
     auto& hrSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::HR];
     auto& rrSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::RR];
@@ -640,17 +518,19 @@ void OfflineMeasurements::subscribeHR(wb::LocalResourceId resourceId)
         DebugLogger::info("%s: Subscribing to /Meas/HR", LAUNCHABLE_NAME);
         asyncSubscribe(WB_RES::LOCAL::MEAS_HR(), AsyncRequestOptions::Empty);
     }
+
+    return true;
 }
 
-void OfflineMeasurements::subscribeECG(wb::LocalResourceId resourceId)
+bool OfflineMeasurements::subscribeECG(wb::LocalResourceId resourceId, int32_t sampleRate)
 {
     auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::ECG];
-    subscribers += 1;
+    if (subscribers > 0)
+        return false; // Allow only one subscriber
 
-    uint16_t sampleRate = m_state.measurements[WB_RES::OfflineMeasurement::ECG];
-    constexpr uint16_t DEFAULT_SAMPLE_RATE = 125;
-    if (sampleRate == 0)
-        sampleRate = DEFAULT_SAMPLE_RATE;
+    subscribers += 1;
+    m_state.sampleRates[WB_RES::OfflineMeasurement::ECG] = sampleRate;
+    m_options.useEcgCompression = (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE::LID);
 
     if (subscribers == 1)
     {
@@ -658,9 +538,10 @@ void OfflineMeasurements::subscribeECG(wb::LocalResourceId resourceId)
         asyncSubscribe(
             WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE(), AsyncRequestOptions::Empty, sampleRate);
     }
+    return true;
 }
 
-void OfflineMeasurements::subscribeTemp(wb::LocalResourceId resourceId)
+bool OfflineMeasurements::subscribeTemp(wb::LocalResourceId resourceId)
 {
     auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::TEMP];
     subscribers += 1;
@@ -670,6 +551,8 @@ void OfflineMeasurements::subscribeTemp(wb::LocalResourceId resourceId)
         DebugLogger::info("%s: Subscribing to /Meas/Temp", LAUNCHABLE_NAME);
         asyncSubscribe(WB_RES::LOCAL::MEAS_TEMP(), AsyncRequestOptions::Empty);
     }
+
+    return true;
 }
 
 void OfflineMeasurements::dropAccSubscription(wb::LocalResourceId resourceId)
@@ -682,7 +565,7 @@ void OfflineMeasurements::dropAccSubscription(wb::LocalResourceId resourceId)
     uint16_t currentSampleRate = getSubbedAccSampleRate();
 
     // Subscription priority: ACC (* Hz) > TAP (104 Hz) > ACTIVITY (13 Hz) > SHAKE (13 Hz)
-    if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC::LID && accSubs > 0)
+    if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID && accSubs > 0)
         accSubs -= 1;
     else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID && tapSubs > 0)
         tapSubs -= 1;
@@ -793,7 +676,7 @@ void OfflineMeasurements::recordECGSamples(const WB_RES::ECGData& data)
     ecg.timestamp = data.timestamp;
     ecg.sampleData = wb::MakeArray(buffer, samples);
 
-    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG(), ResponseOptions::ForceAsync, ecg);
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE(), ResponseOptions::ForceAsync, ecg);
 }
 
 void OfflineMeasurements::compressECGSamples(const WB_RES::ECGData& data)
@@ -818,13 +701,13 @@ void OfflineMeasurements::compressECGSamples(const WB_RES::ECGData& data)
     // Callback to write blocks as they get completed
     static auto onWrite = [&](uint8_t block[BLOCK_SIZE]) {
         uint8_t blockSamples = block[0];
-        uint16_t sampleRate = m_state.measurements[WB_RES::OfflineMeasurement::ECG];
+        uint16_t sampleRate = m_state.sampleRates[WB_RES::OfflineMeasurement::ECG];
         int32_t offset = int32_t((1000.0f / sampleRate) * sample_offset);
 
         WB_RES::OfflineECGCompressedData ecg;
         ecg.timestamp = data.timestamp + offset;
         ecg.bytes = wb::MakeArray(block, BLOCK_SIZE);
-        updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED(), ResponseOptions::ForceAsync, ecg);
+        updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE(), ResponseOptions::ForceAsync, ecg);
 
         sample_offset += blockSamples;
         };
@@ -901,7 +784,7 @@ void OfflineMeasurements::recordAccelerationSamples(const WB_RES::AccData& data)
     acc.timestamp = data.timestamp;
     acc.measurements = wb::MakeArray(buffer, samples);
 
-    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ACC(), ResponseOptions::ForceAsync, acc);
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE(), ResponseOptions::ForceAsync, acc);
 }
 
 void OfflineMeasurements::recordGyroscopeSamples(const WB_RES::GyroData& data)
@@ -921,7 +804,7 @@ void OfflineMeasurements::recordGyroscopeSamples(const WB_RES::GyroData& data)
     gyro.timestamp = data.timestamp;
     gyro.measurements = wb::MakeArray(buffer, samples);
 
-    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_GYRO(), ResponseOptions::ForceAsync, gyro);
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE(), ResponseOptions::ForceAsync, gyro);
 }
 
 void OfflineMeasurements::recordMagnetometerSamples(const WB_RES::MagnData& data)
@@ -941,7 +824,7 @@ void OfflineMeasurements::recordMagnetometerSamples(const WB_RES::MagnData& data
     magn.timestamp = data.timestamp;
     magn.measurements = wb::MakeArray(buffer, samples);
 
-    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_MAGN(), ResponseOptions::ForceAsync, magn);
+    updateResource(WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE(), ResponseOptions::ForceAsync, magn);
 }
 
 void OfflineMeasurements::recordTemperatureSamples(const WB_RES::TemperatureValue& data)
@@ -1084,7 +967,7 @@ void OfflineMeasurements::shakeDetection(const WB_RES::AccData& data)
 
 uint16_t OfflineMeasurements::getSubbedAccSampleRate()
 {
-    uint16_t acc = m_state.measurements[WB_RES::OfflineMeasurement::ACC];
+    uint16_t acc = m_state.sampleRates[WB_RES::OfflineMeasurement::ACC];
 
     if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] > 0)
         return acc > 0 ? acc : DEFAULT_ACC_SAMPLE_RATE;
