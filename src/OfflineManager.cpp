@@ -252,6 +252,8 @@ void OfflineManager::onGetResult(
 
             if (applyConfig(internalToWb(conf)))
                 startLogging();
+            else
+                setState(WB_RES::OfflineState::ERROR_INVALID_CONFIG);
         }
         else
         {
@@ -467,6 +469,23 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
         return false;
     }
 
+    // Validations
+    {
+        // Subscribing to both DOUBLETAP and MOVEMENT system states seems to not work.
+        // Check sleep and wake-up configurations
+
+        if (config.sleepDelay == 0 &&
+            config.wakeUpBehavior == WB_RES::OfflineWakeup::MOVEMENT)
+        {
+            return false;
+        }
+        else if (config.sleepDelay > 0 &&
+            config.wakeUpBehavior == WB_RES::OfflineWakeup::DOUBLETAP)
+        {
+            return false;
+        }
+    }
+
     // Check the need to reconfigure the sleep condition
     if (m_state.id.getValue() == WB_RES::OfflineState::INIT)
     {
@@ -619,31 +638,29 @@ void OfflineManager::stopLogging()
 
 void OfflineManager::enterSleep()
 {
-    // TODO: Implement wake up from powersave
+    if (m_state.id.getValue() == WB_RES::OfflineState::SLEEP)
+        return;
 
-    // if (_state == WB_RES::OfflineState::SLEEP)
-    //     return;
+    DebugLogger::info("%s: Entering sleep!", LAUNCHABLE_NAME);
 
-    // // Stop timers
-    // ResourceClient::stopTimer(_ledTimer);
-    // ResourceClient::stopTimer(_sleepTimer);
+    // Stop timers
+    ResourceClient::stopTimer(m_timers.led.id);
+    ResourceClient::stopTimer(m_timers.sleep.id);
 
-    // // Logging is automatically stopped when exiting RUNNING state
+    // Logging is automatically stopped when exiting RUNNING state
 
-    // // Stop BLE advertising
-    // if (_bleAdvertising)
-    //     setBleAdv(false);
+    // Stop BLE advertising
+    if (m_state.bleAdvertising)
+        setBleAdv(false);
 
-    // // Stop LED timer and turn the LED off
-    // {
-    //     WB_RES::LedState ledState = {};
-    //     ledState.isOn = false;
-    //     asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
-    // }
+    // Turn off LED
+    {
+        WB_RES::LedState ledState = {};
+        ledState.isOn = false;
+        asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
+    }
 
-    // setState(WB_RES::OfflineState::SLEEP);
-
-    powerOff();
+    setState(WB_RES::OfflineState::SLEEP);
 }
 
 void OfflineManager::wakeUp()
@@ -651,19 +668,23 @@ void OfflineManager::wakeUp()
     if (m_state.id.getValue() != WB_RES::OfflineState::SLEEP)
         return;
 
+    DebugLogger::info("%s: Waking up!", LAUNCHABLE_NAME);
+
     // Enable BLE ADV
     setBleAdv(true);
 
     // Start timers
     {
         m_timers.led.elapsed = 0;
-        m_timers.led.id = ResourceClient::startTimer(TIMER_TICK_LED);
+        m_timers.led.id = ResourceClient::startTimer(TIMER_TICK_LED, true);
+        ASSERT(m_timers.led.id != wb::ID_INVALID_TIMER);
 
         m_timers.sleep.elapsed = 0;
-        m_timers.sleep.id = ResourceClient::startTimer(TIMER_TICK_SLEEP);
+        m_timers.sleep.id = ResourceClient::startTimer(TIMER_TICK_SLEEP, true);
+        ASSERT(m_timers.sleep.id != wb::ID_INVALID_TIMER);
     }
 
-    // Logging will be started autometically when entering RUNNING
+    // Logging will be started automatically when entering RUNNING
 
     setState(WB_RES::OfflineState::RUNNING);
 }
@@ -702,7 +723,7 @@ void OfflineManager::powerOff()
     if (m_state.resetRequired)
     {
         DebugLogger::warning(
-            "%s: Device is being reset! Touch the connectors to turn on the device.", 
+            "%s: Device is being reset! Touch the connectors to turn on the device.",
             LAUNCHABLE_NAME);
 
         asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
@@ -724,12 +745,6 @@ void OfflineManager::powerOff()
     case WB_RES::OfflineWakeup::MOVEMENT:
     {
         WB_RES::WakeUpState wakeup = { .state = 1, .level = 1 }; // Level = movement threshold [0,63]
-        asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
-        break;
-    }
-    case WB_RES::OfflineWakeup::SINGLETAP:
-    {
-        WB_RES::WakeUpState wakeup = { .state = 3, .level = 0 };
         asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
         break;
     }
@@ -912,19 +927,46 @@ void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateCha
         LAUNCHABLE_NAME, stateChange.stateId.getValue(), stateChange.newState);
 
     m_timers.sleep.elapsed = 0; // Any state change resets sleep timer
+    bool sleeping = (m_state.id.getValue() == WB_RES::OfflineState::SLEEP);
 
     switch (stateChange.stateId)
     {
-    case WB_RES::StateId::DOUBLETAP:
-        // Double tap turns off the device if sleep delay is not set
-        if (m_config.sleepDelay == 0 && stateChange.newState == 1)
-            enterSleep();
+    case WB_RES::StateId::CONNECTOR:
+    {
+        if (sleeping)
+        {
+            if (m_config.wakeUpBehavior == OfflineConfig::WakeUpConnector)
+                wakeUp();
+        }
         break;
+    }
+    case WB_RES::StateId::DOUBLETAP:
+    {
+        if (sleeping)
+        {
+            if (m_config.wakeUpBehavior == OfflineConfig::WakeUpDoubleTap)
+                wakeUp();
+        }
+        else
+        {
+            if (m_config.sleepDelay == 0 && stateChange.newState == 1)
+                enterSleep();
+        }
+        break;
+    }
     case WB_RES::StateId::MOVEMENT:
+    {
         // Track whether device is moving. 
         // If sleep delay is set, the device will enter sleep after a period of not moving.
         m_state.deviceMoving = (stateChange.newState == 1);
+
+        if (sleeping)
+        {
+            if (m_config.wakeUpBehavior == OfflineConfig::WakeUpMovement)
+                wakeUp();
+        }
         break;
+    }
     default:
         break;
     }
@@ -936,7 +978,7 @@ void OfflineManager::setBleAdv(bool enabled)
     if (enabled)
     {
         ResourceClient::stopTimer(m_timers.ble_adv_off.id);
-        m_timers.ble_adv_off.id = ResourceClient::startTimer(TIMER_BLE_ADV_TIMEOUT, true);
+        m_timers.ble_adv_off.id = ResourceClient::startTimer(TIMER_BLE_ADV_TIMEOUT, false);
 
         DebugLogger::info("%s: Turning on BLE advertising", LAUNCHABLE_NAME);
         m_timers.ble_adv_off.id = wb::ID_INVALID_TIMER;

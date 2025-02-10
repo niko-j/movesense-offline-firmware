@@ -158,12 +158,9 @@ definitions:
     - name: 'Movement'
       descrioton: Wake up from any movement
       value: 2
-    - name: 'SingleTap'
-      description: Wake up from single tap
-      value: 3
     - name: 'DoubleTap'
       description: Wake up from double tap
-      value: 4
+      value: 3
 
   OfflineMeasurement:
     type: integer

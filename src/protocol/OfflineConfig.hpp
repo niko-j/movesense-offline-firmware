@@ -8,8 +8,7 @@ struct OfflineConfig
         WakeUpAlwaysOn = 0U,
 		WakeUpConnector = 1U,
 		WakeUpMovement = 2U,
-		WakeUpSingleTap = 3U,
-		WakeUpDoubleTap = 4U
+		WakeUpDoubleTap = 3U
     };
     
     enum Measurement
