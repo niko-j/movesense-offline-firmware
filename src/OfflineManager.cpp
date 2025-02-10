@@ -698,6 +698,21 @@ void OfflineManager::powerOff()
         asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
     }
 
+    // Check if this is a reset
+    if (m_state.resetRequired)
+    {
+        DebugLogger::warning(
+            "%s: Device is being reset! Touch the connectors to turn on the device.", 
+            LAUNCHABLE_NAME);
+
+        asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
+
+        asyncPut(
+            WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync,
+            WB_RES::SystemModeValues::FULLPOWEROFF);
+        return;
+    }
+
     // Configure wake up triggers
     switch (m_config.wakeUpBehavior)
     {
@@ -727,22 +742,18 @@ void OfflineManager::powerOff()
     default:
     case WB_RES::OfflineWakeup::ALWAYSON:
     {
-        if (m_state.resetRequired)
-        {
-            asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
-        }
-        else
-        {
-            DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
-                LAUNCHABLE_NAME);
-            m_timers.sleep.elapsed = 0;
-        }
+        DebugLogger::warning(
+            "%s: Configured wake up behavior does not permit power off",
+            LAUNCHABLE_NAME);
+        m_timers.sleep.elapsed = 0;
         return;
     }
     }
 
     DebugLogger::info("%s: Goodbye!", LAUNCHABLE_NAME);
-    asyncPut(WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync, WB_RES::SystemModeValues::FULLPOWEROFF);
+    asyncPut(
+        WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync,
+        WB_RES::SystemModeValues::FULLPOWEROFF);
 }
 
 
