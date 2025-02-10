@@ -65,6 +65,8 @@ void OfflineManager::deinitModule()
 
 bool OfflineManager::startModule()
 {
+    mModuleState = WB_RES::ModuleStateValues::STARTED;
+
 #if DEBUG
     // Setup debugging
     WB_RES::DebugLogConfig logConfig = {
@@ -80,8 +82,13 @@ bool OfflineManager::startModule()
     asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::Empty);
 
     // Subscribe to system states
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 1); // Battery low
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 2); // Connectors
+    asyncSubscribe(
+        WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+        WB_RES::StateId::BATTERYSTATUS);
+
+    asyncSubscribe(
+        WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+        WB_RES::StateId::CONNECTOR);
 
     // Subscribe to logbook IsFull
     asyncSubscribe(WB_RES::LOCAL::MEM_LOGBOOK_ISFULL());
@@ -92,24 +99,26 @@ bool OfflineManager::startModule()
 
     // Make sure BLE advertising is on
     setBleAdv(true);
-
-    mModuleState = WB_RES::ModuleStateValues::STARTED;
     return true;
 }
 
 void OfflineManager::stopModule()
 {
+    mModuleState = WB_RES::ModuleStateValues::STOPPED;
+
     asyncUnsubscribe(WB_RES::LOCAL::COMM_BLE_PEERS());
 
-    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 1); // Battery low
-    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 2); // Connectors
+    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+        WB_RES::StateId::BATTERYSTATUS);
 
-    if (m_config.sleepDelay)
-        asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 0); // Movement
-    else
-        asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty, 3); // Double tap
+    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+        WB_RES::StateId::CONNECTOR);
 
-    mModuleState = WB_RES::ModuleStateValues::STOPPED;
+    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+        WB_RES::StateId::MOVEMENT);
+
+    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+        WB_RES::StateId::DOUBLETAP);
 }
 
 void OfflineManager::onGetRequest(
@@ -458,29 +467,39 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
         return false;
     }
 
-    // TODO: Validate config??
-    bool init = m_state.id.getValue() == WB_RES::OfflineState::INIT;
-    if (init)
+    // Check the need to reconfigure the sleep condition
+    if (m_state.id.getValue() == WB_RES::OfflineState::INIT)
     {
-        if (config.sleepDelay > 0)
-        {
-            // Use movement detection and timer
-            asyncSubscribe(
-                WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
-                WB_RES::StateId::MOVEMENT);
-        }
-        else
-        {
-            // double tap to manually enter sleep
-            asyncSubscribe(
-                WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
-                WB_RES::StateId::DOUBLETAP);
-        }
+        configureSleep(config);
+    }
+    else
+    {
+        // Changing sleep behavior between timer and double taps requires
+        // resetting the device due to a likely software bug in system states API
+        m_state.resetRequired |= ((m_config.sleepDelay > 0) != (config.sleepDelay > 0));
     }
 
     m_config = wbToInternal(config);
     m_state.measurements = configureLogger(config);
     return true;
+}
+
+void OfflineManager::configureSleep(const WB_RES::OfflineConfig& config)
+{
+    if (config.sleepDelay > 0)
+    {
+        // Use movement detection and timer
+        asyncSubscribe(
+            WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+            WB_RES::StateId::MOVEMENT);
+    }
+    else
+    {
+        // Double tap to manually enter sleep
+        asyncSubscribe(
+            WB_RES::LOCAL::SYSTEM_STATES_STATEID(), AsyncRequestOptions::Empty,
+            WB_RES::StateId::DOUBLETAP);
+    }
 }
 
 uint8_t OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
@@ -708,9 +727,16 @@ void OfflineManager::powerOff()
     default:
     case WB_RES::OfflineWakeup::ALWAYSON:
     {
-        DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
-            LAUNCHABLE_NAME);
-        m_timers.sleep.elapsed = 0;
+        if (m_state.resetRequired)
+        {
+            asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
+        }
+        else
+        {
+            DebugLogger::error("%s: Configured wake up behavior does not permit sleeping",
+                LAUNCHABLE_NAME);
+            m_timers.sleep.elapsed = 0;
+        }
         return;
     }
     }
@@ -854,10 +880,15 @@ void OfflineManager::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
         m_state.connections++;
     }
 
-    if (m_state.connections == 0) {
-        startLogging();
+    if (m_state.connections == 0)
+    {
+        if (m_state.resetRequired)
+            powerOff();
+        else
+            startLogging();
     }
-    else if (m_state.connections == 1) {
+    else if (m_state.connections == 1)
+    {
         onConnected();
     }
 

@@ -80,6 +80,7 @@ private:
     void asyncReadConfigFromEEPROM();
     void asyncSaveConfigToEEPROM();
     bool applyConfig(const WB_RES::OfflineConfig& config);
+    void configureSleep(const WB_RES::OfflineConfig& config);
 
     bool startLogging();
     void stopLogging();
@@ -109,6 +110,7 @@ private:
         bool deviceMoving = true;
         bool bleAdvertising = true;
         bool createNewLog = false;
+        bool resetRequired = false;
     } m_state;
 
     struct
