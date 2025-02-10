@@ -851,15 +851,27 @@ void OfflineMeasurements::recordActivity(const WB_RES::AccData& data)
     static uint32_t acc_count = 0;
     static float accumulated_average = 0;
 
+    // Simple low-pass filter to mostly eliminate 
+    // the gravity from acceleration readings
+    struct LPF
+    {
+        wb::FloatVector3D g = wb::FloatVector3D(0.0f, 0.0f, 0.0f);
+        wb::FloatVector3D filter(const wb::FloatVector3D& input)
+        {
+            constexpr float cutoff = 0.1f;
+            g.x = (1.0f - cutoff) * g.x + cutoff * input.x;
+            g.y = (1.0f - cutoff) * g.y + cutoff * input.y;
+            g.z = (1.0f - cutoff) * g.z + cutoff * input.z;
+            return input - g;
+        };
+    } static low_pass_filter;
+
     float total_len = 0.0f;
     size_t count = data.arrayAcc.size();
     for (size_t i = 0; i < count; i++)
     {
         const auto& s = data.arrayAcc[i];
-
-        // Remove gravity, we do not care about the orientation, 
-        // only the lengths of components and total acceleration
-        wb::FloatVector3D v(s.x, s.y, fabs(s.z) - 9.81);
+        wb::FloatVector3D v = low_pass_filter.filter(s);
         total_len += v.length<float>();
     }
     float avg_len = total_len / count;
