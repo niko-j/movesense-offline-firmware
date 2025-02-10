@@ -273,7 +273,7 @@ void OfflineManager::onPutResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onGetResult (res: %d), status: %d",
+    DebugLogger::info("%s: onPutResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 
     switch (resourceId.localResourceId)
