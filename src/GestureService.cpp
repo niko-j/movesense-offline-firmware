@@ -434,6 +434,7 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
             {
                 phase = 0;
                 cycles += 1; // Shake cycle detected
+                t_start_cycle = t;
             }
         }
     }
