@@ -536,6 +536,8 @@ uint8_t OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
     memset(m_paths, 0, sizeof(m_paths));
 
     bool ecgCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES);
+    bool logTapGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES);
+    bool logShakeGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES);
 
     WB_RES::DataEntry entries[WB_RES::OfflineMeasurement::COUNT] = {};
     for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
@@ -571,17 +573,25 @@ uint8_t OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
             case WB_RES::OfflineMeasurement::ACTIVITY:
                 strcpy(m_paths[count], "/Offline/Meas/Activity");
                 break;
-            case WB_RES::OfflineMeasurement::TAP:
-                strcpy(m_paths[count], "/Offline/Meas/Tap");
-                break;
-            case WB_RES::OfflineMeasurement::SHAKE:
-                strcpy(m_paths[count], "/Offline/Meas/Shake");
-                break;
             }
 
             entries[count].path = m_paths[count];
             count++;
         }
+    }
+
+    if(logTapGestures)
+    {
+        strcpy(m_paths[count], "/Gesture/Tap");
+        entries[count].path = m_paths[count];
+        count++;
+    }
+
+    if(logShakeGestures)
+    {
+        strcpy(m_paths[count], "/Gesture/Shake");
+        entries[count].path = m_paths[count];
+        count++;
     }
 
     WB_RES::DataLoggerConfig logConfig = {};

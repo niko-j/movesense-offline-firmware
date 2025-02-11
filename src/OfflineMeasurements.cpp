@@ -3,6 +3,7 @@
 #include "compression/BitPack.hpp"
 #include "compression/DeltaCompression.hpp"
 #include "compression/FixedPoint.hpp"
+#include "utils/Filters.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -24,9 +25,6 @@
 
 const char* const OfflineMeasurements::LAUNCHABLE_NAME = "OfflineMeas";
 constexpr uint16_t DEFAULT_ACC_SAMPLE_RATE = 13;
-constexpr uint16_t DEFAULT_TAP_DETECTION_ACC_SAMPLE_RATE = 104;
-constexpr uint16_t DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE = 13;
-constexpr uint16_t DEFAULT_ACTIGRAPHY_ACC_SAMPLE_RATE = 13;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE::LID,
@@ -38,8 +36,6 @@ static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_SHAKE::LID,
 };
 
 OfflineMeasurements::OfflineMeasurements()
@@ -155,23 +151,7 @@ void OfflineMeasurements::onSubscribe(
     }
     case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID:
     {
-        if (subscribeAcc(lid, DEFAULT_ACTIGRAPHY_ACC_SAMPLE_RATE))
-            result = wb::HTTP_CODE_OK;
-        else
-            result = wb::HTTP_CODE_FORBIDDEN;
-        break;
-    }
-    case WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID:
-    {
-        if (subscribeAcc(lid, DEFAULT_TAP_DETECTION_ACC_SAMPLE_RATE))
-            result = wb::HTTP_CODE_OK;
-        else
-            result = wb::HTTP_CODE_FORBIDDEN;
-        break;
-    }
-    case WB_RES::LOCAL::OFFLINE_MEAS_SHAKE::LID:
-    {
-        if (subscribeAcc(lid, DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE))
+        if (subscribeAcc(lid, DEFAULT_ACC_SAMPLE_RATE))
             result = wb::HTTP_CODE_OK;
         else
             result = wb::HTTP_CODE_FORBIDDEN;
@@ -251,8 +231,6 @@ void OfflineMeasurements::onUnsubscribe(
     {
     case WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID:
     case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID:
-    case WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID:
-    case WB_RES::LOCAL::OFFLINE_MEAS_SHAKE::LID:
     {
         dropAccSubscription(lid);
         break;
@@ -401,9 +379,6 @@ void OfflineMeasurements::onNotify(
         if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY])
             recordActivity(data);
 
-        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::TAP])
-            tapDetection(data);
-
         break;
     }
     case WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::LID:
@@ -433,7 +408,7 @@ void OfflineMeasurements::onNotify(
 
 bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t sampleRate)
 {
-    uint16_t currentSampleRate = getSubbedAccSampleRate();
+    uint16_t currentSampleRate = getAccSampleRate();
 
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID)
     {
@@ -443,14 +418,10 @@ bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t s
         m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] += 1;
         m_state.sampleRates[WB_RES::OfflineMeasurement::ACC] = sampleRate;
     }
-    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID)
-        m_state.subscriberCount[WB_RES::OfflineMeasurement::TAP] += 1;
     else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID)
         m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY] += 1;
-    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_SHAKE::LID)
-        m_state.subscriberCount[WB_RES::OfflineMeasurement::SHAKE] += 1;
 
-    uint16_t requiredSampleRate = getSubbedAccSampleRate();
+    uint16_t requiredSampleRate = getAccSampleRate();
 
     if (currentSampleRate != requiredSampleRate)
     {
@@ -559,22 +530,15 @@ void OfflineMeasurements::dropAccSubscription(wb::LocalResourceId resourceId)
 {
     auto& accSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC];
     auto& activitySubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY];
-    auto& tapSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::TAP];
-    auto& shakeSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::SHAKE];
 
-    uint16_t currentSampleRate = getSubbedAccSampleRate();
+    uint16_t currentSampleRate = getAccSampleRate();
 
-    // Subscription priority: ACC (* Hz) > TAP (104 Hz) > ACTIVITY (13 Hz) > SHAKE (13 Hz)
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID && accSubs > 0)
         accSubs -= 1;
-    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_TAP::LID && tapSubs > 0)
-        tapSubs -= 1;
     else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID && activitySubs > 0)
         activitySubs -= 1;
-    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_SHAKE::LID && shakeSubs > 0)
-        shakeSubs -= 1;
 
-    uint16_t requiredSampleRate = getSubbedAccSampleRate();
+    uint16_t requiredSampleRate = getAccSampleRate();
 
     if (currentSampleRate != requiredSampleRate)
     {
@@ -853,25 +817,14 @@ void OfflineMeasurements::recordActivity(const WB_RES::AccData& data)
 
     // Simple low-pass filter to mostly eliminate 
     // the gravity from acceleration readings
-    struct LPF
-    {
-        wb::FloatVector3D g = wb::FloatVector3D(0.0f, 0.0f, 0.0f);
-        wb::FloatVector3D filter(const wb::FloatVector3D& input)
-        {
-            constexpr float cutoff = 0.1f;
-            g.x = (1.0f - cutoff) * g.x + cutoff * input.x;
-            g.y = (1.0f - cutoff) * g.y + cutoff * input.y;
-            g.z = (1.0f - cutoff) * g.z + cutoff * input.z;
-            return input - g;
-        };
-    } static low_pass_filter;
+    static LowPassFilter lpf;
 
     float total_len = 0.0f;
     size_t count = data.arrayAcc.size();
     for (size_t i = 0; i < count; i++)
     {
         const auto& s = data.arrayAcc[i];
-        wb::FloatVector3D v = low_pass_filter.filter(s);
+        wb::FloatVector3D v = lpf.filter(s);
         total_len += v.length<float>();
     }
     float avg_len = total_len / count;
@@ -896,102 +849,15 @@ void OfflineMeasurements::recordActivity(const WB_RES::AccData& data)
     }
 }
 
-void OfflineMeasurements::tapDetection(const WB_RES::AccData& data)
-{
-    constexpr uint32_t THRESHOLD = 20; // ~2g threshold
-    constexpr uint32_t LATENCY = 80; // ms, should work with the lowest sample rate
-    constexpr uint32_t TIMEOUT = 2000;
-
-    static uint8_t tapCount = 0;
-    static uint32_t tapStart = 0;
-    static uint32_t lastTimestamp = data.timestamp;
-    static uint32_t sampleCount = data.arrayAcc.size();
-    uint32_t diffTime = data.timestamp - lastTimestamp;
-
-    if (diffTime == 0)
-        return;
-
-    float dt = diffTime / (float)sampleCount; // delta between samples
-
-    lastTimestamp = data.timestamp;
-    sampleCount = data.arrayAcc.size();
-
-    static float z_prev = data.arrayAcc[0].z;
-    static float z_base = 0.0f; // Baseline before trigger
-    static float t_rise = 0.0f; // t when triggered
-
-    for (size_t i = 0; i < data.arrayAcc.size(); i++)
-    {
-        float t = data.timestamp + i * dt;
-        float z = data.arrayAcc[i].z;
-
-        if (t_rise > 0.0f) // Threshold triggered
-        {
-            if (t - t_rise < LATENCY)
-            {
-                float diff = abs(z - z_base);
-                if (diff > THRESHOLD)
-                {
-                    tapStart = data.timestamp;
-                    tapCount += 1;
-                    t_rise = 0.0f;
-                }
-            }
-            else // reset threshold
-            {
-                t_rise = 0.0f;
-            }
-        }
-        else // Threshold not triggered
-        {
-            float diff = z - z_prev;
-            if (abs(diff) > THRESHOLD)
-            {
-                t_rise = t;
-                z_base = z_prev + 0.9f * diff;
-            }
-        }
-
-        z_prev = z;
-    }
-
-    if (tapStart > 0 && data.timestamp - tapStart > TIMEOUT)
-    {
-        if (tapCount > 1)
-        {
-            WB_RES::OfflineTapData tapData;
-            tapData.timestamp = data.timestamp;
-            tapData.count = tapCount;
-
-            updateResource(
-                WB_RES::LOCAL::OFFLINE_MEAS_TAP(),
-                ResponseOptions::ForceAsync, tapData);
-        }
-        tapCount = 0;
-        tapStart = 0;
-    }
-}
-
-void OfflineMeasurements::shakeDetection(const WB_RES::AccData& data)
-{
-    // TODO
-}
-
-uint16_t OfflineMeasurements::getSubbedAccSampleRate()
+uint16_t OfflineMeasurements::getAccSampleRate()
 {
     uint16_t acc = m_state.sampleRates[WB_RES::OfflineMeasurement::ACC];
 
     if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] > 0)
         return acc > 0 ? acc : DEFAULT_ACC_SAMPLE_RATE;
 
-    if (m_state.subscriberCount[WB_RES::OfflineMeasurement::TAP] > 0)
-        return DEFAULT_TAP_DETECTION_ACC_SAMPLE_RATE;
-
     if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY] > 0)
-        return DEFAULT_ACTIGRAPHY_ACC_SAMPLE_RATE;
-
-    if (m_state.subscriberCount[WB_RES::OfflineMeasurement::SHAKE] > 0)
-        return DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE;
+        return DEFAULT_ACC_SAMPLE_RATE;
 
     return 0;
 }

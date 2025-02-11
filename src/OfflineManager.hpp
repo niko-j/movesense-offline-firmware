@@ -100,7 +100,7 @@ private:
     void setBleAdv(bool enabled);
 
     OfflineConfig m_config = {};
-    char m_paths[42][WB_RES::OfflineMeasurement::COUNT];
+    char m_paths[42][WB_RES::OfflineMeasurement::COUNT + 2]; // Measurements + Gestures
 
     struct
     {

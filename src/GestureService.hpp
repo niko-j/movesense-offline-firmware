@@ -5,20 +5,15 @@
 #include <whiteboard/ResourceProvider.h>
 
 #include "app-resources/resources.h"
-#include "meas_ecg/resources.h"
-#include "meas_hr/resources.h"
 #include "meas_acc/resources.h"
-#include "meas_gyro/resources.h"
-#include "meas_magn/resources.h"
-#include "meas_temp/resources.h"
 
-class OfflineMeasurements FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
+class GestureService FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
 public:
     static const char* const LAUNCHABLE_NAME;
 
-    OfflineMeasurements();
-    ~OfflineMeasurements();
+    GestureService();
+    ~GestureService();
 
 private: /* wb::LaunchableModule*/
     virtual bool initModule() OVERRIDE;
@@ -80,42 +75,16 @@ private: /* wb::ResourceClient */
         const wb::ParameterList& parameters) OVERRIDE;
 
 private:
-    bool subscribeAcc(wb::LocalResourceId resourceId, int32_t sampleRate);
-    bool subscribeGyro(wb::LocalResourceId resourceId, int32_t sampleRate);
-    bool subscribeMagn(wb::LocalResourceId resourceId, int32_t sampleRate);
-    bool subscribeHR(wb::LocalResourceId resourceId);
-    bool subscribeECG(wb::LocalResourceId resourceId, int32_t sampleRate);
-    bool subscribeTemp(wb::LocalResourceId resourceId);
-
-    void dropAccSubscription(wb::LocalResourceId resourceId);
-    void dropGyroSubscription(wb::LocalResourceId resourceId);
-    void dropMagnSubscription(wb::LocalResourceId resourceId);
-    void dropHRSubscription(wb::LocalResourceId resourceId);
-    void dropECGSubscription(wb::LocalResourceId resourceId);
-    void dropTempSubscription(wb::LocalResourceId resourceId);
-
-    void recordECGSamples(const WB_RES::ECGData& data);
-    void compressECGSamples(const WB_RES::ECGData& data);
-    void recordHRAverages(const WB_RES::HRData& data);
-    void recordRRIntervals(const WB_RES::HRData& data);
-    void recordAccelerationSamples(const WB_RES::AccData& data);
-    void recordGyroscopeSamples(const WB_RES::GyroData& data);
-    void recordMagnetometerSamples(const WB_RES::MagnData& data);
-    void recordTemperatureSamples(const WB_RES::TemperatureValue& data);
-    void recordActivity(const WB_RES::AccData& data);
-
+    bool handleSubscribe(wb::LocalResourceId resourceId);
+    void handleUnsubscribe(wb::LocalResourceId resourceId);
     uint16_t getAccSampleRate();
 
-    struct State
-    {
-        uint8_t subscriberCount[WB_RES::OfflineMeasurement::COUNT];
-        uint16_t sampleRates[WB_RES::OfflineMeasurement::COUNT];
-        bool logging = false;
-        bool configured = false;
-    } m_state;
+    void tapDetection(const WB_RES::AccData& data);
+    void shakeDetection(const WB_RES::AccData& data);
 
-    struct Options
+    struct 
     {
-        bool useEcgCompression;
-    } m_options;
+        uint8_t tapSubscribers = 0;
+        uint8_t shakeSubscribers = 0;
+    } m_state;
 };

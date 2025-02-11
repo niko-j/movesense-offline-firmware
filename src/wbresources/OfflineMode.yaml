@@ -190,26 +190,26 @@ definitions:
     - name: 'ACTIVITY'
       description: Activity
       value: 7
-    - name: 'TAP'
-      description: Tap detection
-      value: 8
-    - name: 'SHAKE'
-      description: Shake detection
-      value: 9
     - name: 'COUNT'
       description: Number of measurements
-      value: 10
+      value: 8
 
   OfflineOptionsFlags:    
     type: integer
     format: uint8
     enum:
+    - name: 'LogTapGestures'
+      description: Set to log tap gestures
+      value: 1
+    - name: 'LogShakeGestures'
+      description: Set to log tap gestures
+      value: 2
     - name: 'CompressECGSamples'
       description: Set to enable additional ECG compression
-      value: 1
+      value: 4
     - name: 'ShakeToConnect'
       description: Set to enable BLE advertising when shaking the device
-      value: 2
+      value: 8
 
 datalogger:
   version: "1.0"

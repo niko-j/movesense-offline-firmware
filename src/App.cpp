@@ -1,15 +1,17 @@
 #include "OfflineManager.hpp"
 #include "OfflineMeasurements.hpp"
 #include "OfflineGATTService.hpp"
+#include "GestureService.hpp"
 #include "movesense.h"
 
 MOVESENSE_APPLICATION_STACKSIZE(1024)
 
-MOVESENSE_PROVIDERS_BEGIN(3)
+MOVESENSE_PROVIDERS_BEGIN(4)
 MOVESENSE_PROVIDER_DEF(OfflineManager)
 MOVESENSE_PROVIDER_DEF(OfflineMeasurements)
 MOVESENSE_PROVIDER_DEF(OfflineGATTService)
-MOVESENSE_PROVIDERS_END(3)
+MOVESENSE_PROVIDER_DEF(GestureService)
+MOVESENSE_PROVIDERS_END(4)
 
 MOVESENSE_FEATURES_BEGIN()
 // Explicitly enable or disable Movesense framework core modules.

@@ -32,3 +32,7 @@ apis:
   OfflineMeas.*:
     apiId: 102
     defaultExecutionContext: application
+
+  Gesture.*:
+    apiId: 103
+    defaultExecutionContext: application

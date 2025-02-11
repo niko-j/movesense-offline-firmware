@@ -187,38 +187,6 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Tap/Subscription:
-    post:
-      description: Subscribe to tap detection events.
-      responses:
-        200:
-          description: Operation completed successfully
-        x-notification:
-          description: Information about detected tapping
-          schema:
-            $ref: '#/definitions/OfflineTapData'
-    delete:
-      description: Unsubscribe from tap detection events.
-      responses:
-        200:
-          description: Operation completed successfully
-
-  /Offline/Meas/Shake/Subscription:
-    post:
-      description: Subscribe to shake detection events.
-      responses:
-        200:
-          description: Operation completed successfully
-        x-notification:
-          description: Information about detected shaking
-          schema:
-            $ref: '#/definitions/OfflineShakeData'
-    delete:
-      description: Unsubscribe from shake detection events.
-      responses:
-        200:
-          description: Operation completed successfully
-
 parameters:
 
   SampleRate:
@@ -229,6 +197,11 @@ parameters:
     format: int32
 
 definitions:
+
+  OfflineTimestamp:
+    type: integer
+    format: uint32
+    x-unit: millisecond
 
   OfflineECGData:
     required:
@@ -369,38 +342,6 @@ definitions:
       Activity:
         description: Value representing user activity based on linear acceleration.
         $ref: "#/definitions/Q10_6"
-
-  OfflineTapData:
-    required:
-      - Timestamp
-      - Count
-    properties:
-      Timestamp:
-        description: Local timestamp of the measurement
-        $ref: "#/definitions/OfflineTimestamp"
-      Count:
-        type: integer
-        format: uint8
-        description: Number of consequtive taps detected
-
-  OfflineShakeData:
-    required:
-      - Timestamp
-      - Duration
-    properties:
-      Timestamp:
-        description: Local timestamp of the measurement
-        $ref: "#/definitions/OfflineTimestamp"
-      Duration:
-        type: integer
-        format: uint32
-        description: Duration in milliseconds
-        x-unit: millisecond
-
-  OfflineTimestamp:
-    type: integer
-    format: uint32
-    x-unit: millisecond
 
   Vec3_Q16_8:
     required:

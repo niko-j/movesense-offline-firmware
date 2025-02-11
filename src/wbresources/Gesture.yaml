@@ -1,0 +1,76 @@
+swagger: '2.0'
+
+info:
+  version: "0.0.1"
+  title: Gestures API
+  description: This file defines the API for gesture detection
+  x-api-type: public
+  x-api-required: false
+
+paths:
+
+  /Gesture/Tap/Subscription:
+    post:
+      description: Subscribe to tap detection events.
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Information about detected tapping
+          schema:
+            $ref: '#/definitions/TapGestureData'
+    delete:
+      description: Unsubscribe from tap detection events.
+      responses:
+        200:
+          description: Operation completed successfully
+
+  /Gesture/Shake/Subscription:
+    post:
+      description: Subscribe to shake detection events.
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Information about detected shaking
+          schema:
+            $ref: '#/definitions/ShakeGestureData'
+    delete:
+      description: Unsubscribe from shake detection events.
+      responses:
+        200:
+          description: Operation completed successfully
+
+definitions:
+
+  GestureTimestamp:
+    type: integer
+    format: uint32
+    x-unit: millisecond
+
+  TapGestureData:
+    required:
+      - Timestamp
+      - Count
+    properties:
+      Timestamp:
+        description: Local timestamp of the measurement
+        $ref: "#/definitions/GestureTimestamp"
+      Count:
+        type: integer
+        format: uint8
+        description: Number of consequtive taps detected
+
+  ShakeGestureData:
+    required:
+      - Timestamp
+      - Duration
+    properties:
+      Timestamp:
+        description: Local timestamp of the measurement
+        $ref: "#/definitions/GestureTimestamp"
+      Duration:
+        type: integer
+        format: uint32
+        description: Duration in milliseconds
+        x-unit: millisecond
