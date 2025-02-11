@@ -404,7 +404,7 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
             {
                 WB_RES::ShakeGestureData shake;
                 shake.timestamp = t;
-                shake.duration = t - t_begin;
+                shake.duration = t_start_cycle - t_begin;
 
                 updateResource(
                     WB_RES::LOCAL::GESTURE_SHAKE(),
@@ -420,7 +420,6 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
         {
             phase = 1;
             t_begin = t;
-            t_start_cycle = t;
             max = a;
         }
         else
