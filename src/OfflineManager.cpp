@@ -580,14 +580,14 @@ uint8_t OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
         }
     }
 
-    if(logTapGestures)
+    if (logTapGestures)
     {
         strcpy(m_paths[count], "/Gesture/Tap");
         entries[count].path = m_paths[count];
         count++;
     }
 
-    if(logShakeGestures)
+    if (logShakeGestures)
     {
         strcpy(m_paths[count], "/Gesture/Shake");
         entries[count].path = m_paths[count];
@@ -648,7 +648,8 @@ void OfflineManager::stopLogging()
 
 void OfflineManager::enterSleep()
 {
-    if (m_state.id.getValue() == WB_RES::OfflineState::SLEEP)
+    if (m_state.id.getValue() == WB_RES::OfflineState::SLEEP ||
+        m_state.id.getValue() == WB_RES::OfflineState::CONNECTED)
         return;
 
     DebugLogger::info("%s: Entering sleep!", LAUNCHABLE_NAME);
