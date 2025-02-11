@@ -86,11 +86,11 @@ private:
     void stopLogging();
     uint8_t configureLogger(const WB_RES::OfflineConfig& config);
 
-    void enterSleep();
-    void wakeUp();
     void setState(WB_RES::OfflineState state);
     void powerOff();
     bool onConnected();
+    void onEnterSleep();
+    void onWakeUp();
 
     void sleepTimerTick();
     void ledTimerTick();
@@ -98,6 +98,7 @@ private:
     void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);
     void setBleAdv(bool enabled);
+    void setBleAdvTimeout(uint32_t timeout);
 
     OfflineConfig m_config = {};
     char m_paths[42][WB_RES::OfflineMeasurement::COUNT + 2]; // Measurements + Gestures
