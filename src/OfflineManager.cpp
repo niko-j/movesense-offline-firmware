@@ -576,7 +576,7 @@ uint8_t OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
     bool logTapGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES);
     bool logShakeGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES);
 
-    WB_RES::DataEntry entries[WB_RES::OfflineMeasurement::COUNT] = {};
+    WB_RES::DataEntry entries[MAX_LOGGED_PATHS] = {};
     for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
     {
         if (config.sampleRates[i])

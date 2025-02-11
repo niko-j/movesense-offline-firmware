@@ -9,6 +9,8 @@
 #include "comm_ble/resources.h"
 #include "system_states/resources.h"
 
+constexpr size_t MAX_LOGGED_PATHS = WB_RES::OfflineMeasurement::COUNT + 2; // Measurements + Gestures
+
 class OfflineManager FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
 public:
@@ -101,7 +103,7 @@ private:
     void setBleAdvTimeout(uint32_t timeout);
 
     OfflineConfig m_config = {};
-    char m_paths[42][WB_RES::OfflineMeasurement::COUNT + 2]; // Measurements + Gestures
+    char m_paths[MAX_LOGGED_PATHS][42];
 
     struct
     {
