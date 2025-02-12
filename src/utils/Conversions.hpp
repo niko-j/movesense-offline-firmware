@@ -1,6 +1,6 @@
 #pragma once
-#include "protocol/OfflineConfig.hpp"
-#include "protocol/OfflineBuffers.hpp"
+#include "../protocol/OfflineConfig.hpp"
+#include "../protocol/OfflineBuffers.hpp"
 #include <app-resources/resources.h>
 
 WB_RES::OfflineConfig internalToWb(const OfflineConfig& config);

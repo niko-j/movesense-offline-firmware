@@ -1,6 +1,6 @@
 #include "movesense.h"
 #include "OfflineManager.hpp"
-#include "OfflineInternal.hpp"
+#include "utils/Conversions.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"

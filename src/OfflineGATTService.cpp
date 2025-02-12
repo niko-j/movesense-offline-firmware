@@ -1,5 +1,5 @@
 #include "OfflineGATTService.hpp"
-#include "OfflineInternal.hpp"
+#include "utils/Conversions.hpp"
 
 #include "app-resources/resources.h"
 #include "comm_ble_gattsvc/resources.h"
