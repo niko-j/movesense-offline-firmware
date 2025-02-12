@@ -262,7 +262,7 @@ definitions:
         $ref: "#/definitions/OfflineTimestamp"
       IntervalData:
         description: |
-          Bit-packed chunk of 4 x 12-bit RR-intervals (6 bytes in total).
+          Bit-packed chunk of 8 x 12-bit RR-intervals (12 bytes in total).
           RR-intervals are reported in milliseconds.
         type: array
         items:

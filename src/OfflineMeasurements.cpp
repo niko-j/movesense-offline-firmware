@@ -773,7 +773,7 @@ void OfflineMeasurements::recordGyroscopeSamples(const WB_RES::GyroData& data)
 
 void OfflineMeasurements::recordMagnetometerSamples(const WB_RES::MagnData& data)
 {
-    static WB_RES::Vec3_Q10_6 buffer[8]; // max 8 x (3 x 24-bit) samples
+    static WB_RES::Vec3_Q10_6 buffer[8]; // max 8 x (3 x 16-bit) samples
     size_t samples = data.arrayMagn.size();
     ASSERT(samples <= 8);
 
