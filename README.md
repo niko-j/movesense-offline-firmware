@@ -1,4 +1,4 @@
-# movesense-offline-tracking
+# Movesense Offline Firmware
 
 This is an offline tracking firmware for Movesense Flash (SS2_NAND variant) sensors.
 
