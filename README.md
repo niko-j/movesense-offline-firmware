@@ -4,6 +4,11 @@ This is an offline tracking firmware for Movesense Flash (SS2_NAND variant) sens
 
 This project implements several firmware modules that are useful for offline use cases where the sensor is not connected and does not stream samples to another device. Instead, the samples are stored on the device itself until it connected to and the logs are downloaded.
 
+## Related Projects
+
+- [Movesense Offline Configurator](https://github.com/niko-j/movesense-offline-configurator) project contains tools for configuring the offline mode and downloading logs from the device.
+- [Movesense Offline SBEM Decoder](https://github.com/niko-j/movesense-offline-sbem-decoder) project contains a utility to read the log files and export measurements into CSV files.
+
 ## Firmware Modules
 
 - `OfflineManager` is the central module that controls and configures rest of the system.
