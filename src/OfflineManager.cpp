@@ -422,7 +422,8 @@ void OfflineManager::onNotify(
     }
     case WB_RES::LOCAL::GESTURE_SHAKE::LID:
     {
-        if (!m_state.bleAdvertising)
+        auto gesture = value.convertTo<const WB_RES::ShakeGestureData&>();
+        if (!m_state.bleAdvertising && gesture.duration > 2000)
         {
             setBleAdv(true);
             setBleAdvTimeout(TIMER_BLE_ADV_TIMEOUT);
