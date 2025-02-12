@@ -25,7 +25,7 @@ Summary of Whiteboard APIs of each firmware module. You can find detailed API de
 - `/Offline/State` Read, write, and subscribe to offline mode's state.
 - `/Offline/Config` Read, write, and subscribe to offline mode configuration.
 
-## OfflineMeasurements
+### OfflineMeasurements
 
 - `/Offline/Meas/ECG/{SampleRate}` Subscribe to receive 16-bit ECG data.
 - `/Offline/Meas/ECG/Compressed/{SampleRate}` Subscribe to receive compressed ECG data.
@@ -37,7 +37,7 @@ Summary of Whiteboard APIs of each firmware module. You can find detailed API de
 - `/Offline/Meas/Temp` Subscribe to receive temperature (°C) in signed 8-bit integers.
 - `/Offline/Meas/Activity` Subscribe to receive average acceleration in every minute.
 
-## GestureService
+### GestureService
 
 - `/Gesture/Tap` Subscribe to detect and count tapping. Tapping at least twice on Z axis will be recognized.
 - `/Gesture/Shake` Subscribe to detect shaking. Counts the duration.
