@@ -2,7 +2,7 @@
 
 This is an offline tracking firmware for Movesense Flash (SS2_NAND variant) sensors.
 
-This project implements several firmware modules that are useful for offline use cases where the sensor is not connected and does not stream samples to another device. Instead, the samples are stored on the device itself until it connected to and the logs are downloaded.
+This project implements several firmware modules that are useful for offline use cases where the sensor is not connected to another device and streaming samples. Instead, the samples are stored on the device itself until it is connected to, and the logs are downloaded.
 
 ## Related Projects
 
@@ -11,10 +11,12 @@ This project implements several firmware modules that are useful for offline use
 
 ## Firmware Modules
 
-- `OfflineManager` is the central module that controls and configures rest of the system.
+- `OfflineManager` is the central module that controls and configures the device.
 - `OfflineMeasurements` is a middle-man API that takes samples from the core measurement API and, using different compression techniques, optimizes the samples to take as little storage space as possible, without meaningfully impacting the usefulness of the measurements. It also implements actigraphy measurement that is derived from acceleration samples.
 - `OfflineGATTService` implements a custom BLE GATT service for interacting with the offline services, which can be used instead of the MDS library.
 - `GestureService` offers custom gesture detection for tapping and shaking.
+
+The design aims at being modular. One could pick and choose the modules relevant for each use case. For example, if using MDS to communicate with the device, the GATT service module could be disabled. Omitting `OfflineMeasurements` and/or `GestureService` from build may require modifying `OfflineManager` to use core measurements APIs instead.
 
 ## APIs
 
