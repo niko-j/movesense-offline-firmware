@@ -500,17 +500,32 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
     // Validations
     {
         // Subscribing to both DOUBLETAP and MOVEMENT system states seems to not work.
-        // Check sleep and wake-up configurations
+        // This is probably a bug in the core firmware.
 
-        if (config.sleepDelay == 0 &&
-            config.wakeUpBehavior == WB_RES::OfflineWakeup::MOVEMENT)
+        if (config.sleepDelay == 0) // Settings incompatible with "double tap to sleep"
         {
-            return false;
+            if (
+                // cannot subscribe system state MOVEMENT if already subscribed to DOUBLETAP
+                config.wakeUpBehavior == WB_RES::OfflineWakeup::MOVEMENT ||
+
+                // these will result in false positive DOUBLETAP events
+                config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES ||
+                config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES ||
+                config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT
+                )
+            {
+                return false;
+            }
         }
-        else if (config.sleepDelay > 0 &&
-            config.wakeUpBehavior == WB_RES::OfflineWakeup::DOUBLETAP)
+        else // Settings incompatible with "sleep after period of inactivity"
         {
-            return false;
+            if (
+                // cannot subscribe system state DOUBLETAP if already subscribed to MOVEMENT
+                config.wakeUpBehavior == WB_RES::OfflineWakeup::DOUBLETAP
+                )
+            {
+                return false;
+            }
         }
     }
 
@@ -534,7 +549,7 @@ bool OfflineManager::applyConfig(const WB_RES::OfflineConfig& config)
         if (blePowerSave)
             asyncSubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
         else
-            asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE::ID);
+            asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
     }
 
 
@@ -657,7 +672,8 @@ void OfflineManager::startLogging()
             asyncSubscribe(WB_RES::LOCAL::GESTURE_TAP());
         }
 
-        if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures)
+        if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures &&
+            !(m_config.optionsFlags & OfflineConfig::OptionsShakeToConnect))
         {
             asyncSubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
         }
@@ -685,7 +701,8 @@ void OfflineManager::stopLogging()
         asyncUnsubscribe(WB_RES::LOCAL::GESTURE_TAP());
     }
 
-    if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures)
+    if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures &&
+        !(m_config.optionsFlags & OfflineConfig::OptionsShakeToConnect))
     {
         asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
     }
