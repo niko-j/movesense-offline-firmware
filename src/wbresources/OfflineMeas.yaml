@@ -340,8 +340,9 @@ definitions:
         description: Local timestamp of the measurement
         $ref: "#/definitions/OfflineTimestamp"
       Activity:
+        type: integer
+        format: uint16
         description: Value representing user activity based on linear acceleration.
-        $ref: "#/definitions/Q10_6"
 
   Vec3_Q16_8:
     required:

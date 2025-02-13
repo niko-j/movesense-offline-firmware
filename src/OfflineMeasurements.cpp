@@ -837,7 +837,7 @@ void OfflineMeasurements::recordActivity(const WB_RES::AccData& data)
     {
         WB_RES::OfflineActivityData activityData;
         activityData.timestamp = data.timestamp;
-        activityData.activity = float_to_fixed_point_Q10_6(accumulated_average * (1.0f / acc_count));
+        activityData.activity = static_cast<uint16_t>(accumulated_average * (100.0f / acc_count));
 
         updateResource(
             WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY(),
