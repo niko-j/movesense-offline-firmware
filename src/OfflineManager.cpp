@@ -875,7 +875,7 @@ void OfflineManager::sleepTimerTick()
     {
         if (m_config.sleepDelay > 0)
         {
-            if (m_state.deviceMoving)
+            if (m_state.deviceMoving || m_state.connectorActive)
             {
                 m_timers.sleep.elapsed = 0;
             }
@@ -1008,13 +1008,13 @@ void OfflineManager::handleSystemStateChange(const WB_RES::StateChange& stateCha
     DebugLogger::info("%s: System state change: id (%u) state (%u)",
         LAUNCHABLE_NAME, stateChange.stateId.getValue(), stateChange.newState);
 
-    m_timers.sleep.elapsed = 0; // Any state change resets sleep timer
     bool sleeping = (m_state.id.getValue() == WB_RES::OfflineState::SLEEP);
 
     switch (stateChange.stateId)
     {
     case WB_RES::StateId::CONNECTOR:
     {
+        m_state.connectorActive = (stateChange.newState == 1);
         if (sleeping)
         {
             if (m_config.wakeUpBehavior == OfflineConfig::WakeUpConnector)

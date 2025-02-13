@@ -111,6 +111,7 @@ private:
         uint8_t connections = 0;
         uint8_t measurements = 0;
         bool deviceMoving = true;
+        bool connectorActive = false;
         bool bleAdvertising = true;
         bool createNewLog = false;
         bool resetRequired = false;
