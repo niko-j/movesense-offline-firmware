@@ -358,7 +358,8 @@ void GestureService::tapDetection(const WB_RES::AccData& data)
 
     if (tapStart > 0 && data.timestamp - tapStart > TIMEOUT)
     {
-        if (tapCount > 1)
+        // Tap counts > 5 are probably shaking or other false readings
+        if (tapCount > 1 && tapCount < 6)
         {
             WB_RES::TapGestureData tapData;
             tapData.timestamp = data.timestamp;
@@ -381,7 +382,7 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
     static LowPassFilter lpf;
     static wb::FloatVector3D max;
     static uint32_t t_begin = 0;
-    static uint32_t t_start_cycle = 0;
+    static uint32_t t_cycle = 0;
     static uint8_t cycles = 0;
 
     // Detection phases:
@@ -398,20 +399,17 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
         uint32_t t = data.timestamp + i * interval;
         float len = a.length<float>();
 
-        if (t_start_cycle > 0 && t - t_start_cycle > LATENCY) // Reset?
+        if (t_cycle > 0 && t - t_cycle > LATENCY) // Reset?
         {
             if (cycles > 1) // More than one cycle is interpreted as shaking
             {
                 WB_RES::ShakeGestureData shake;
                 shake.timestamp = t;
-                shake.duration = t_start_cycle - t_begin;
-
-                updateResource(
-                    WB_RES::LOCAL::GESTURE_SHAKE(),
-                    ResponseOptions::ForceAsync, shake);
+                shake.duration = t_cycle - t_begin;
+                updateResource(WB_RES::LOCAL::GESTURE_SHAKE(), ResponseOptions::ForceAsync, shake);
             }
 
-            t_start_cycle = 0;
+            t_cycle = 0;
             t_begin = 0;
             phase = 0;
         }
@@ -419,8 +417,10 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
         if (phase == 0 && len > THRESHOLD)
         {
             phase = 1;
-            t_begin = t;
             max = a;
+
+            if (t_begin == 0) // Shaking started
+                t_begin = t;
         }
         else
         {
@@ -433,7 +433,7 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
             {
                 phase = 0;
                 cycles += 1; // Shake cycle detected
-                t_start_cycle = t;
+                t_cycle = t;
             }
         }
     }
