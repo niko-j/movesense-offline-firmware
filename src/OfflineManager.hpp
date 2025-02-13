@@ -84,7 +84,7 @@ private:
     bool applyConfig(const WB_RES::OfflineConfig& config);
     void configureSleep(const WB_RES::OfflineConfig& config);
 
-    bool startLogging();
+    void startLogging();
     void stopLogging();
     uint8_t configureLogger(const WB_RES::OfflineConfig& config);
 
