@@ -412,6 +412,12 @@ void OfflineManager::onNotify(
             setState(WB_RES::OfflineState::ERROR_STORAGE_FULL);
         break;
     }
+    case WB_RES::LOCAL::GESTURE_TAP::LID:
+    {
+        if (m_config.optionsFlags & OfflineConfig::OptionsLogTapGestures)
+            m_state.ledOverride = 2000;
+        break;
+    }
     case WB_RES::LOCAL::GESTURE_SHAKE::LID:
     {
         auto gesture = value.convertTo<const WB_RES::ShakeGestureData&>();
@@ -420,6 +426,10 @@ void OfflineManager::onNotify(
             setBleAdv(true);
             setBleAdvTimeout(TIMER_BLE_ADV_TIMEOUT);
         }
+
+        if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures)
+            m_state.ledOverride = 2000;
+
         break;
     }
     default:
@@ -640,6 +650,19 @@ void OfflineManager::startLogging()
 
     DebugLogger::info("%s: Starting Data Logger...", LAUNCHABLE_NAME);
 
+    // Subscribe to gestures to show LED confirmation on successful detection
+    {
+        if (m_config.optionsFlags & OfflineConfig::OptionsLogTapGestures)
+        {
+            asyncSubscribe(WB_RES::LOCAL::GESTURE_TAP());
+        }
+
+        if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures)
+        {
+            asyncSubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
+        }
+    }
+
     asyncPut(
         WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::ForceAsync,
         WB_RES::DataLoggerState::DATALOGGER_LOGGING);
@@ -656,7 +679,15 @@ void OfflineManager::stopLogging()
     asyncPut(
         WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
         WB_RES::DataLoggerState::DATALOGGER_READY);
+
+    if (m_config.optionsFlags & OfflineConfig::OptionsLogTapGestures)
     {
+        asyncUnsubscribe(WB_RES::LOCAL::GESTURE_TAP());
+    }
+
+    if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures)
+    {
+        asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
     }
 }
 
@@ -894,6 +925,18 @@ void OfflineManager::ledTimerTick()
     constexpr uint16_t LED_BLINK_SERIES_CONFIG_ERROR[] = { 2000, 500, 500, 500 };
     constexpr uint16_t LED_BLINK_SERIES_SYSTEM_FAILURE[] = { 2000, 500, 500, 500, 500, 500 };
     constexpr uint16_t LED_BLINK_SERIES_LOW_BATTERY[] = { 2000, 2000 };
+
+    if (m_state.ledOverride > 0)
+    {
+        m_timers.led.elapsed = 0;
+        m_timers.led.blinks = 0;
+        m_state.ledOverride -= TIMER_TICK_LED;
+
+        WB_RES::LedState ledState = {};
+        ledState.isOn = true;
+        asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
+        return;
+    }
 
     m_timers.led.elapsed += TIMER_TICK_LED;
     uint8_t& blinks = m_timers.led.blinks;

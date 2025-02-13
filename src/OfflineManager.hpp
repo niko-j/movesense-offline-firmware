@@ -114,6 +114,7 @@ private:
         bool bleAdvertising = true;
         bool createNewLog = false;
         bool resetRequired = false;
+        int ledOverride = 0;
     } m_state;
 
     struct
