@@ -13,3 +13,8 @@ wb::FloatVector3D LowPassFilter::filter(const wb::FloatVector3D& input)
     m_b.z = (1.0f - m_cutoff) * m_b.z + m_cutoff * input.z;
     return input - m_b;
 }
+
+void LowPassFilter::reset()
+{
+    m_b = wb::FloatVector3D(0.0f, 0.0f, 0.0f);
+}

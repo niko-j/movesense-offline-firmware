@@ -85,4 +85,13 @@ public:
 
         return processedSamples;
     }
+
+    void reset()
+    {
+        m_initialize = true;
+        m_usedBits = 0;
+        m_bufferedSamples = 0;
+        m_value = 0;
+        memset(m_buffer, 0x00, sizeof(m_buffer));
+    }
 };
