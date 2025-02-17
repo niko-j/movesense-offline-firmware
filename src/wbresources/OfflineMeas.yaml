@@ -178,13 +178,13 @@ paths:
       - $ref: '#/parameters/Interval'
     post:
       description: |
-        Subscribe to activity based on movement. 
-        Once a minute, creates a value that has been accumulated based on linear acceleration.
+        Subscribe to activity measurements.
+        Calculates a value based on acceleration that reflects user's physical activity.
       responses:
         200:
           description: Operation completed successfully
         x-notification:
-          description: Average acceleration during a minute
+          description: Average activity during the measurement interval.
           schema:
             $ref: '#/definitions/OfflineActivityData'
     delete:
@@ -201,6 +201,7 @@ parameters:
     required: true
     type: integer
     format: int32
+    x-unit: Hz
 
   Interval:
     name: Interval
@@ -208,6 +209,7 @@ parameters:
     required: true
     type: integer
     format: int32
+    x-unit: second
 
 definitions:
 
@@ -355,7 +357,7 @@ definitions:
       Activity:
         type: integer
         format: uint16
-        description: Value representing user activity based on linear acceleration.
+        description: Value representing user activity based on acceleration.
 
   Vec3_Q16_8:
     required:

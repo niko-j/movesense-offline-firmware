@@ -37,7 +37,7 @@ Summary of Whiteboard APIs of each firmware module. You can find detailed API de
 - `/Offline/Meas/HR` Subscribe to receive average heart rate in 8-bit unsigned integers.
 - `/Offline/Meas/RR` Subscribe to receive R-to-R interval data in 12-bit (bit packed) format.
 - `/Offline/Meas/Temp` Subscribe to receive temperature (°C) in signed 8-bit integers.
-- `/Offline/Meas/Activity` Subscribe to receive average acceleration in every minute.
+- `/Offline/Meas/Activity/{Interval}` Subscribe to receive (relative) activity measurements in set intervals (as seconds).
 
 ### GestureService
 
