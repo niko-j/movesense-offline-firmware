@@ -1,9 +1,7 @@
 #include "movesense.h"
 #include "OfflineMeasurements.hpp"
 #include "compression/BitPack.hpp"
-#include "compression/DeltaCompression.hpp"
 #include "compression/FixedPoint.hpp"
-#include "utils/Filters.hpp"
 
 #include "app-resources/resources.h"
 #include "system_debug/resources.h"
@@ -426,6 +424,7 @@ bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t p
 
         m_state.subscribers[WB_RES::OfflineMeasurement::ACTIVITY] += 1;
         m_state.params[WB_RES::OfflineMeasurement::ACTIVITY] = param;
+        m_state.activity.reset();
     }
 
     uint16_t requiredSampleRate = getAccSampleRate();
@@ -486,10 +485,16 @@ bool OfflineMeasurements::subscribeHR(wb::LocalResourceId resourceId)
     auto& rrSubs = m_state.subscribers[WB_RES::OfflineMeasurement::RR];
 
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_HR::LID)
+    {
+        m_state.hr.reset();
         hrSubs += 1;
+    }
 
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_RR::LID)
+    {
+        m_state.r_to_r.reset();
         rrSubs += 1;
+    }
 
     if (hrSubs + rrSubs == 1)
     {
@@ -512,6 +517,8 @@ bool OfflineMeasurements::subscribeECG(wb::LocalResourceId resourceId, int32_t p
 
     if (subscribers == 1)
     {
+        m_state.ecg.reset();
+
         DebugLogger::info("%s: Subscribing to /Meas/ECG/%u", LAUNCHABLE_NAME, param);
         asyncSubscribe(
             WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE(), AsyncRequestOptions::Empty, param);
@@ -529,6 +536,8 @@ bool OfflineMeasurements::subscribeTemp(wb::LocalResourceId resourceId)
         DebugLogger::info("%s: Subscribing to /Meas/Temp", LAUNCHABLE_NAME);
         asyncSubscribe(WB_RES::LOCAL::MEAS_TEMP(), AsyncRequestOptions::Empty);
     }
+
+    m_state.temperature.reset();
 
     return true;
 }
@@ -652,15 +661,6 @@ void OfflineMeasurements::recordECGSamples(const WB_RES::ECGData& data)
 
 void OfflineMeasurements::compressECGSamples(const WB_RES::ECGData& data)
 {
-    // EXPERIMENTAL
-    // Calculates deltas and encodes them using Elias Gamma coding with bijection
-    // This has potential compression ratio of around 60%, but it might also
-    // consume a lot more data if the signal is noisy.
-
-    constexpr uint8_t BLOCK_SIZE = 32;
-    static DeltaCompression<int16_t, BLOCK_SIZE> compressor;
-    static int32_t sample_offset = 0;
-
     static int16_t buffer[16];
     size_t samples = data.samples.size();
     ASSERT(samples <= 16);
@@ -670,33 +670,32 @@ void OfflineMeasurements::compressECGSamples(const WB_RES::ECGData& data)
     }
 
     // Callback to write blocks as they get completed
-    static auto onWrite = [&](uint8_t block[BLOCK_SIZE]) {
+    static auto onWrite = [&](uint8_t block[State::ECG::COMPRESSOR_BLOCK_SIZE]) {
         uint8_t blockSamples = block[0];
-        uint16_t sampleRate = m_state.sampleRates[WB_RES::OfflineMeasurement::ECG];
-        int32_t offset = int32_t((1000.0f / sampleRate) * sample_offset);
+        uint16_t sampleRate = m_state.params[WB_RES::OfflineMeasurement::ECG];
+        int32_t offset = int32_t((1000.0f / sampleRate) * m_state.ecg.sample_offset);
 
         WB_RES::OfflineECGCompressedData ecg;
         ecg.timestamp = data.timestamp + offset;
-        ecg.bytes = wb::MakeArray(block, BLOCK_SIZE);
+        ecg.bytes = wb::MakeArray(block, State::ECG::COMPRESSOR_BLOCK_SIZE);
         updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE(), ResponseOptions::ForceAsync, ecg);
 
-        sample_offset += blockSamples;
+        m_state.ecg.sample_offset += blockSamples;
         };
 
-    size_t compressed = compressor.pack_continuous(wb::MakeArray(buffer), onWrite);
+    size_t compressed = m_state.ecg.compressor.pack_continuous(wb::MakeArray(buffer), onWrite);
     ASSERT(compressed == samples);
 
-    sample_offset -= samples;
+    m_state.ecg.sample_offset -= samples;
 }
 
 void OfflineMeasurements::recordHRAverages(const WB_RES::HRData& data)
 {
-    static uint8_t last = 0;
     uint8_t average = static_cast<uint8_t>(roundf(data.average));
 
-    if (last != average)
+    if (m_state.hr.average != average)
         return;
-    last = average;
+    m_state.hr.average = average;
 
     WB_RES::OfflineHRData hr;
     hr.timestamp = WbTimestampGet();
@@ -712,28 +711,25 @@ void OfflineMeasurements::recordRRIntervals(const WB_RES::HRData& data)
     constexpr uint8_t sampleBits = 12;
     constexpr uint8_t chunkSamples = 8;
     constexpr uint8_t bufferSize = sampleBits * chunkSamples / 8;
-
     static uint8_t buffer[bufferSize] = {};
-    static uint8_t index = 0;
-    static uint32_t timestamp = 0;
 
     for (size_t i = 0; i < data.rrData.size(); i++)
     {
-        if (index == 0) // Update timestamp on first sample
-            timestamp = WbTimestampGet();
+        if (m_state.r_to_r.index == 0) // Update timestamp on first sample
+            m_state.r_to_r.timestamp = WbTimestampGet();
 
         uint16_t sample = data.rrData[i];
-        bit_pack::write<uint16_t, sampleBits, chunkSamples>(sample, buffer, index);
-        index += 1;
+        bit_pack::write<uint16_t, sampleBits, chunkSamples>(sample, buffer, m_state.r_to_r.index);
+        m_state.r_to_r.index += 1;
 
-        if (index == chunkSamples)
+        if (m_state.r_to_r.index == chunkSamples)
         {
             WB_RES::OfflineRRData rr;
-            rr.timestamp = timestamp;
+            rr.timestamp = m_state.r_to_r.timestamp;
             rr.intervalData = wb::MakeArray(buffer, bufferSize);
 
             updateResource(WB_RES::LOCAL::OFFLINE_MEAS_RR(), ResponseOptions::ForceAsync, rr);
-            index = 0;
+            m_state.r_to_r.index = 0;
         }
     }
 }
@@ -800,12 +796,11 @@ void OfflineMeasurements::recordMagnetometerSamples(const WB_RES::MagnData& data
 
 void OfflineMeasurements::recordTemperatureSamples(const WB_RES::TemperatureValue& data)
 {
-    static int8_t last = 0;
     int8_t as_c = (int8_t)CLAMP(data.measurement - 273.15f, INT8_MIN, INT8_MAX);
 
-    if (as_c == last) // Temperature has not changed enough. Ignore.
+    if (as_c == m_state.temperature.value) // Temperature has not changed enough. Ignore.
         return;
-    last = as_c;
+    m_state.temperature.value = as_c;
 
     WB_RES::OfflineTempData temp;
     temp.timestamp = data.timestamp;
@@ -816,44 +811,39 @@ void OfflineMeasurements::recordTemperatureSamples(const WB_RES::TemperatureValu
 
 void OfflineMeasurements::recordActivity(const WB_RES::AccData& data)
 {
-    constexpr uint32_t ACTIVITY_INTERVAL = 60000;
-
-    static uint32_t activity_start = data.timestamp;
-    static uint32_t acc_count = 0;
-    static float accumulated_average = 0;
-
-    // Simple low-pass filter to mostly eliminate 
-    // the gravity from acceleration readings
-    static LowPassFilter lpf;
+    State::Activity& refState = m_state.activity;
+    if (refState.activity_start == 0)
+        refState.activity_start = data.timestamp;
 
     float total_len = 0.0f;
     size_t count = data.arrayAcc.size();
     for (size_t i = 0; i < count; i++)
     {
         const auto& s = data.arrayAcc[i];
-        wb::FloatVector3D v = lpf.filter(s);
+        wb::FloatVector3D v = refState.lpf.filter(s);
         total_len += v.length<float>();
     }
     float avg_len = total_len / count;
 
-    accumulated_average += avg_len;
-    acc_count += 1;
+    refState.accumulated_average += avg_len;
+    refState.accumulated_count += 1;
 
-    uint32_t timediff = data.timestamp - activity_start;
+    uint32_t timediff = data.timestamp - refState.activity_start;
     uint32_t interval = m_state.params[WB_RES::OfflineMeasurement::ACTIVITY] * 1000;
     if (timediff >= interval)
     {
         WB_RES::OfflineActivityData activityData;
         activityData.timestamp = data.timestamp;
-        activityData.activity = static_cast<uint16_t>(accumulated_average * (100.0f / acc_count));
+        activityData.activity = static_cast<uint16_t>(
+            refState.accumulated_average * (100.0f / refState.accumulated_count));
 
         updateResource(
             WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL(),
             ResponseOptions::ForceAsync, activityData);
 
-        accumulated_average = 0;
-        acc_count = 0;
-        activity_start = data.timestamp;
+        refState.accumulated_average = 0;
+        refState.accumulated_count = 0;
+        refState.activity_start = data.timestamp;
     }
 }
 
@@ -870,3 +860,32 @@ uint16_t OfflineMeasurements::getAccSampleRate()
     return 0;
 }
 
+void OfflineMeasurements::State::ECG::reset()
+{
+    compressor.reset();
+    sample_offset = 0;
+}
+
+void OfflineMeasurements::State::HR::reset()
+{
+    average = 0;
+}
+
+void OfflineMeasurements::State::RtoR::reset()
+{
+    timestamp = 0;
+    index = 0;
+}
+
+void OfflineMeasurements::State::Activity::reset()
+{
+    activity_start = 0;
+    accumulated_count = 0;
+    accumulated_average = 0.0f;
+    lpf.reset();
+}
+
+void OfflineMeasurements::State::Temperature::reset()
+{
+    value = 0;
+}

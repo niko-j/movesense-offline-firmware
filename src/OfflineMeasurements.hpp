@@ -1,5 +1,4 @@
 #pragma once
-
 #include <whiteboard/LaunchableModule.h>
 #include <whiteboard/ResourceClient.h>
 #include <whiteboard/ResourceProvider.h>
@@ -11,6 +10,9 @@
 #include "meas_gyro/resources.h"
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
+
+#include "utils/Filters.hpp"
+#include "compression/DeltaCompression.hpp"
 
 class OfflineMeasurements FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -110,6 +112,42 @@ private:
     {
         uint8_t subscribers[WB_RES::OfflineMeasurement::COUNT];
         uint16_t params[WB_RES::OfflineMeasurement::COUNT];
+
+        struct ECG
+        {
+            static constexpr uint8_t COMPRESSOR_BLOCK_SIZE = 32;
+            DeltaCompression<int16_t, COMPRESSOR_BLOCK_SIZE> compressor;
+            int32_t sample_offset = 0;
+            void reset();
+        } ecg;
+
+        struct HR
+        {
+            uint8_t average = 0;
+            void reset();
+        } hr;
+
+        struct RtoR
+        {
+            uint32_t timestamp = 0;
+            uint8_t index = 0;
+            void reset();
+        } r_to_r;
+
+        struct Activity
+        {
+            uint32_t activity_start = 0;
+            uint32_t accumulated_count = 0;
+            float accumulated_average = 0;
+            LowPassFilter lpf;
+            void reset();
+        } activity;
+
+        struct Temperature
+        {
+            int8_t value = 0;
+            void reset();
+        } temperature;
     } m_state;
 
     struct Options
