@@ -6,6 +6,7 @@
 
 #include "app-resources/resources.h"
 #include "meas_acc/resources.h"
+#include "utils/Filters.hpp"
 
 class GestureService FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -31,11 +32,11 @@ private: /* wb::ResourceProvider */
         const wb::ParameterList& parameters) OVERRIDE;
 
     virtual void onSubscribe(
-        const wb::Request& request, 
+        const wb::Request& request,
         const wb::ParameterList& parameters) OVERRIDE;
 
     virtual void onUnsubscribe(
-        const wb::Request& rRequest, 
+        const wb::Request& request,
         const wb::ParameterList& parameters) OVERRIDE;
 
 private: /* wb::ResourceClient */
@@ -64,9 +65,9 @@ private: /* wb::ResourceClient */
         const wb::Value& result) OVERRIDE;
 
     virtual void onUnsubscribeResult(
-        wb::RequestId requestId, 
-        wb::ResourceId resourceId, 
-        wb::Result resultCode, 
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
         const wb::Value& rResultData) OVERRIDE;
 
     virtual void onNotify(
@@ -82,9 +83,30 @@ private:
     void tapDetection(const WB_RES::AccData& data);
     void shakeDetection(const WB_RES::AccData& data);
 
-    struct 
+    struct State
     {
         uint8_t tapSubscribers = 0;
         uint8_t shakeSubscribers = 0;
     } m_state;
+
+    struct TapDetection
+    {
+        uint8_t count = 0;
+        uint32_t t_start = 0;
+        float z_prev = 0.0f;
+        float z_base = 0.0f; // Baseline before trigger
+        float t_rise = 0.0f; // t when triggered
+        void reset();
+    } m_tap;
+
+    struct ShakeDetection
+    {
+        LowPassFilter lpf;
+        wb::FloatVector3D max;
+        uint32_t t_begin = 0;
+        uint32_t t_cycle = 0;
+        uint8_t cycles = 0;
+        uint8_t phase = 0;
+        void reset();
+    } m_shake;
 };

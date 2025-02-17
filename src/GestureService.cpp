@@ -1,6 +1,5 @@
 #include "GestureService.hpp"
 #include "movesense.h"
-#include "utils/Filters.hpp"
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
 
@@ -262,9 +261,15 @@ bool GestureService::handleSubscribe(wb::LocalResourceId resourceId)
     uint16_t currentSampleRate = getAccSampleRate();
 
     if (resourceId == WB_RES::LOCAL::GESTURE_TAP::LID)
+    {
         m_state.tapSubscribers += 1;
+        m_tap.reset();
+    }
     else if (resourceId == WB_RES::LOCAL::GESTURE_SHAKE::LID)
+    {
         m_state.shakeSubscribers += 1;
+        m_shake.reset();
+    }
 
     uint16_t requiredSampleRate = getAccSampleRate();
 
@@ -284,7 +289,6 @@ void GestureService::handleUnsubscribe(wb::LocalResourceId resourceId)
 {
     uint16_t currentSampleRate = getAccSampleRate();
 
-    // Subscription priority: ACC (* Hz) > TAP (104 Hz) > ACTIVITY (13 Hz) > SHAKE (13 Hz)
     if (resourceId == WB_RES::LOCAL::GESTURE_TAP::LID && m_state.tapSubscribers > 0)
         m_state.tapSubscribers -= 1;
     else if (resourceId == WB_RES::LOCAL::GESTURE_SHAKE::LID && m_state.shakeSubscribers > 0)
@@ -313,127 +317,115 @@ void GestureService::tapDetection(const WB_RES::AccData& data)
     constexpr uint32_t LATENCY = 80; // ms, should work with the lowest sample rate
     constexpr uint32_t TIMEOUT = 2000;
 
-    static uint8_t tapCount = 0;
-    static uint32_t tapStart = 0;
     float interval = 1000.0f / getAccSampleRate(); // delta between samples
-
-    static float z_prev = data.arrayAcc[0].z;
-    static float z_base = 0.0f; // Baseline before trigger
-    static float t_rise = 0.0f; // t when triggered
 
     for (size_t i = 0; i < data.arrayAcc.size(); i++)
     {
         float t = data.timestamp + i * interval;
         float z = data.arrayAcc[i].z;
 
-        if (t_rise > 0.0f) // Threshold triggered
+        if (m_tap.t_rise > 0.0f) // Threshold triggered
         {
-            if (t - t_rise < LATENCY)
+            if (t - m_tap.t_rise < LATENCY)
             {
-                float diff = abs(z - z_base);
+                float diff = abs(z - m_tap.z_base);
                 if (diff > THRESHOLD)
                 {
-                    tapStart = data.timestamp;
-                    tapCount += 1;
-                    t_rise = 0.0f;
+                    m_tap.t_start = data.timestamp;
+                    m_tap.count += 1;
+                    m_tap.t_rise = 0.0f;
                 }
             }
             else // reset threshold
             {
-                t_rise = 0.0f;
+                m_tap.t_rise = 0.0f;
             }
         }
         else // Threshold not triggered
         {
-            float diff = z - z_prev;
+            float diff = z - m_tap.z_prev;
             if (abs(diff) > THRESHOLD)
             {
-                t_rise = t;
-                z_base = z_prev + 0.9f * diff;
+                m_tap.t_rise = t;
+                m_tap.z_base = m_tap.z_prev + 0.9f * diff;
             }
         }
 
-        z_prev = z;
+        m_tap.z_prev = z;
     }
 
-    if (tapStart > 0 && data.timestamp - tapStart > TIMEOUT)
+    if (m_tap.t_start > 0 && data.timestamp - m_tap.t_start > TIMEOUT)
     {
         // Tap counts > 5 are probably shaking or other false readings
-        if (tapCount > 1 && tapCount < 6)
+        if (m_tap.count > 1 && m_tap.count < 6)
         {
             WB_RES::TapGestureData tapData;
             tapData.timestamp = data.timestamp;
-            tapData.count = tapCount;
+            tapData.count = m_tap.count;
 
             updateResource(
                 WB_RES::LOCAL::GESTURE_TAP(),
                 ResponseOptions::ForceAsync, tapData);
         }
-        tapCount = 0;
-        tapStart = 0;
+        m_tap.count = 0;
+        m_tap.t_start = 0;
     }
 }
 
 void GestureService::shakeDetection(const WB_RES::AccData& data)
 {
-    constexpr float THRESHOLD = (9.81f * 1.5f);
-    constexpr uint32_t LATENCY = 500; // ms
-
-    static LowPassFilter lpf;
-    static wb::FloatVector3D max;
-    static uint32_t t_begin = 0;
-    static uint32_t t_cycle = 0;
-    static uint8_t cycles = 0;
-
     // Detection phases:
     // 0 - not triggered (wait positive)
     // 1 - positive threshold triggered (wait negative)
     // 2 - negative threshold triggered (wait zero)
-    static uint8_t phase = 0;
+
+    constexpr float THRESHOLD = (9.81f * 1.5f);
+    constexpr uint32_t LATENCY = 500; // ms
 
     float interval = 1000.0f / getAccSampleRate();
 
     for (size_t i = 0; i < data.arrayAcc.size(); i++)
     {
-        auto a = lpf.filter(data.arrayAcc[i]);
+        auto a = m_shake.lpf.filter(data.arrayAcc[i]);
         uint32_t t = data.timestamp + i * interval;
         float len = a.length<float>();
 
-        if (t_cycle > 0 && t - t_cycle > LATENCY) // Reset?
+        if (m_shake.t_cycle > 0 && t - m_shake.t_cycle > LATENCY) // Reset?
         {
-            if (cycles > 1) // More than one cycle is interpreted as shaking
+            if (m_shake.cycles > 1 &&
+                m_shake.cycles < 100) // More than one cycle is interpreted as shaking
             {
                 WB_RES::ShakeGestureData shake;
                 shake.timestamp = t;
-                shake.duration = t_cycle - t_begin;
+                shake.duration = m_shake.t_cycle - m_shake.t_begin;
                 updateResource(WB_RES::LOCAL::GESTURE_SHAKE(), ResponseOptions::ForceAsync, shake);
             }
 
-            t_cycle = 0;
-            t_begin = 0;
-            phase = 0;
+            m_shake.t_cycle = 0;
+            m_shake.t_begin = 0;
+            m_shake.phase = 0;
         }
 
-        if (phase == 0 && len > THRESHOLD)
+        if (m_shake.phase == 0 && len > THRESHOLD)
         {
-            phase = 1;
-            max = a;
+            m_shake.phase = 1;
+            m_shake.max = a;
 
-            if (t_begin == 0) // Shaking started
-                t_begin = t;
+            if (m_shake.t_begin == 0) // Shaking started
+                m_shake.t_begin = t;
         }
         else
         {
-            float dot = max.dotProduct(a);
-            if (phase == 1 && len > THRESHOLD && dot < 0.0f)
+            float dot = m_shake.max.dotProduct(a);
+            if (m_shake.phase == 1 && len > THRESHOLD && dot < 0.0f)
             {
-                phase = 2;
+                m_shake.phase = 2;
             }
-            else if (phase == 2 && dot > 0.0f)
+            else if (m_shake.phase == 2 && dot > 0.0f)
             {
-                phase = 0;
-                cycles += 1; // Shake cycle detected
-                t_cycle = t;
+                m_shake.phase = 0;
+                m_shake.cycles += 1; // Shake cycle detected
+                m_shake.t_cycle = t;
             }
         }
     }
@@ -448,4 +440,23 @@ uint16_t GestureService::getAccSampleRate()
         return DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE;
 
     return 0;
+}
+
+void GestureService::TapDetection::reset()
+{
+    count = 0;
+    t_start = 0;
+    z_prev = 0.0f;
+    z_base = 0.0f;
+    t_rise = 0.0f;
+}
+
+void GestureService::ShakeDetection::reset()
+{
+    max = {};
+    t_begin = 0;
+    t_cycle = 0;
+    cycles = 0;
+    phase = 0;
+    lpf.reset();
 }
