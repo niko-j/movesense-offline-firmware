@@ -14,20 +14,29 @@ MOVESENSE_PROVIDER_DEF(GestureService)
 MOVESENSE_PROVIDERS_END(4)
 
 MOVESENSE_FEATURES_BEGIN()
-// Explicitly enable or disable Movesense framework core modules.
-// List of modules and their default state is found in documentation
+
+// Enabled optional modules
 OPTIONAL_CORE_MODULE(DataLogger, true)
 OPTIONAL_CORE_MODULE(Logbook, true)
 OPTIONAL_CORE_MODULE(LedService, true)
-OPTIONAL_CORE_MODULE(IndicationService, false)
 OPTIONAL_CORE_MODULE(BleService, true)
 OPTIONAL_CORE_MODULE(EepromService, true)
-OPTIONAL_CORE_MODULE(BypassService, false)
-OPTIONAL_CORE_MODULE(SystemMemoryService, DEBUG)
-OPTIONAL_CORE_MODULE(DebugService, DEBUG)
-OPTIONAL_CORE_MODULE(BleStandardHRS, false)
-OPTIONAL_CORE_MODULE(BleNordicUART, false)
 OPTIONAL_CORE_MODULE(CustomGattService, true)
+
+// Disabled optional modules
+OPTIONAL_CORE_MODULE(IndicationService, false)
+OPTIONAL_CORE_MODULE(BypassService, false)
+OPTIONAL_CORE_MODULE(BleNordicUART, false)
+
+#ifdef DEBUG
+OPTIONAL_CORE_MODULE(SystemMemoryService, true)
+OPTIONAL_CORE_MODULE(DebugService, true)
+OPTIONAL_CORE_MODULE(BleStandardHRS, false)
+#else
+OPTIONAL_CORE_MODULE(SystemMemoryService, false)
+OPTIONAL_CORE_MODULE(DebugService, false)
+OPTIONAL_CORE_MODULE(BleStandardHRS, true) // Standard HR service enabled in release
+#endif
 
 // NOTE: It is inadvisable to enable both Logbook/DataLogger and EepromService without
 // explicit definition of Logbook memory area (see LOGBOOK_EEPROM_MEMORY_AREA macro in movesense.h).
