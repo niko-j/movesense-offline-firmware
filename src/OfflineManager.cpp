@@ -27,6 +27,7 @@ constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0x40; // Change this for breaking c
 constexpr uint32_t TIMER_TICK_SLEEP = 1000;
 constexpr uint32_t TIMER_TICK_LED = 250;
 constexpr uint32_t TIMER_BLE_ADV_TIMEOUT = 30 * 1000;
+constexpr uint32_t TIMER_GESTURE_LED_OVERRIDE_DURATION = 1000;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_CONFIG::LID,
@@ -415,7 +416,7 @@ void OfflineManager::onNotify(
     case WB_RES::LOCAL::GESTURE_TAP::LID:
     {
         if (m_config.optionsFlags & OfflineConfig::OptionsLogTapGestures)
-            m_state.ledOverride = 2000;
+            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
         break;
     }
     case WB_RES::LOCAL::GESTURE_SHAKE::LID:
@@ -428,7 +429,7 @@ void OfflineManager::onNotify(
         }
 
         if (m_config.optionsFlags & OfflineConfig::OptionsLogShakeGestures)
-            m_state.ledOverride = 2000;
+            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
 
         break;
     }
