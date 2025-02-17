@@ -627,7 +627,7 @@ uint8_t OfflineManager::configureLogger(const WB_RES::OfflineConfig& config)
                 strcpy(m_paths[count], "/Offline/Meas/Temp");
                 break;
             case WB_RES::OfflineMeasurement::ACTIVITY:
-                strcpy(m_paths[count], "/Offline/Meas/Activity");
+                sprintf(m_paths[count], "/Offline/Meas/Activity/%u", config.sampleRates[i]);
                 break;
             }
 
