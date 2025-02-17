@@ -35,7 +35,7 @@ static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_MEAS_GYRO_SAMPLERATE::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_MAGN_SAMPLERATE::LID,
     WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID,
-    WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID,
+    WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL::LID,
 };
 
 OfflineMeasurements::OfflineMeasurements()
@@ -149,9 +149,10 @@ void OfflineMeasurements::onSubscribe(
             result = wb::HTTP_CODE_FORBIDDEN;
         break;
     }
-    case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL::LID:
     {
-        if (subscribeAcc(lid, DEFAULT_ACC_SAMPLE_RATE))
+        const auto& params = WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL::SUBSCRIBE::ParameterListRef(parameters);
+        if (subscribeAcc(lid, params.getInterval()))
             result = wb::HTTP_CODE_OK;
         else
             result = wb::HTTP_CODE_FORBIDDEN;
@@ -230,7 +231,7 @@ void OfflineMeasurements::onUnsubscribe(
     switch (lid)
     {
     case WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID:
-    case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID:
+    case WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL::LID:
     {
         dropAccSubscription(lid);
         break;
@@ -363,9 +364,9 @@ void OfflineMeasurements::onNotify(
     case WB_RES::LOCAL::MEAS_HR::LID:
     {
         auto data = value.convertTo<const WB_RES::HRData&>();
-        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::HR])
+        if (m_state.subscribers[WB_RES::OfflineMeasurement::HR])
             recordHRAverages(data);
-        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::RR])
+        if (m_state.subscribers[WB_RES::OfflineMeasurement::RR])
             recordRRIntervals(data);
         break;
     }
@@ -373,10 +374,10 @@ void OfflineMeasurements::onNotify(
     {
         auto data = value.convertTo<const WB_RES::AccData&>();
 
-        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC])
+        if (m_state.subscribers[WB_RES::OfflineMeasurement::ACC])
             recordAccelerationSamples(data);
 
-        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY])
+        if (m_state.subscribers[WB_RES::OfflineMeasurement::ACTIVITY])
             recordActivity(data);
 
         break;
@@ -406,20 +407,26 @@ void OfflineMeasurements::onNotify(
     }
 }
 
-bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t sampleRate)
+bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t param)
 {
     uint16_t currentSampleRate = getAccSampleRate();
 
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID)
     {
-        if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] > 0)
+        if (m_state.subscribers[WB_RES::OfflineMeasurement::ACC] > 0)
             return false; // Only one subscriber allowed at a time            
 
-        m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] += 1;
-        m_state.sampleRates[WB_RES::OfflineMeasurement::ACC] = sampleRate;
+        m_state.subscribers[WB_RES::OfflineMeasurement::ACC] += 1;
+        m_state.params[WB_RES::OfflineMeasurement::ACC] = param;
     }
-    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID)
-        m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY] += 1;
+    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL::LID)
+    {
+        if (m_state.subscribers[WB_RES::OfflineMeasurement::ACTIVITY] > 0)
+            return false; // Only one subscriber allowed at a time    
+
+        m_state.subscribers[WB_RES::OfflineMeasurement::ACTIVITY] += 1;
+        m_state.params[WB_RES::OfflineMeasurement::ACTIVITY] = param;
+    }
 
     uint16_t requiredSampleRate = getAccSampleRate();
 
@@ -435,39 +442,39 @@ bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t s
     return true;
 }
 
-bool OfflineMeasurements::subscribeGyro(wb::LocalResourceId resourceId, int32_t sampleRate)
+bool OfflineMeasurements::subscribeGyro(wb::LocalResourceId resourceId, int32_t param)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::GYRO];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::GYRO];
     if (subscribers > 0)
         return false; // Only one subscriber allowed at a time
 
     subscribers += 1;
-    m_state.sampleRates[WB_RES::OfflineMeasurement::MAGN] = sampleRate;
+    m_state.params[WB_RES::OfflineMeasurement::MAGN] = param;
 
     if (subscribers == 1)
     {
-        DebugLogger::info("%s: Subscribing to /Meas/Gyro/%u", LAUNCHABLE_NAME, sampleRate);
+        DebugLogger::info("%s: Subscribing to /Meas/Gyro/%u", LAUNCHABLE_NAME, param);
         asyncSubscribe(
-            WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE(), AsyncRequestOptions::Empty, sampleRate);
+            WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE(), AsyncRequestOptions::Empty, param);
     }
 
     return true;
 }
 
-bool OfflineMeasurements::subscribeMagn(wb::LocalResourceId resourceId, int32_t sampleRate)
+bool OfflineMeasurements::subscribeMagn(wb::LocalResourceId resourceId, int32_t param)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::MAGN];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::MAGN];
     if (subscribers > 0)
         return false; // Only one subscriber allowed at a time
 
     subscribers += 1;
-    m_state.sampleRates[WB_RES::OfflineMeasurement::MAGN] = sampleRate;
+    m_state.params[WB_RES::OfflineMeasurement::MAGN] = param;
 
     if (subscribers == 1)
     {
-        DebugLogger::info("%s: Subscribing to /Meas/Magn/%u", LAUNCHABLE_NAME, sampleRate);
+        DebugLogger::info("%s: Subscribing to /Meas/Magn/%u", LAUNCHABLE_NAME, param);
         asyncSubscribe(
-            WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE(), AsyncRequestOptions::Empty, sampleRate);
+            WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE(), AsyncRequestOptions::Empty, param);
     }
 
     return true;
@@ -475,8 +482,8 @@ bool OfflineMeasurements::subscribeMagn(wb::LocalResourceId resourceId, int32_t 
 
 bool OfflineMeasurements::subscribeHR(wb::LocalResourceId resourceId)
 {
-    auto& hrSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::HR];
-    auto& rrSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::RR];
+    auto& hrSubs = m_state.subscribers[WB_RES::OfflineMeasurement::HR];
+    auto& rrSubs = m_state.subscribers[WB_RES::OfflineMeasurement::RR];
 
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_HR::LID)
         hrSubs += 1;
@@ -493,28 +500,28 @@ bool OfflineMeasurements::subscribeHR(wb::LocalResourceId resourceId)
     return true;
 }
 
-bool OfflineMeasurements::subscribeECG(wb::LocalResourceId resourceId, int32_t sampleRate)
+bool OfflineMeasurements::subscribeECG(wb::LocalResourceId resourceId, int32_t param)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::ECG];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::ECG];
     if (subscribers > 0)
         return false; // Allow only one subscriber
 
     subscribers += 1;
-    m_state.sampleRates[WB_RES::OfflineMeasurement::ECG] = sampleRate;
+    m_state.params[WB_RES::OfflineMeasurement::ECG] = param;
     m_options.useEcgCompression = (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE::LID);
 
     if (subscribers == 1)
     {
-        DebugLogger::info("%s: Subscribing to /Meas/ECG/%u", LAUNCHABLE_NAME, sampleRate);
+        DebugLogger::info("%s: Subscribing to /Meas/ECG/%u", LAUNCHABLE_NAME, param);
         asyncSubscribe(
-            WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE(), AsyncRequestOptions::Empty, sampleRate);
+            WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE(), AsyncRequestOptions::Empty, param);
     }
     return true;
 }
 
 bool OfflineMeasurements::subscribeTemp(wb::LocalResourceId resourceId)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::TEMP];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::TEMP];
     subscribers += 1;
 
     if (subscribers == 1)
@@ -528,14 +535,14 @@ bool OfflineMeasurements::subscribeTemp(wb::LocalResourceId resourceId)
 
 void OfflineMeasurements::dropAccSubscription(wb::LocalResourceId resourceId)
 {
-    auto& accSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC];
-    auto& activitySubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY];
+    auto& accSubs = m_state.subscribers[WB_RES::OfflineMeasurement::ACC];
+    auto& activitySubs = m_state.subscribers[WB_RES::OfflineMeasurement::ACTIVITY];
 
     uint16_t currentSampleRate = getAccSampleRate();
 
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACC_SAMPLERATE::LID && accSubs > 0)
         accSubs -= 1;
-    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY::LID && activitySubs > 0)
+    else if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL::LID && activitySubs > 0)
         activitySubs -= 1;
 
     uint16_t requiredSampleRate = getAccSampleRate();
@@ -557,7 +564,7 @@ void OfflineMeasurements::dropAccSubscription(wb::LocalResourceId resourceId)
 
 void OfflineMeasurements::dropGyroSubscription(wb::LocalResourceId resourceId)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::GYRO];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::GYRO];
     subscribers -= 1;
 
     if (subscribers == 0)
@@ -569,7 +576,7 @@ void OfflineMeasurements::dropGyroSubscription(wb::LocalResourceId resourceId)
 
 void OfflineMeasurements::dropMagnSubscription(wb::LocalResourceId resourceId)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::MAGN];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::MAGN];
     subscribers -= 1;
 
     if (subscribers == 0)
@@ -582,8 +589,8 @@ void OfflineMeasurements::dropMagnSubscription(wb::LocalResourceId resourceId)
 void OfflineMeasurements::dropHRSubscription(wb::LocalResourceId resourceId)
 {
     bool unsub = false;
-    auto& hrSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::HR];
-    auto& rrSubs = m_state.subscriberCount[WB_RES::OfflineMeasurement::RR];
+    auto& hrSubs = m_state.subscribers[WB_RES::OfflineMeasurement::HR];
+    auto& rrSubs = m_state.subscribers[WB_RES::OfflineMeasurement::RR];
 
     if (resourceId == WB_RES::LOCAL::OFFLINE_MEAS_HR::LID && hrSubs > 0)
         hrSubs -= 1;
@@ -600,7 +607,7 @@ void OfflineMeasurements::dropHRSubscription(wb::LocalResourceId resourceId)
 
 void OfflineMeasurements::dropECGSubscription(wb::LocalResourceId resourceId)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::ECG];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::ECG];
     subscribers -= 1;
 
     if (subscribers == 0)
@@ -612,7 +619,7 @@ void OfflineMeasurements::dropECGSubscription(wb::LocalResourceId resourceId)
 
 void OfflineMeasurements::dropTempSubscription(wb::LocalResourceId resourceId)
 {
-    auto& subscribers = m_state.subscriberCount[WB_RES::OfflineMeasurement::TEMP];
+    auto& subscribers = m_state.subscribers[WB_RES::OfflineMeasurement::TEMP];
     subscribers -= 1;
 
     if (subscribers == 0)
@@ -833,14 +840,15 @@ void OfflineMeasurements::recordActivity(const WB_RES::AccData& data)
     acc_count += 1;
 
     uint32_t timediff = data.timestamp - activity_start;
-    if (timediff >= ACTIVITY_INTERVAL)
+    uint32_t interval = m_state.params[WB_RES::OfflineMeasurement::ACTIVITY] * 1000;
+    if (timediff >= interval)
     {
         WB_RES::OfflineActivityData activityData;
         activityData.timestamp = data.timestamp;
         activityData.activity = static_cast<uint16_t>(accumulated_average * (100.0f / acc_count));
 
         updateResource(
-            WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY(),
+            WB_RES::LOCAL::OFFLINE_MEAS_ACTIVITY_INTERVAL(),
             ResponseOptions::ForceAsync, activityData);
 
         accumulated_average = 0;
@@ -851,12 +859,12 @@ void OfflineMeasurements::recordActivity(const WB_RES::AccData& data)
 
 uint16_t OfflineMeasurements::getAccSampleRate()
 {
-    uint16_t acc = m_state.sampleRates[WB_RES::OfflineMeasurement::ACC];
+    uint16_t acc = m_state.params[WB_RES::OfflineMeasurement::ACC];
 
-    if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACC] > 0)
+    if (m_state.subscribers[WB_RES::OfflineMeasurement::ACC] > 0)
         return acc > 0 ? acc : DEFAULT_ACC_SAMPLE_RATE;
 
-    if (m_state.subscriberCount[WB_RES::OfflineMeasurement::ACTIVITY] > 0)
+    if (m_state.subscribers[WB_RES::OfflineMeasurement::ACTIVITY] > 0)
         return DEFAULT_ACC_SAMPLE_RATE;
 
     return 0;

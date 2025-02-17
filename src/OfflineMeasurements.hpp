@@ -80,11 +80,11 @@ private: /* wb::ResourceClient */
         const wb::ParameterList& parameters) OVERRIDE;
 
 private:
-    bool subscribeAcc(wb::LocalResourceId resourceId, int32_t sampleRate);
-    bool subscribeGyro(wb::LocalResourceId resourceId, int32_t sampleRate);
-    bool subscribeMagn(wb::LocalResourceId resourceId, int32_t sampleRate);
+    bool subscribeAcc(wb::LocalResourceId resourceId, int32_t param);
+    bool subscribeGyro(wb::LocalResourceId resourceId, int32_t param);
+    bool subscribeMagn(wb::LocalResourceId resourceId, int32_t param);
     bool subscribeHR(wb::LocalResourceId resourceId);
-    bool subscribeECG(wb::LocalResourceId resourceId, int32_t sampleRate);
+    bool subscribeECG(wb::LocalResourceId resourceId, int32_t param);
     bool subscribeTemp(wb::LocalResourceId resourceId);
 
     void dropAccSubscription(wb::LocalResourceId resourceId);
@@ -108,10 +108,8 @@ private:
 
     struct State
     {
-        uint8_t subscriberCount[WB_RES::OfflineMeasurement::COUNT];
-        uint16_t sampleRates[WB_RES::OfflineMeasurement::COUNT];
-        bool logging = false;
-        bool configured = false;
+        uint8_t subscribers[WB_RES::OfflineMeasurement::COUNT];
+        uint16_t params[WB_RES::OfflineMeasurement::COUNT];
     } m_state;
 
     struct Options

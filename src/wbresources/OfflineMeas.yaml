@@ -169,7 +169,13 @@ paths:
         200:
           description: Operation completed successfully
 
-  /Offline/Meas/Activity/Subscription:
+  /Offline/Meas/Activity/{Interval}:
+    parameters:
+      - $ref: '#/parameters/Interval'
+
+  /Offline/Meas/Activity/{Interval}/Subscription:
+    parameters:
+      - $ref: '#/parameters/Interval'
     post:
       description: |
         Subscribe to activity based on movement. 
@@ -191,6 +197,13 @@ parameters:
 
   SampleRate:
     name: SampleRate
+    in: path
+    required: true
+    type: integer
+    format: int32
+
+  Interval:
+    name: Interval
     in: path
     required: true
     type: integer
