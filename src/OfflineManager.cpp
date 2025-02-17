@@ -691,11 +691,14 @@ void OfflineManager::stopLogging()
 {
     ASSERT(m_state.id.getValue() == WB_RES::OfflineState::RUNNING);
 
-    DebugLogger::info("%s: Stopping Data Logger...", LAUNCHABLE_NAME);
-    m_state.createNewLog = true; // Start a new entry
-    asyncPut(
-        WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
-        WB_RES::DataLoggerState::DATALOGGER_READY);
+    if (m_state.measurements > 0)
+    {
+        DebugLogger::info("%s: Stopping Data Logger...", LAUNCHABLE_NAME);
+        m_state.createNewLog = true; // Start a new entry
+        asyncPut(
+            WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
+            WB_RES::DataLoggerState::DATALOGGER_READY);
+    }
 
     if (m_config.optionsFlags & OfflineConfig::OptionsLogTapGestures)
     {
