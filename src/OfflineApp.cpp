@@ -333,6 +333,13 @@ void OfflineApp::onPutResult(
         }
         case wb::HTTP_CODE_OK:
         {
+            if (m_state.id.getValue() == WB_RES::OfflineState::ERROR_INVALID_CONFIG)
+            {
+                if (m_state.connections > 0)
+                    setState(WB_RES::OfflineState::CONNECTED);
+                else
+                    setState(WB_RES::OfflineState::RUNNING);
+            }
             break;
         }
         default:
@@ -509,13 +516,6 @@ void OfflineApp::setConfig(const WB_RES::OfflineConfig& config)
 
 bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
 {
-    if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
-        m_state.id.getValue() != WB_RES::OfflineState::CONNECTED &&
-        m_state.id.getValue() != WB_RES::OfflineState::ERROR_INVALID_CONFIG)
-    {
-        return false;
-    }
-
     // Verify state
     if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
         m_state.id.getValue() != WB_RES::OfflineState::CONNECTED &&
@@ -598,15 +598,6 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
 
 uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
 {
-    if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
-        m_state.id.getValue() != WB_RES::OfflineState::CONNECTED)
-    {
-        DebugLogger::error(
-            "%s: Cannot configure logger when not either in INIT or CONNECTED state",
-            LAUNCHABLE_NAME);
-        return 0;
-    }
-
     uint8_t count = 0;
     memset(m_paths, 0, sizeof(m_paths));
 
@@ -940,7 +931,8 @@ void OfflineApp::sleepTimerTick()
     case WB_RES::OfflineState::ERROR_BATTERY_LOW:
     case WB_RES::OfflineState::ERROR_SYSTEM_FAILURE:
     {
-        m_timers.sleep.elapsed += TIMER_TICK_SLEEP;
+        if (m_state.connections == 0)
+            m_timers.sleep.elapsed += TIMER_TICK_SLEEP;
 
         if (m_timers.sleep.elapsed >= 30000)
             powerOff();
@@ -1032,7 +1024,7 @@ void OfflineApp::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
     {
         if (m_state.resetRequired)
             powerOff();
-        else
+        else if (m_state.id.getValue() == WB_RES::OfflineState::CONNECTED)
             setState(WB_RES::OfflineState::RUNNING);
     }
     else if (m_state.connections == 1)
@@ -1101,8 +1093,6 @@ void OfflineApp::setBleAdv(bool enabled)
 
     if (enabled)
     {
-
-
         DebugLogger::info("%s: Turning on BLE advertising", LAUNCHABLE_NAME);
         asyncPost(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::ForceAsync);
     }
