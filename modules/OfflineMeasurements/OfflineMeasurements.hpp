@@ -109,15 +109,14 @@ private:
 
     struct State
     {
-        static constexpr uint8_t MEAS_COUNT = 8;
-        uint8_t subscribers[WB_RES::OfflineMeasurement::COUNT];
-        uint16_t params[WB_RES::OfflineMeasurement::COUNT];
+        uint8_t subscribers[WB_RES::OfflineMeasurement::COUNT] = {};
+        uint16_t params[WB_RES::OfflineMeasurement::COUNT] = {};
 
         struct ECG
         {
             static constexpr uint8_t COMPRESSOR_BLOCK_SIZE = 32;
-            offline_meas::compression::DeltaCompression<int16_t, COMPRESSOR_BLOCK_SIZE> compressor;
             int32_t sample_offset = 0;
+            offline_meas::compression::DeltaCompression<int16_t, COMPRESSOR_BLOCK_SIZE> compressor;
             void reset();
         } ecg;
 

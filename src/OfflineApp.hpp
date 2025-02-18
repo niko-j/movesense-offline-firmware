@@ -77,36 +77,6 @@ private: /* wb::ResourceClient */
     virtual void onTimer(whiteboard::TimerId timerId) OVERRIDE;
 
 private:
-    void asyncReadConfigFromEEPROM();
-    void asyncSaveConfigToEEPROM();
-
-    WB_RES::OfflineConfig getConfig() const;
-    void setConfig(const WB_RES::OfflineConfig& config);
-    bool applyConfig(const WB_RES::OfflineConfig& config);
-
-    void startLogging();
-    void stopLogging();
-    uint8_t configureLogger(const WB_RES::OfflineConfig& config);
-
-    void setState(WB_RES::OfflineState state);
-    void powerOff();
-    bool onConnected();
-    void onEnterSleep();
-    void onWakeUp();
-
-    void sleepTimerTick();
-    void ledTimerTick();
-
-    void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
-    void handleSystemStateChange(const WB_RES::StateChange& stateChange);
-    void setBleAdv(bool enabled);
-    void setBleAdvTimeout(uint32_t timeout);
-
-    static constexpr size_t MAX_LOGGED_PATHS = (
-        WB_RES::OfflineMeasurement::COUNT + WB_RES::Gesture::COUNT
-        );
-    char m_paths[MAX_LOGGED_PATHS][42];
-
     struct Config
     {
         uint8_t wakeUp = WB_RES::OfflineWakeup::CONNECTOR;
@@ -148,4 +118,38 @@ private:
             wb::TimerId id = wb::ID_INVALID_TIMER;
         } ble_adv_off;
     } m_timers;
+
+    struct Logger
+    {
+        static constexpr size_t MAX_LOGGED_PATHS = (
+            WB_RES::OfflineMeasurement::COUNT + WB_RES::Gesture::COUNT
+            );
+        static constexpr size_t MAX_PATH_LEN = 42;
+        char paths[MAX_LOGGED_PATHS][MAX_PATH_LEN];
+    } m_logger;
+
+    void asyncReadConfigFromEEPROM();
+    void asyncSaveConfigToEEPROM();
+
+    WB_RES::OfflineConfig getConfig() const;
+    void setConfig(const WB_RES::OfflineConfig& config);
+    bool applyConfig(const WB_RES::OfflineConfig& config);
+
+    void startLogging();
+    void stopLogging();
+    uint8_t configureLogger(const WB_RES::OfflineConfig& config);
+
+    void setState(WB_RES::OfflineState state);
+    void powerOff();
+    bool onConnected();
+    void onEnterSleep();
+    void onWakeUp();
+
+    void sleepTimerTick();
+    void ledTimerTick();
+
+    void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
+    void handleSystemStateChange(const WB_RES::StateChange& stateChange);
+    void setBleAdv(bool enabled);
+    void setBleAdvTimeout(uint32_t timeout);
 };

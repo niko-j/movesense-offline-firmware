@@ -1,14 +1,13 @@
 swagger: '2.0'
 
 info:
-  version: "0.0.1"
+  version: "1.0.0"
   title: Gestures API
   description: This file defines the API for gesture detection
   x-api-type: public
   x-api-required: false
 
 paths:
-
   /Gesture/Tap/Subscription:
     post:
       description: Subscribe to tap detection events.
@@ -42,7 +41,6 @@ paths:
           description: Operation completed successfully
 
 definitions:
-
   GestureTimestamp:
     type: integer
     format: uint32

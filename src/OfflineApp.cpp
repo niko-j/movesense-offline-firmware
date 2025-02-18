@@ -599,13 +599,13 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
 uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
 {
     uint8_t count = 0;
-    memset(m_paths, 0, sizeof(m_paths));
+    memset(m_logger.paths, 0, sizeof(m_logger.paths));
 
     bool ecgCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES);
     bool logTapGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES);
     bool logShakeGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES);
 
-    WB_RES::DataEntry entries[MAX_LOGGED_PATHS] = {};
+    WB_RES::DataEntry entries[Logger::MAX_LOGGED_PATHS] = {};
     for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
     {
         if (config.measurementParams[i])
@@ -614,49 +614,49 @@ uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
             {
             case WB_RES::OfflineMeasurement::ECG:
                 if (ecgCompression)
-                    sprintf(m_paths[count], "/Offline/Meas/ECG/Compressed/%u", config.measurementParams[i]);
+                    sprintf(m_logger.paths[count], "/Offline/Meas/ECG/Compressed/%u", config.measurementParams[i]);
                 else
-                    sprintf(m_paths[count], "/Offline/Meas/ECG/%u", config.measurementParams[i]);
+                    sprintf(m_logger.paths[count], "/Offline/Meas/ECG/%u", config.measurementParams[i]);
                 break;
             case WB_RES::OfflineMeasurement::ACC:
-                sprintf(m_paths[count], "/Offline/Meas/Acc/%u", config.measurementParams[i]);
+                sprintf(m_logger.paths[count], "/Offline/Meas/Acc/%u", config.measurementParams[i]);
                 break;
             case WB_RES::OfflineMeasurement::GYRO:
-                sprintf(m_paths[count], "/Offline/Meas/Gyro/%u", config.measurementParams[i]);
+                sprintf(m_logger.paths[count], "/Offline/Meas/Gyro/%u", config.measurementParams[i]);
                 break;
             case WB_RES::OfflineMeasurement::MAGN:
-                sprintf(m_paths[count], "/Offline/Meas/Magn/%u", config.measurementParams[i]);
+                sprintf(m_logger.paths[count], "/Offline/Meas/Magn/%u", config.measurementParams[i]);
                 break;
             case WB_RES::OfflineMeasurement::HR:
-                strcpy(m_paths[count], "/Offline/Meas/HR");
+                strcpy(m_logger.paths[count], "/Offline/Meas/HR");
                 break;
             case WB_RES::OfflineMeasurement::RR:
-                strcpy(m_paths[count], "/Offline/Meas/RR");
+                strcpy(m_logger.paths[count], "/Offline/Meas/RR");
                 break;
             case WB_RES::OfflineMeasurement::TEMP:
-                strcpy(m_paths[count], "/Offline/Meas/Temp");
+                strcpy(m_logger.paths[count], "/Offline/Meas/Temp");
                 break;
             case WB_RES::OfflineMeasurement::ACTIVITY:
-                sprintf(m_paths[count], "/Offline/Meas/Activity/%u", config.measurementParams[i]);
+                sprintf(m_logger.paths[count], "/Offline/Meas/Activity/%u", config.measurementParams[i]);
                 break;
             }
 
-            entries[count].path = m_paths[count];
+            entries[count].path = m_logger.paths[count];
             count++;
         }
     }
 
     if (logTapGestures)
     {
-        strcpy(m_paths[count], "/Gesture/Tap");
-        entries[count].path = m_paths[count];
+        strcpy(m_logger.paths[count], "/Gesture/Tap");
+        entries[count].path = m_logger.paths[count];
         count++;
     }
 
     if (logShakeGestures)
     {
-        strcpy(m_paths[count], "/Gesture/Shake");
-        entries[count].path = m_paths[count];
+        strcpy(m_logger.paths[count], "/Gesture/Shake");
+        entries[count].path = m_logger.paths[count];
         count++;
     }
 

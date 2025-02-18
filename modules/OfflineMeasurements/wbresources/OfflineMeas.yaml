@@ -8,7 +8,6 @@ info:
   x-api-required: false
 
 paths:
-
   /Offline/Meas/ECG/{SampleRate}:
     parameters:
       - $ref: '#/parameters/SampleRate'
@@ -194,7 +193,6 @@ paths:
           description: Operation completed successfully
 
 parameters:
-
   SampleRate:
     name: SampleRate
     in: path
@@ -212,7 +210,6 @@ parameters:
     x-unit: second
 
 definitions:
-
   OfflineTimestamp:
     type: integer
     format: uint32

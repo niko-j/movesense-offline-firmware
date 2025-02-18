@@ -28,30 +28,24 @@ OPTIONAL_CORE_MODULE(IndicationService, false)
 OPTIONAL_CORE_MODULE(BypassService, false)
 OPTIONAL_CORE_MODULE(BleNordicUART, false)
 
-#ifdef DEBUG
-OPTIONAL_CORE_MODULE(SystemMemoryService, true)
-OPTIONAL_CORE_MODULE(DebugService, true)
-OPTIONAL_CORE_MODULE(BleStandardHRS, false)
-#else
+#ifdef NDEBUG
 OPTIONAL_CORE_MODULE(SystemMemoryService, false)
 OPTIONAL_CORE_MODULE(DebugService, false)
 OPTIONAL_CORE_MODULE(BleStandardHRS, true) // Standard HR service enabled in release
+
+LOGBOOK_EEPROM_MEMORY_AREA(1024, MEMORY_SIZE_FILL_REST);
+#else
+OPTIONAL_CORE_MODULE(SystemMemoryService, true)
+OPTIONAL_CORE_MODULE(DebugService, true)
+OPTIONAL_CORE_MODULE(BleStandardHRS, false)
+
+DEBUGSERVICE_BUFFER_SIZE(6, 120);
+DEBUG_EEPROM_MEMORY_AREA(true, 1024, 15360)
+LOGBOOK_EEPROM_MEMORY_AREA(16384, MEMORY_SIZE_FILL_REST);
 #endif
 
-// NOTE: It is inadvisable to enable both Logbook/DataLogger and EepromService without
-// explicit definition of Logbook memory area (see LOGBOOK_EEPROM_MEMORY_AREA macro in movesense.h).
-// Default setting is for Logbook to use the whole EEPROM memory area.
-
-// Define 16kB DEBUG message area
-// NOTE: If building a simulator build, these macros are obligatory!
-DEBUGSERVICE_BUFFER_SIZE(6, 120); // 6 lines, 120 characters total
-DEBUG_EEPROM_MEMORY_AREA(true, 1024, 15360)
-// Rest of the EEPROM is for Logbook 
-LOGBOOK_EEPROM_MEMORY_AREA(16384, MEMORY_SIZE_FILL_REST);
-
 APPINFO_NAME("Offline Tracker");
-APPINFO_VERSION("0.0.1");
-APPINFO_COMPANY("TUNI");
+APPINFO_VERSION("1.0.0");
+APPINFO_COMPANY("Niko Junnila");
 
-// NOTE: SERIAL_COMMUNICATION & BLE_COMMUNICATION macros have been DEPRECATED
 MOVESENSE_FEATURES_END()
