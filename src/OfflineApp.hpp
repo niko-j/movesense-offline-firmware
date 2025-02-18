@@ -1,23 +1,21 @@
 #pragma once
-#include "protocol/OfflineConfig.hpp"
 
 #include <whiteboard/LaunchableModule.h>
 #include <whiteboard/ResourceClient.h>
 #include <whiteboard/ResourceProvider.h>
 
 #include "app-resources/resources.h"
+#include "modules-resources/resources.h"
 #include "comm_ble/resources.h"
 #include "system_states/resources.h"
 
-constexpr size_t MAX_LOGGED_PATHS = WB_RES::OfflineMeasurement::COUNT + 2; // Measurements + Gestures
-
-class OfflineManager FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
+class OfflineApp FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
 public:
     static const char* const LAUNCHABLE_NAME;
 
-    OfflineManager();
-    ~OfflineManager();
+    OfflineApp();
+    ~OfflineApp();
 
 private: /* wb::LaunchableModule*/
     virtual bool initModule() OVERRIDE;
@@ -81,8 +79,10 @@ private: /* wb::ResourceClient */
 private:
     void asyncReadConfigFromEEPROM();
     void asyncSaveConfigToEEPROM();
+
+    WB_RES::OfflineConfig getConfig() const;
+    void setConfig(const WB_RES::OfflineConfig& config);
     bool applyConfig(const WB_RES::OfflineConfig& config);
-    void configureSleep(const WB_RES::OfflineConfig& config);
 
     void startLogging();
     void stopLogging();
@@ -102,10 +102,20 @@ private:
     void setBleAdv(bool enabled);
     void setBleAdvTimeout(uint32_t timeout);
 
-    OfflineConfig m_config = {};
+    static constexpr size_t MAX_LOGGED_PATHS = (
+        WB_RES::OfflineMeasurement::COUNT + WB_RES::Gesture::COUNT
+        );
     char m_paths[MAX_LOGGED_PATHS][42];
 
-    struct
+    struct Config
+    {
+        uint8_t wakeUp = WB_RES::OfflineWakeup::CONNECTOR;
+        uint16_t params[WB_RES::OfflineMeasurement::COUNT] = {};
+        uint16_t sleepDelay = 60;
+        uint8_t options = WB_RES::OfflineOptionsFlags::SHAKETOCONNECT;
+    } m_config;
+
+    struct State
     {
         WB_RES::OfflineState id = WB_RES::OfflineState::INIT;
         uint8_t connections = 0;
@@ -118,22 +128,22 @@ private:
         int ledOverride = 0;
     } m_state;
 
-    struct
+    struct Timers
     {
-        struct
+        struct Sleep
         {
             wb::TimerId id = wb::ID_INVALID_TIMER;
             uint32_t elapsed = 0;
         } sleep;
 
-        struct
+        struct LED
         {
             wb::TimerId id = wb::ID_INVALID_TIMER;
             uint32_t elapsed = 0;
             uint8_t blinks = 0;
         } led;
 
-        struct
+        struct BleAdvOff
         {
             wb::TimerId id = wb::ID_INVALID_TIMER;
         } ble_adv_off;

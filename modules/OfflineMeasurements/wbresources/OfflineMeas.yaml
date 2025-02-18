@@ -1,7 +1,7 @@
 swagger: '2.0'
 
 info:
-  version: "0.0.1"
+  version: "1.0.0"
   title: Offline Measurement API
   description: This file defines the API for offline measurements.
   x-api-type: public
@@ -441,6 +441,38 @@ definitions:
       B1:
         type: integer
         format: int8
+  
+  OfflineMeasurement:
+    type: integer
+    format: uint8
+    enum:
+    - name: 'ECG'
+      description: ECG
+      value: 0
+    - name: 'HR'
+      description: Heartrate averages
+      value: 1
+    - name: 'RR'
+      description: RR-intervals
+      value: 2
+    - name: 'ACC'
+      description: Acceleration
+      value: 3
+    - name: 'GYRO'
+      description: Gyroscope
+      value: 4
+    - name: 'MAGN'
+      description: Magnetometer
+      value: 5
+    - name: 'TEMP'
+      description: Temperature
+      value: 6
+    - name: 'ACTIVITY'
+      description: Activity
+      value: 7
+    - name: 'COUNT'
+      description: Number of measurements
+      value: 8
 
 datalogger:
   version: "1.0"

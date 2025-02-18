@@ -1,12 +1,10 @@
 #pragma once
-
 #include <whiteboard/LaunchableModule.h>
 #include <whiteboard/ResourceClient.h>
 #include <whiteboard/ResourceProvider.h>
 
-#include "app-resources/resources.h"
 #include "meas_acc/resources.h"
-#include "utils/Filters.hpp"
+#include "internal/LowPassFilter.hpp"
 
 class GestureService FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -101,7 +99,7 @@ private:
 
     struct ShakeDetection
     {
-        LowPassFilter lpf;
+        gesture_svc::LowPassFilter lpf;
         wb::FloatVector3D max;
         uint32_t t_begin = 0;
         uint32_t t_cycle = 0;

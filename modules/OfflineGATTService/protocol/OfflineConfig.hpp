@@ -49,5 +49,5 @@ struct OfflineConfig
             uint16_t Activity;
         } bySensor;
         uint16_t array[MeasCount] = {};
-    } sampleRates;
+    } measurementParams;
 };

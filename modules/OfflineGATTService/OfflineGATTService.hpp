@@ -1,5 +1,4 @@
 #pragma once
-
 #include <whiteboard/LaunchableModule.h>
 #include <whiteboard/ResourceClient.h>
 

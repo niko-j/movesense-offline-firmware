@@ -48,6 +48,20 @@ definitions:
     format: uint32
     x-unit: millisecond
 
+  Gesture:
+    type: integer
+    format: uint8
+    enum:
+    - name: 'TAP'
+      description: Tapping gesture
+      value: 0
+    - name: 'SHAKE'
+      description: Shaking gesture
+      value: 1
+    - name: 'COUNT'
+      description: Number of gesture types
+      value: 2
+
   TapGestureData:
     required:
       - Timestamp

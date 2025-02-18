@@ -1,7 +1,11 @@
 #include "GestureService.hpp"
-#include "movesense.h"
+#include "modules-resources/resources.h"
+
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
+
+#define GESTURE_SVC_LOW_PASS_FILTER_IMPL
+#include "internal/LowPassFilter.hpp"
 
 const char* const GestureService::LAUNCHABLE_NAME = "GestureSvc";
 constexpr uint16_t DEFAULT_TAP_DETECTION_ACC_SAMPLE_RATE = 104;
@@ -169,7 +173,7 @@ void GestureService::onGetResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onGetResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onGetResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
@@ -179,7 +183,7 @@ void GestureService::onPostResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPostResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onPostResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
@@ -189,7 +193,7 @@ void GestureService::onPutResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPutResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onPutResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
@@ -199,7 +203,7 @@ void GestureService::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::info("%s: onSubscribeResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onSubscribeResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 
     switch (resourceId.localResourceId)
@@ -208,10 +212,10 @@ void GestureService::onSubscribeResult(
     {
         if (resultCode != wb::HTTP_CODE_OK)
         {
-            asyncPut(
-                WB_RES::LOCAL::OFFLINE_STATE(), AsyncRequestOptions::Empty,
-                WB_RES::OfflineState::ERROR_INVALID_CONFIG);
+            DebugLogger::error("%s: Failed to subscribe to resource %d",
+                LAUNCHABLE_NAME, resourceId.localResourceId);
         }
+        ASSERT(resultCode == wb::HTTP_CODE_OK);
         break;
     }
     default:
@@ -226,7 +230,7 @@ void GestureService::onUnsubscribeResult(
     wb::Result resultCode,
     const wb::Value& rResultData)
 {
-    DebugLogger::info("%s: onUnsubscribeResult (res: %d), status %d",
+    DebugLogger::verbose("%s: onUnsubscribeResult (res: %d), status %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 

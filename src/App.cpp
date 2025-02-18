@@ -1,13 +1,13 @@
-#include "OfflineManager.hpp"
-#include "OfflineMeasurements.hpp"
-#include "OfflineGATTService.hpp"
-#include "GestureService.hpp"
+#include "OfflineApp.hpp"
+#include "../modules/OfflineMeasurements/OfflineMeasurements.hpp"
+#include "../modules/OfflineGATTService/OfflineGATTService.hpp"
+#include "../modules/GestureService/GestureService.hpp"
 #include "movesense.h"
 
 MOVESENSE_APPLICATION_STACKSIZE(1024)
 
 MOVESENSE_PROVIDERS_BEGIN(4)
-MOVESENSE_PROVIDER_DEF(OfflineManager)
+MOVESENSE_PROVIDER_DEF(OfflineApp)
 MOVESENSE_PROVIDER_DEF(OfflineMeasurements)
 MOVESENSE_PROVIDER_DEF(OfflineGATTService)
 MOVESENSE_PROVIDER_DEF(GestureService)

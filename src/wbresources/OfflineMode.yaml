@@ -1,7 +1,7 @@
 swagger: '2.0'
 
 info:
-  version: "0.0.1"
+  version: "1.0.0"
   title: Offline Mode API
   description: This file defines the API for offline mode.  
   x-api-type: public
@@ -90,15 +90,16 @@ definitions:
   OfflineConfig:
     required:
       - WakeUpBehavior
-      - SampleRates
+      - MeasurementParams
       - SleepDelay
       - Options
     properties:
       WakeUpBehavior:
         description: Configure how the device wakes up
         $ref: "#/definitions/OfflineWakeup"
-      SampleRates:
-        description: Array of samplerates for each sensor indexed by MeasurementSensors enum.
+      MeasurementParams:
+        description: 
+          Array of measurement parameters (samplerate/interval).
         type: array
         minItems: 8
         maxItems: 8
@@ -162,38 +163,6 @@ definitions:
       description: Wake up from double tap
       value: 3
 
-  OfflineMeasurement:
-    type: integer
-    format: uint8
-    enum:
-    - name: 'ECG'
-      description: ECG
-      value: 0
-    - name: 'HR'
-      description: Heartrate averages
-      value: 1
-    - name: 'RR'
-      description: RR-intervals
-      value: 2
-    - name: 'ACC'
-      description: Acceleration
-      value: 3
-    - name: 'GYRO'
-      description: Gyroscope
-      value: 4
-    - name: 'MAGN'
-      description: Magnetometer
-      value: 5
-    - name: 'TEMP'
-      description: Temperature
-      value: 6
-    - name: 'ACTIVITY'
-      description: Activity
-      value: 7
-    - name: 'COUNT'
-      description: Number of measurements
-      value: 8
-
   OfflineOptionsFlags:    
     type: integer
     format: uint8
@@ -217,4 +186,4 @@ datalogger:
 
   resources:
     /Offline/Config:
-      array-lengths: 9
+      array-lengths: 8

@@ -1,5 +1,4 @@
 #include "OfflineGATTService.hpp"
-#include "utils/Conversions.hpp"
 
 #include "app-resources/resources.h"
 #include "comm_ble_gattsvc/resources.h"
@@ -16,6 +15,11 @@
 #include "protocol/packets/OfflineDataPacket.hpp"
 #include "protocol/packets/OfflineLogPacket.hpp"
 #include "protocol/packets/OfflineTimePacket.hpp"
+
+#define OFFLINE_GATT_CONVERSIONS_IMPL
+#include "internal/Conversions.hpp"
+
+using namespace offline_gatt;
 
 const char* const OfflineGATTService::LAUNCHABLE_NAME = "OfflineGATT";
 

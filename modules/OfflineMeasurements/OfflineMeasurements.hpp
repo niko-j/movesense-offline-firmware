@@ -3,16 +3,15 @@
 #include <whiteboard/ResourceClient.h>
 #include <whiteboard/ResourceProvider.h>
 
-#include "app-resources/resources.h"
+#include "modules-resources/resources.h"
 #include "meas_ecg/resources.h"
 #include "meas_hr/resources.h"
 #include "meas_acc/resources.h"
 #include "meas_gyro/resources.h"
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
-
-#include "utils/Filters.hpp"
-#include "compression/DeltaCompression.hpp"
+#include "internal/LowPassFilter.hpp"
+#include "internal/compression/DeltaCompression.hpp"
 
 class OfflineMeasurements FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -38,11 +37,11 @@ private: /* wb::ResourceProvider */
         const wb::ParameterList& parameters) OVERRIDE;
 
     virtual void onSubscribe(
-        const wb::Request& request, 
+        const wb::Request& request,
         const wb::ParameterList& parameters) OVERRIDE;
 
     virtual void onUnsubscribe(
-        const wb::Request& rRequest, 
+        const wb::Request& rRequest,
         const wb::ParameterList& parameters) OVERRIDE;
 
 private: /* wb::ResourceClient */
@@ -71,9 +70,9 @@ private: /* wb::ResourceClient */
         const wb::Value& result) OVERRIDE;
 
     virtual void onUnsubscribeResult(
-        wb::RequestId requestId, 
-        wb::ResourceId resourceId, 
-        wb::Result resultCode, 
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
         const wb::Value& rResultData) OVERRIDE;
 
     virtual void onNotify(
@@ -110,13 +109,14 @@ private:
 
     struct State
     {
+        static constexpr uint8_t MEAS_COUNT = 8;
         uint8_t subscribers[WB_RES::OfflineMeasurement::COUNT];
         uint16_t params[WB_RES::OfflineMeasurement::COUNT];
 
         struct ECG
         {
             static constexpr uint8_t COMPRESSOR_BLOCK_SIZE = 32;
-            DeltaCompression<int16_t, COMPRESSOR_BLOCK_SIZE> compressor;
+            offline_meas::compression::DeltaCompression<int16_t, COMPRESSOR_BLOCK_SIZE> compressor;
             int32_t sample_offset = 0;
             void reset();
         } ecg;
@@ -139,7 +139,7 @@ private:
             uint32_t activity_start = 0;
             uint32_t accumulated_count = 0;
             float accumulated_average = 0;
-            LowPassFilter lpf;
+            offline_meas::LowPassFilter lpf;
             void reset();
         } activity;
 

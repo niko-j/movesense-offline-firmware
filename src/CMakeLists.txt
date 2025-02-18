@@ -12,10 +12,12 @@ endif()
 
 # Create a list with all the modules
 if(NOT DEFINED MOVESENSE_MODULES)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/compression)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/protocol)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/protocol/packets)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/utils)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineMeasurements)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/GestureService)
+
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService/protocol)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService/protocol/packets)
 endif()
 
 include(${MOVESENSE_CORE_LIBRARY}/MovesenseFromStaticLib.cmake REQUIRED)

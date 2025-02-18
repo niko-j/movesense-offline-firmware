@@ -1,12 +1,12 @@
 #pragma once
 #include <wb-resources/resources.h>
 
-namespace bit_pack
+namespace offline_meas::compression::bit_pack
 {
     template<typename T, uint8_t BitsPerValue, uint8_t ValuesInChunk>
     bool write(const T& sample, uint8_t buffer[BitsPerValue * ValuesInChunk / 8], uint8_t valueIndex)
     {
-        if(valueIndex >= ValuesInChunk)
+        if (valueIndex >= ValuesInChunk)
             return false;
 
         uint8_t bitsUsed = valueIndex * BitsPerValue;
@@ -31,4 +31,4 @@ namespace bit_pack
 
         return true;
     }
-} // namespace bit_pack
+} // namespace offline_meas::compression::bit_pack

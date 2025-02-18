@@ -1,7 +1,7 @@
 #pragma once
 #include <wb-resources/resources.h>
 
-namespace elias_gamma
+namespace offline_meas::compression::elias_gamma
 {
     template<typename T>
     inline size_t count_bits(const T& value)
@@ -67,4 +67,4 @@ namespace elias_gamma
 
         return samplesEncoded;
     }
-} // namespace elias_gamma
+} // namespace offline_meas::compression::elias_gamma

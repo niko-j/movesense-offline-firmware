@@ -1,9 +1,6 @@
-#include "movesense.h"
 #include "OfflineMeasurements.hpp"
-#include "compression/BitPack.hpp"
-#include "compression/FixedPoint.hpp"
 
-#include "app-resources/resources.h"
+#include "modules-resources/resources.h"
 #include "system_debug/resources.h"
 #include "system_settings/resources.h"
 #include "ui_ind/resources.h"
@@ -17,7 +14,16 @@
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
 
+#include "compression/BitPack.hpp"
+#include "compression/FixedPoint.hpp"
+
+#define OFFLINE_MEAS_LOW_PASS_FILTER_IMPL
+#include "internal/LowPassFilter.hpp"
+
 #include <functional>
+
+using namespace offline_meas;
+using namespace offline_meas::compression;
 
 #define CLAMP(x, min, max) (x < min ? min : (x > max ? max : x))
 
@@ -277,7 +283,7 @@ void OfflineMeasurements::onGetResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onGetResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onGetResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
@@ -287,7 +293,7 @@ void OfflineMeasurements::onPostResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPostResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onPostResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
@@ -297,7 +303,7 @@ void OfflineMeasurements::onPutResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPutResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onPutResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
@@ -307,7 +313,7 @@ void OfflineMeasurements::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::info("%s: onSubscribeResult (res: %d), status: %d",
+    DebugLogger::verbose("%s: onSubscribeResult (res: %d), status: %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 
     switch (resourceId.localResourceId)
@@ -321,10 +327,10 @@ void OfflineMeasurements::onSubscribeResult(
     {
         if (resultCode != wb::HTTP_CODE_OK)
         {
-            asyncPut(
-                WB_RES::LOCAL::OFFLINE_STATE(), AsyncRequestOptions::Empty,
-                WB_RES::OfflineState::ERROR_INVALID_CONFIG);
+            DebugLogger::error("%s: Failed to subscribe to resource %d",
+                LAUNCHABLE_NAME, resourceId.localResourceId);
         }
+        ASSERT(resultCode == wb::HTTP_CODE_OK);
         break;
     }
     default:
@@ -339,7 +345,7 @@ void OfflineMeasurements::onUnsubscribeResult(
     wb::Result resultCode,
     const wb::Value& rResultData)
 {
-    DebugLogger::info("%s: onUnsubscribeResult (res: %d), status %d",
+    DebugLogger::verbose("%s: onUnsubscribeResult (res: %d), status %d",
         LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
 }
 
