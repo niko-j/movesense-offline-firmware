@@ -11,18 +11,21 @@ This project implements several firmware modules that are useful for offline use
 
 ## Firmware Modules
 
-- `OfflineManager` is the central module that controls and configures the device.
+The design aims at being modular. One could pick and choose the modules relevant for each use case. For example, if using MDS to communicate with the device, the GATT service module could be disabled.
+
+Custom modules are under the [modules directory](./modules/).
+
 - `OfflineMeasurements` is a middle-man API that takes samples from the core measurement API and, using different compression techniques, optimizes the samples to take as little storage space as possible, without meaningfully impacting the usefulness of the measurements. It also implements actigraphy measurement that is derived from acceleration samples.
 - `OfflineGATTService` implements a custom BLE GATT service for interacting with the offline services, which can be used instead of the MDS library.
 - `GestureService` offers custom gesture detection for tapping and shaking.
 
-The design aims at being modular. One could pick and choose the modules relevant for each use case. For example, if using MDS to communicate with the device, the GATT service module could be disabled. Omitting `OfflineMeasurements` and/or `GestureService` from build may require modifying `OfflineManager` to use core measurements APIs instead.
+The `OfflineApp` application module that brings everything together can be found in the [source directory](./src/).
 
 ## APIs
 
 Summary of Whiteboard APIs of each firmware module. You can find detailed API definitions [here](./src/wbresources/).
 
-### OfflineManager
+### OfflineApp
 
 - `/Offline/State` Read, write, and subscribe to offline mode's state.
 - `/Offline/Config` Read, write, and subscribe to offline mode configuration.
