@@ -183,7 +183,10 @@ void OfflineMeasurements::onSubscribe(
     case WB_RES::LOCAL::OFFLINE_MEAS_HR::LID:
     case WB_RES::LOCAL::OFFLINE_MEAS_RR::LID:
     {
-        subscribeHR(lid);
+        if (subscribeHR(lid))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
         break;
     }
     case WB_RES::LOCAL::OFFLINE_MEAS_ECG_SAMPLERATE::LID:
@@ -206,7 +209,10 @@ void OfflineMeasurements::onSubscribe(
     }
     case WB_RES::LOCAL::OFFLINE_MEAS_TEMP::LID:
     {
-        subscribeTemp(lid);
+        if (subscribeTemp(lid))
+            result = wb::HTTP_CODE_OK;
+        else
+            result = wb::HTTP_CODE_FORBIDDEN;
         break;
     }
     default:
