@@ -1,5 +1,5 @@
 #pragma once
-#include "OfflineTypes.hpp"
+#include <cstdint>
 
 struct OfflineConfig
 {

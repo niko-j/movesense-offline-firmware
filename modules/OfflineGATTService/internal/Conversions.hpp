@@ -1,5 +1,5 @@
-#include "../protocol/OfflineConfig.hpp"
-#include "../protocol/OfflineBuffers.hpp"
+#include "../types/OfflineConfig.hpp"
+#include "../utils/Buffers.hpp"
 #include <app-resources/resources.h>
 
 namespace offline_gatt

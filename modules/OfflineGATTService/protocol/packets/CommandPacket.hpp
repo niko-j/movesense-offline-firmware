@@ -1,7 +1,7 @@
 #pragma once
-#include "OfflinePacket.hpp"
+#include "../types/Packet.hpp"
 
-struct OfflineCommandPacket : public OfflinePacket
+struct CommandPacket : public Packet
 {
     enum Command : uint8_t
     {
@@ -21,8 +21,8 @@ struct OfflineCommandPacket : public OfflinePacket
         } ReadLogParams;
     } params;
 
-    OfflineCommandPacket(uint8_t ref, Command cmd = CmdUnknown, CommandParams args = {});
-    virtual ~OfflineCommandPacket();
+    CommandPacket(uint8_t ref, Command cmd = CmdUnknown, CommandParams args = {});
+    virtual ~CommandPacket();
     virtual bool Read(ReadableBuffer& stream);
     virtual bool Write(WritableBuffer& stream);
 };

@@ -1,7 +1,7 @@
 #pragma once
-#include "OfflinePacket.hpp"
+#include "../types/Packet.hpp"
 
-struct OfflineLogPacket : public OfflinePacket
+struct LogListPacket : public Packet
 {
     static constexpr size_t MAX_ITEMS = 6;
 
@@ -17,8 +17,8 @@ struct OfflineLogPacket : public OfflinePacket
     
     LogItem items[MAX_ITEMS];
 
-    OfflineLogPacket(uint8_t ref);
-    virtual ~OfflineLogPacket();
+    LogListPacket(uint8_t ref);
+    virtual ~LogListPacket();
     virtual bool Read(ReadableBuffer& stream);
     virtual bool Write(WritableBuffer& stream);
 };

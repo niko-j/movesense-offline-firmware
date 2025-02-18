@@ -17,7 +17,9 @@ if(NOT DEFINED MOVESENSE_MODULES)
 
     list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService)
     list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService/protocol)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService/protocol/types)
     list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService/protocol/packets)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/../modules/OfflineGATTService/protocol/utils)
 endif()
 
 include(${MOVESENSE_CORE_LIBRARY}/MovesenseFromStaticLib.cmake REQUIRED)

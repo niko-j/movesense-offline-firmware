@@ -25,17 +25,16 @@ OPTIONAL_CORE_MODULE(CustomGattService, true)
 
 // Disabled optional modules
 OPTIONAL_CORE_MODULE(IndicationService, false)
+OPTIONAL_CORE_MODULE(SystemMemoryService, false)
 OPTIONAL_CORE_MODULE(BypassService, false)
 OPTIONAL_CORE_MODULE(BleNordicUART, false)
 
 #ifdef NDEBUG
-OPTIONAL_CORE_MODULE(SystemMemoryService, false)
 OPTIONAL_CORE_MODULE(DebugService, false)
 OPTIONAL_CORE_MODULE(BleStandardHRS, true) // Standard HR service enabled in release
 
 LOGBOOK_EEPROM_MEMORY_AREA(1024, MEMORY_SIZE_FILL_REST);
 #else
-OPTIONAL_CORE_MODULE(SystemMemoryService, true)
 OPTIONAL_CORE_MODULE(DebugService, true)
 OPTIONAL_CORE_MODULE(BleStandardHRS, false)
 

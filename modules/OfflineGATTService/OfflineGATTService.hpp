@@ -4,9 +4,9 @@
 
 #include "app-resources/resources.h"
 #include "mem_logbook/resources.h"
-#include "protocol/packets/OfflinePacket.hpp"
+#include "protocol/Protocol.hpp"
 
-struct OfflineCommandPacket;
+struct CommandPacket;
 
 class OfflineGATTService FINAL : private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -61,7 +61,7 @@ private: /* wb::ResourceClient */
 private:
     void configGattSvc();
 
-    void handleCommand(const OfflineCommandPacket& packet);
+    void handleCommand(const CommandPacket& packet);
 
     bool asyncSubsribeHandleResource(int16_t charHandle, wb::ResourceId& resourceOut);
 
@@ -69,7 +69,7 @@ private:
     void sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset);
     void sendStatusResponse(uint8_t requestRef, uint16_t status);
 
-    void sendPacket(OfflinePacket& packet);
+    void sendPacket(Packet& packet);
 
     bool asyncSendLog(uint32_t id);
     void asyncClearLogs();
@@ -90,5 +90,5 @@ private:
     Characteristic txChar;
     Characteristic rxChar;
     uint8_t pendingRequestId;
-    uint8_t buffer[OfflinePacket::MAX_PACKET_SIZE];
+    uint8_t buffer[Packet::MAX_PACKET_SIZE];
 };

@@ -1,4 +1,5 @@
-#include "OfflineBuffers.hpp"
+#include "Buffers.hpp"
+#include <cstring>
 
 WritableBuffer::WritableBuffer(uint8_t* buffer, size_t len)
     : m_write_ptr(buffer)

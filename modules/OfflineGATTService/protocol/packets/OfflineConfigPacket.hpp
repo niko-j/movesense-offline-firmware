@@ -1,8 +1,8 @@
 #pragma once
-#include "OfflinePacket.hpp"
-#include "../OfflineConfig.hpp"
+#include "../types/Packet.hpp"
+#include "../types/OfflineConfig.hpp"
 
-struct OfflineConfigPacket : public OfflinePacket
+struct OfflineConfigPacket : public Packet
 {
     OfflineConfig config;
 

@@ -1,28 +1,28 @@
-#include "OfflineDataPacket.hpp"
+#include "DataPacket.hpp"
 
-OfflineDataPacket::OfflineDataPacket(uint8_t ref)
-    : OfflinePacket(OfflinePacket::TypeData, ref)
+DataPacket::DataPacket(uint8_t ref)
+    : Packet(Packet::TypeData, ref)
     , offset(0)
     , totalBytes(0)
     , data(nullptr, 0)
 {
 }
 
-OfflineDataPacket::~OfflineDataPacket()
+DataPacket::~DataPacket()
 {
 }
 
-bool OfflineDataPacket::Read(ReadableBuffer& stream)
+bool DataPacket::Read(ReadableBuffer& stream)
 {
-    bool result = OfflinePacket::Read(stream);
+    bool result = Packet::Read(stream);
     result &= stream.read(&offset, sizeof(offset));
     result &= stream.read(&totalBytes, sizeof(totalBytes));
     return result;
 };
 
-bool OfflineDataPacket::Write(WritableBuffer& stream)
+bool DataPacket::Write(WritableBuffer& stream)
 {
-    bool result = OfflinePacket::Write(stream);
+    bool result = Packet::Write(stream);
     result &= stream.write(&offset, sizeof(offset));
     result &= stream.write(&totalBytes, sizeof(totalBytes));
     result &= data.write_to(stream);

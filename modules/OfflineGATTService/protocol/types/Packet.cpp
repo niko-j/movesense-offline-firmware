@@ -1,16 +1,16 @@
-#include "OfflinePacket.hpp"
+#include "Packet.hpp"
 
-OfflinePacket::OfflinePacket(Type packetType, uint8_t ref)
+Packet::Packet(Type packetType, uint8_t ref)
     : type(packetType)
     , reference(ref)
 {
 }
 
-OfflinePacket::~OfflinePacket()
+Packet::~Packet()
 {
 }
 
-bool OfflinePacket::Read(ReadableBuffer& stream)
+bool Packet::Read(ReadableBuffer& stream)
 {
     bool result = true;
     result &= stream.read(&type, 1);
@@ -18,7 +18,7 @@ bool OfflinePacket::Read(ReadableBuffer& stream)
     return result;
 };
 
-bool OfflinePacket::Write(WritableBuffer& stream)
+bool Packet::Write(WritableBuffer& stream)
 {
     bool result = true;
     result &= stream.write(&type, 1);

@@ -1,7 +1,7 @@
 #pragma once
-#include "OfflinePacket.hpp"
+#include "../types/Packet.hpp"
 
-struct OfflineDataPacket : public OfflinePacket
+struct DataPacket : public Packet
 {
     static constexpr size_t MAX_PAYLOAD = MAX_PACKET_SIZE - 10;
 
@@ -9,8 +9,8 @@ struct OfflineDataPacket : public OfflinePacket
     uint32_t totalBytes;
     ReadableBuffer data;
     
-    OfflineDataPacket(uint8_t ref);
-    virtual ~OfflineDataPacket();
+    DataPacket(uint8_t ref);
+    virtual ~DataPacket();
     virtual bool Read(ReadableBuffer& stream);
     virtual bool Write(WritableBuffer& stream);
 };

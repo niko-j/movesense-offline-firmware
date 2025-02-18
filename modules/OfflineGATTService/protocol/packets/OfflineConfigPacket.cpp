@@ -1,7 +1,7 @@
 #include "OfflineConfigPacket.hpp"
 
 OfflineConfigPacket::OfflineConfigPacket(uint8_t ref, OfflineConfig conf)
-    : OfflinePacket(OfflinePacket::TypeConfig, ref)
+    : Packet(Packet::TypeOfflineConfig, ref)
     , config(conf)
 {
 }
@@ -11,7 +11,7 @@ OfflineConfigPacket::~OfflineConfigPacket()
 
 bool OfflineConfigPacket::Read(ReadableBuffer& stream)
 {
-    bool result = OfflinePacket::Read(stream);
+    bool result = Packet::Read(stream);
     result &= stream.read(&config.wakeUpBehavior, 1);
     result &= stream.read(&config.sleepDelay, 2);
     result &= stream.read(&config.optionsFlags, 1);
@@ -21,7 +21,7 @@ bool OfflineConfigPacket::Read(ReadableBuffer& stream)
 
 bool OfflineConfigPacket::Write(WritableBuffer& stream)
 {
-    bool result = OfflinePacket::Write(stream);
+    bool result = Packet::Write(stream);
     result &= stream.write(&config.wakeUpBehavior, 1);
     result &= stream.write(&config.sleepDelay, 2);
     result &= stream.write(&config.optionsFlags, 1);

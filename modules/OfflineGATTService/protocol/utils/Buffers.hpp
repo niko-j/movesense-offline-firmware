@@ -1,5 +1,6 @@
 #pragma once
-#include "OfflineTypes.hpp"
+#include <cstddef>
+#include <cstdint>
 
 class WritableBuffer
 {

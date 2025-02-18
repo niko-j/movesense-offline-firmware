@@ -9,13 +9,6 @@
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
 
-#include "protocol/packets/OfflineCommandPacket.hpp"
-#include "protocol/packets/OfflineStatusPacket.hpp"
-#include "protocol/packets/OfflineConfigPacket.hpp"
-#include "protocol/packets/OfflineDataPacket.hpp"
-#include "protocol/packets/OfflineLogPacket.hpp"
-#include "protocol/packets/OfflineTimePacket.hpp"
-
 #define OFFLINE_GATT_CONVERSIONS_IMPL
 #include "internal/Conversions.hpp"
 
@@ -134,7 +127,7 @@ void OfflineGATTService::onGetResult(
             OfflineConfigPacket packet(pendingRequestId);
             packet.config = wbToInternal(conf);
             sendPacket(packet);
-            pendingRequestId = OfflinePacket::INVALID_REF;
+            pendingRequestId = Packet::INVALID_REF;
         }
         else
         {
@@ -164,7 +157,7 @@ void OfflineGATTService::onGetResult(
         bool list_complete = (resultCode == wb::HTTP_CODE_OK);
         uint32_t logCount = entries.elements.size();
 
-        OfflineLogPacket packet(pendingRequestId);
+        LogListPacket packet(pendingRequestId);
 
         for (size_t i = 0; i < logCount; i++)
         {
@@ -186,13 +179,13 @@ void OfflineGATTService::onGetResult(
                 packet.count += 1;
 
                 bool all_items_sent = (i + 1 == logCount);
-                if (all_items_sent || packet.count == OfflineLogPacket::MAX_ITEMS)
+                if (all_items_sent || packet.count == LogListPacket::MAX_ITEMS)
                 {
                     packet.complete = (list_complete && all_items_sent);
                     sendPacket(packet);
 
                     if (packet.complete)
-                        pendingRequestId = OfflinePacket::INVALID_REF;
+                        pendingRequestId = Packet::INVALID_REF;
 
                     packet.count = 0;
                 }
@@ -368,15 +361,15 @@ void OfflineGATTService::onNotify(
         const auto& ch = value.convertTo<const WB_RES::Characteristic&>();
 
         auto bytes = arrayToBuffer(ch.bytes);
-        OfflinePacket::Type type;
+        Packet::Type type;
         uint8_t ref;
         bool valid = (
-            bytes.read(&type, sizeof(OfflinePacket::Type)) &&
+            bytes.read(&type, sizeof(Packet::Type)) &&
             bytes.read(&ref, sizeof(ref)) &&
             bytes.seek_read(0)
             );
 
-        if (!valid || ref == OfflinePacket::INVALID_REF)
+        if (!valid || ref == Packet::INVALID_REF)
         {
             DebugLogger::warning("%s, Received invalid packet", LAUNCHABLE_NAME);
             return;
@@ -385,7 +378,7 @@ void OfflineGATTService::onNotify(
         DebugLogger::info("%s, Received packet ref: %u type: %u size: %u",
             LAUNCHABLE_NAME, ref, type, ch.bytes.size());
 
-        if (pendingRequestId != OfflinePacket::INVALID_REF)
+        if (pendingRequestId != Packet::INVALID_REF)
         {
             if (pendingRequestId == ref)
             {
@@ -402,9 +395,34 @@ void OfflineGATTService::onNotify(
 
         switch (type)
         {
-        case OfflinePacket::TypeCommand:
+        case Packet::TypeHandshake:
         {
-            OfflineCommandPacket cmd(ref);
+            HandshakePacket handshake(ref);
+            if(!handshake.Read(bytes))
+            {
+                DebugLogger::error("%s: Corrupted handshake packet (ref %u)", LAUNCHABLE_NAME, ref);
+                sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
+                return;
+            }
+
+            // Major version mismatch means breaking changes.
+            if(handshake.version_major != SENSOR_PROTOCOL_VERSION_MAJOR)
+            {
+                DebugLogger::error("%s: Handshake failed, version mismatch. Server: %u. Client: %u", 
+                    LAUNCHABLE_NAME, SENSOR_PROTOCOL_VERSION_MAJOR, handshake.version_major);
+                sendStatusResponse(ref, wb::HTTP_CODE_BAD_VERSION);
+                return;
+            }
+
+            HandshakePacket response(ref); // Shake back
+            sendPacket(response);
+            pendingRequestId = Packet::INVALID_REF;
+            
+            break;
+        }
+        case Packet::TypeCommand:
+        {
+            CommandPacket cmd(ref);
             if (!cmd.Read(bytes))
             {
                 DebugLogger::error("%s: Corrupted command packet (ref %u)", LAUNCHABLE_NAME, ref);
@@ -415,7 +433,7 @@ void OfflineGATTService::onNotify(
             handleCommand(cmd);
             break;
         }
-        case OfflinePacket::TypeConfig:
+        case Packet::TypeOfflineConfig:
         {
             OfflineConfigPacket pkt(ref);
             if (!pkt.Read(bytes))
@@ -428,9 +446,9 @@ void OfflineGATTService::onNotify(
             asyncPut(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::Empty, internalToWb(pkt.config));
             break;
         }
-        case OfflinePacket::TypeTime:
+        case Packet::TypeTime:
         {
-            OfflineTimePacket pkt(ref);
+            TimePacket pkt(ref);
             if (!pkt.Read(bytes))
             {
                 DebugLogger::error("%s: Corrupted time packet (ref %u)", LAUNCHABLE_NAME, ref);
@@ -509,23 +527,23 @@ void OfflineGATTService::configGattSvc()
     asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
 }
 
-void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
+void OfflineGATTService::handleCommand(const CommandPacket& packet)
 {
     DebugLogger::info("Received command: %u", packet.command);
 
     switch (packet.command)
     {
-    case OfflineCommandPacket::CmdReadConfig:
+    case CommandPacket::CmdReadConfig:
     {
         asyncGet(WB_RES::LOCAL::OFFLINE_CONFIG(), AsyncRequestOptions::ForceAsync);
         break;
     }
-    case OfflineCommandPacket::CmdListLogs:
+    case CommandPacket::CmdListLogs:
     {
         asyncGet(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
         break;
     }
-    case OfflineCommandPacket::CmdReadLog:
+    case CommandPacket::CmdReadLog:
     {
         uint16_t id = packet.params.ReadLogParams.logIndex;
         DebugLogger::info("%s: Requested log (ref: %u) (id: %u)",
@@ -533,7 +551,7 @@ void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
         asyncSendLog(id);
         break;
     }
-    case OfflineCommandPacket::CmdClearLogs:
+    case CommandPacket::CmdClearLogs:
     {
         asyncDelete(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
         break;
@@ -542,7 +560,7 @@ void OfflineGATTService::handleCommand(const OfflineCommandPacket& packet)
         DebugLogger::warning("%s: Unknown command: %u",
             LAUNCHABLE_NAME, packet.command);
         sendStatusResponse(packet.reference, wb::HTTP_CODE_BAD_REQUEST);
-        pendingRequestId = OfflinePacket::INVALID_REF;
+        pendingRequestId = Packet::INVALID_REF;
         break;
     }
 }
@@ -568,35 +586,35 @@ bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whitebo
 
 void OfflineGATTService::sendData(const uint8_t* data, uint32_t size)
 {
-    ASSERT(pendingRequestId != OfflinePacket::INVALID_REF);
+    ASSERT(pendingRequestId != Packet::INVALID_REF);
     uint32_t sent = 0;
     do
     {
-        OfflineDataPacket packet(pendingRequestId);
+        DataPacket packet(pendingRequestId);
         packet.offset = sent;
         packet.totalBytes = size;
 
-        uint32_t len = WB_MIN(size, OfflineDataPacket::MAX_PAYLOAD);
+        uint32_t len = WB_MIN(size, DataPacket::MAX_PAYLOAD);
         packet.data = ReadableBuffer(data + sent, len);
 
         sendPacket(packet);
         sent += len;
     } while (sent < size);
 
-    pendingRequestId = OfflinePacket::INVALID_REF;
+    pendingRequestId = Packet::INVALID_REF;
 }
 
 void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset)
 {
-    ASSERT(pendingRequestId != OfflinePacket::INVALID_REF);
+    ASSERT(pendingRequestId != Packet::INVALID_REF);
     uint32_t sent = 0;
     do
     {
-        OfflineDataPacket packet(pendingRequestId);
+        DataPacket packet(pendingRequestId);
         packet.offset = offset + sent;
         packet.totalBytes = totalSize;
 
-        uint32_t len = WB_MIN(partSize - sent, OfflineDataPacket::MAX_PAYLOAD);
+        uint32_t len = WB_MIN(partSize - sent, DataPacket::MAX_PAYLOAD);
         packet.data = ReadableBuffer(data + sent, len);
 
         sendPacket(packet);
@@ -604,23 +622,23 @@ void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize,
     } while (sent < partSize);
 
     if (partSize + offset == totalSize)
-        pendingRequestId = OfflinePacket::INVALID_REF;
+        pendingRequestId = Packet::INVALID_REF;
 }
 
 void OfflineGATTService::sendStatusResponse(uint8_t requestRef, uint16_t status)
 {
-    ASSERT(requestRef != OfflinePacket::INVALID_REF);
+    ASSERT(requestRef != Packet::INVALID_REF);
 
-    OfflineStatusPacket packet(requestRef, status);
+    StatusPacket packet(requestRef, status);
     sendPacket(packet);
 
     if (pendingRequestId == requestRef)
-        pendingRequestId = OfflinePacket::INVALID_REF;
+        pendingRequestId = Packet::INVALID_REF;
 }
 
-void OfflineGATTService::sendPacket(OfflinePacket& packet)
+void OfflineGATTService::sendPacket(Packet& packet)
 {
-    ByteBuffer packetBuffer(buffer, OfflinePacket::MAX_PACKET_SIZE);
+    ByteBuffer packetBuffer(buffer, Packet::MAX_PACKET_SIZE);
     packetBuffer.reset();
 
     if (!packet.Write(packetBuffer))

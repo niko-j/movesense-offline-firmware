@@ -1,19 +1,19 @@
-#include "OfflineCommandPacket.hpp"
+#include "CommandPacket.hpp"
 
-OfflineCommandPacket::OfflineCommandPacket(uint8_t ref, Command cmd, CommandParams args)
-    : OfflinePacket(OfflinePacket::TypeCommand, ref)
+CommandPacket::CommandPacket(uint8_t ref, Command cmd, CommandParams args)
+    : Packet(Packet::TypeCommand, ref)
     , command(cmd)
     , params(args)
 {
 }
 
-OfflineCommandPacket::~OfflineCommandPacket()
+CommandPacket::~CommandPacket()
 {
 }
 
-bool OfflineCommandPacket::Read(ReadableBuffer& stream)
+bool CommandPacket::Read(ReadableBuffer& stream)
 {
-    bool result = OfflinePacket::Read(stream);
+    bool result = Packet::Read(stream);
     result &= stream.read(&command, sizeof(command));
 
     switch (command)
@@ -31,9 +31,9 @@ bool OfflineCommandPacket::Read(ReadableBuffer& stream)
     return result;
 };
 
-bool OfflineCommandPacket::Write(WritableBuffer& stream)
+bool CommandPacket::Write(WritableBuffer& stream)
 {
-    bool result = OfflinePacket::Write(stream);
+    bool result = Packet::Write(stream);
     result &= stream.write(&command, sizeof(command));
 
     switch (command)

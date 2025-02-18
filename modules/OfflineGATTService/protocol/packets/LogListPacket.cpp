@@ -1,19 +1,19 @@
-#include "OfflineLogPacket.hpp"
+#include "LogListPacket.hpp"
 
-OfflineLogPacket::OfflineLogPacket(uint8_t ref)
-    : OfflinePacket(OfflinePacket::TypeLogList, ref)
+LogListPacket::LogListPacket(uint8_t ref)
+    : Packet(Packet::TypeLogList, ref)
     , count(0)
     , complete(false)
 {
 }
 
-OfflineLogPacket::~OfflineLogPacket()
+LogListPacket::~LogListPacket()
 {
 }
 
-bool OfflineLogPacket::Read(ReadableBuffer& stream)
+bool LogListPacket::Read(ReadableBuffer& stream)
 {
-    bool result = OfflinePacket::Read(stream);
+    bool result = Packet::Read(stream);
     result &= stream.read(&count, sizeof(count));
     result &= stream.read(&complete, sizeof(complete));
 
@@ -26,9 +26,9 @@ bool OfflineLogPacket::Read(ReadableBuffer& stream)
     return result;
 };
 
-bool OfflineLogPacket::Write(WritableBuffer& stream)
+bool LogListPacket::Write(WritableBuffer& stream)
 {
-    bool result = OfflinePacket::Write(stream);
+    bool result = Packet::Write(stream);
     result &= stream.write(&count, sizeof(count));
     result &= stream.write(&complete, sizeof(complete));
 
