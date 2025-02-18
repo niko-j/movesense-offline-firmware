@@ -199,7 +199,6 @@ parameters:
     required: true
     type: integer
     format: int32
-    x-unit: Hz
 
   Interval:
     name: Interval
@@ -207,7 +206,6 @@ parameters:
     required: true
     type: integer
     format: int32
-    x-unit: second
 
 definitions:
   OfflineTimestamp:
