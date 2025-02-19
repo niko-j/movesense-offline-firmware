@@ -1,4 +1,4 @@
-#include "OfflineGATTService.hpp"
+#include "GattService.hpp"
 
 #include "app-resources/resources.h"
 #include "comm_ble_gattsvc/resources.h"
@@ -12,16 +12,16 @@
 #define OFFLINE_GATT_CONVERSIONS_IMPL
 #include "internal/Conversions.hpp"
 
-using namespace offline_gatt;
+using namespace gatt_svc;
 
-const char* const OfflineGATTService::LAUNCHABLE_NAME = "OfflineGATT";
+const char* const GattService::LAUNCHABLE_NAME = "GattSvc";
 
 /* UUID string: 0000b001-0000-1000-8000-00805f9b34fb */
 constexpr uint8_t OfflineGattServiceUuid[] = { 0x01, 0xB0 };
 constexpr uint8_t txUuid[] = { 0x02, 0xB0 };
 constexpr uint8_t rxUuid[] = { 0x03, 0xB0 };
 
-OfflineGATTService::OfflineGATTService()
+GattService::GattService()
     : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
     , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
     , logDownload({})
@@ -31,30 +31,30 @@ OfflineGATTService::OfflineGATTService()
 
 }
 
-OfflineGATTService::~OfflineGATTService()
+GattService::~GattService()
 {
 
 }
 
-bool OfflineGATTService::initModule()
+bool GattService::initModule()
 {
     mModuleState = WB_RES::ModuleStateValues::INITIALIZED;
     return true;
 }
 
-void OfflineGATTService::deinitModule()
+void GattService::deinitModule()
 {
     mModuleState = WB_RES::ModuleStateValues::UNINITIALIZED;
 }
 
-bool OfflineGATTService::startModule()
+bool GattService::startModule()
 {
     configGattSvc();
     mModuleState = WB_RES::ModuleStateValues::STARTED;
     return true;
 }
 
-void OfflineGATTService::stopModule()
+void GattService::stopModule()
 {
     asyncUnsubscribe(txChar.resourceId);
     asyncUnsubscribe(rxChar.resourceId);
@@ -66,7 +66,7 @@ void OfflineGATTService::stopModule()
     mModuleState = WB_RES::ModuleStateValues::STOPPED;
 }
 
-void OfflineGATTService::onGetResult(
+void GattService::onGetResult(
     wb::RequestId requestId,
     wb::ResourceId resourceId,
     wb::Result resultCode,
@@ -225,7 +225,7 @@ void OfflineGATTService::onGetResult(
     ASSERT(resultCode < 400)
 }
 
-void OfflineGATTService::onPutResult(
+void GattService::onPutResult(
     wb::RequestId requestId,
     wb::ResourceId resourceId,
     wb::Result resultCode,
@@ -259,7 +259,7 @@ void OfflineGATTService::onPutResult(
     }
 }
 
-void OfflineGATTService::onPostResult(
+void GattService::onPostResult(
     wb::RequestId requestId,
     wb::ResourceId resourceId,
     wb::Result resultCode,
@@ -295,7 +295,7 @@ void OfflineGATTService::onPostResult(
     }
 }
 
-void OfflineGATTService::onDeleteResult(
+void GattService::onDeleteResult(
     wb::RequestId requestId,
     wb::ResourceId resourceId,
     wb::Result resultCode,
@@ -317,7 +317,7 @@ void OfflineGATTService::onDeleteResult(
     ASSERT(resultCode < 400)
 }
 
-void OfflineGATTService::onSubscribeResult(
+void GattService::onSubscribeResult(
     wb::RequestId requestId,
     wb::ResourceId resourceId,
     wb::Result resultCode,
@@ -348,7 +348,7 @@ void OfflineGATTService::onSubscribeResult(
     }
 }
 
-void OfflineGATTService::onNotify(
+void GattService::onNotify(
     wb::ResourceId resourceId,
     const wb::Value& value,
     const wb::ParameterList& parameters)
@@ -503,7 +503,7 @@ void OfflineGATTService::onNotify(
     }
 }
 
-void OfflineGATTService::configGattSvc()
+void GattService::configGattSvc()
 {
     constexpr uint8_t CHARACTERISTICS_COUNT = 2;
     WB_RES::GattSvc offlineSvc;
@@ -531,7 +531,7 @@ void OfflineGATTService::configGattSvc()
     asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
 }
 
-void OfflineGATTService::handleCommand(const CommandPacket& packet)
+void GattService::handleCommand(const CommandPacket& packet)
 {
     DebugLogger::info("Received command: %u", packet.command);
 
@@ -569,7 +569,7 @@ void OfflineGATTService::handleCommand(const CommandPacket& packet)
     }
 }
 
-bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whiteboard::ResourceId& resourceOut)
+bool GattService::asyncSubsribeHandleResource(int16_t charHandle, whiteboard::ResourceId& resourceOut)
 {
     resourceOut = whiteboard::ID_INVALID_RESOURCE;
 
@@ -588,7 +588,7 @@ bool OfflineGATTService::asyncSubsribeHandleResource(int16_t charHandle, whitebo
     return true;
 }
 
-void OfflineGATTService::sendData(const uint8_t* data, uint32_t size)
+void GattService::sendData(const uint8_t* data, uint32_t size)
 {
     ASSERT(pendingRequestId != Packet::INVALID_REF);
     uint32_t sent = 0;
@@ -608,7 +608,7 @@ void OfflineGATTService::sendData(const uint8_t* data, uint32_t size)
     pendingRequestId = Packet::INVALID_REF;
 }
 
-void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset)
+void GattService::sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset)
 {
     ASSERT(pendingRequestId != Packet::INVALID_REF);
     uint32_t sent = 0;
@@ -629,7 +629,7 @@ void OfflineGATTService::sendPartialData(const uint8_t* data, uint32_t partSize,
         pendingRequestId = Packet::INVALID_REF;
 }
 
-void OfflineGATTService::sendStatusResponse(uint8_t requestRef, uint16_t status)
+void GattService::sendStatusResponse(uint8_t requestRef, uint16_t status)
 {
     ASSERT(requestRef != Packet::INVALID_REF);
 
@@ -640,7 +640,7 @@ void OfflineGATTService::sendStatusResponse(uint8_t requestRef, uint16_t status)
         pendingRequestId = Packet::INVALID_REF;
 }
 
-void OfflineGATTService::sendPacket(Packet& packet)
+void GattService::sendPacket(Packet& packet)
 {
     ByteBuffer packetBuffer(buffer, Packet::MAX_PACKET_SIZE);
     packetBuffer.reset();
@@ -656,7 +656,7 @@ void OfflineGATTService::sendPacket(Packet& packet)
     asyncPut(txChar.resourceId, AsyncRequestOptions::Empty, value);
 }
 
-bool OfflineGATTService::asyncSendLog(uint32_t id)
+bool GattService::asyncSendLog(uint32_t id)
 {
     if (logDownload.index > 0) // Transmission in progress
         return false;

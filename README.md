@@ -16,7 +16,7 @@ The design aims at being modular. One could pick and choose the modules relevant
 Custom modules are under the [modules directory](./modules/).
 
 - `OfflineMeasurements` is a middle-man API that takes samples from the core measurement API and, using different compression techniques, optimizes the samples to take as little storage space as possible, without meaningfully impacting the usefulness of the measurements. It also implements actigraphy measurement that is derived from acceleration samples.
-- `OfflineGATTService` implements a custom BLE GATT service for interacting with the offline services, which can be used instead of the MDS library.
+- `GattService` implements a custom BLE GATT service for interacting with the offline app, which can be used instead of the MDS library.
 - `GestureService` offers custom gesture detection for tapping and shaking.
 
 The `OfflineApp` application module that brings everything together can be found in the [source directory](./src/).

@@ -2,7 +2,7 @@
 #include "../utils/Buffers.hpp"
 #include <app-resources/resources.h>
 
-namespace offline_gatt
+namespace gatt_svc
 {
 #ifndef OFFLINE_GATT_CONVERSIONS_HPP
 #define OFFLINE_GATT_CONVERSIONS_HPP

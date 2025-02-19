@@ -8,13 +8,13 @@
 
 struct CommandPacket;
 
-class OfflineGATTService FINAL : private wb::ResourceClient, public wb::LaunchableModule
+class GattService FINAL : private wb::ResourceClient, public wb::LaunchableModule
 {
 public:
     static const char* const LAUNCHABLE_NAME;
 
-    OfflineGATTService();
-    ~OfflineGATTService();
+    GattService();
+    ~GattService();
 
 private: /* wb::LaunchableModule*/
     virtual bool initModule() OVERRIDE;

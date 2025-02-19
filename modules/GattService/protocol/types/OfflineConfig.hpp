@@ -5,23 +5,23 @@ struct OfflineConfig
 {
     enum WakeUpBehavior : uint8_t
     {
-        WakeUpAlwaysOn = 0U,
-		WakeUpConnector = 1U,
-		WakeUpMovement = 2U,
-		WakeUpDoubleTap = 3U
+        WakeUpAlwaysOn  = 0U,
+        WakeUpConnector = 1U,
+        WakeUpMovement  = 2U,
+        WakeUpDoubleTap = 3U
     };
-    
+
     enum Measurement
     {
-        MeasECG = 0U,
-		MeasHR = 1U,
-		MeasRR = 2U,
-		MeasAcc = 3U,
-		MeasGyro = 4U,
-		MeasMagn = 5U,
-		MeasTemp = 6U,
-		MeasActivity = 7U,
-		MeasCount = 8U
+        MeasECG         = 0U,
+        MeasHR          = 1U,
+        MeasRR          = 2U,
+        MeasAcc         = 3U,
+        MeasGyro        = 4U,
+        MeasMagn        = 5U,
+        MeasTemp        = 6U,
+        MeasActivity    = 7U,
+        MeasCount       = 8U
     };
 
     enum OptionsFlags : uint8_t
@@ -42,7 +42,7 @@ struct OfflineConfig
         {
             uint16_t ECG;
             uint16_t HeartRate;
-            uint16_t RtoR;            
+            uint16_t RtoR;
             uint16_t Acc;
             uint16_t Gyro;
             uint16_t Magn;
