@@ -16,11 +16,6 @@ using namespace gatt_svc;
 
 const char* const GattService::LAUNCHABLE_NAME = "GattSvc";
 
-/* UUID string: 0000b001-0000-1000-8000-00805f9b34fb */
-constexpr uint8_t OfflineGattServiceUuid[] = { 0x01, 0xB0 };
-constexpr uint8_t txUuid[] = { 0x02, 0xB0 };
-constexpr uint8_t rxUuid[] = { 0x03, 0xB0 };
-
 GattService::GattService()
     : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
     , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
@@ -86,20 +81,15 @@ void GattService::onGetResult(
         const WB_RES::GattSvc& svc = result.convertTo<const WB_RES::GattSvc&>();
 
         uint16_t svcHandle = svc.handle.getValue();
-        uint16_t senderUuid = *reinterpret_cast<const uint16_t*>(txUuid);
-        uint16_t recvUuid = *reinterpret_cast<const uint16_t*>(rxUuid);
 
         for (size_t i = 0; i < svc.chars.size(); i++)
         {
             const WB_RES::GattChar& c = svc.chars[i];
-            if (c.uuid.size() != 2)
-                continue;
+            uint16_t uuid16 = *reinterpret_cast<const uint16_t*>(&(c.uuid[12]));
 
-            uint16_t uuid16 = *reinterpret_cast<const uint16_t*>(&(c.uuid[0]));
-
-            if (uuid16 == senderUuid)
+            if (uuid16 == SENSOR_GATT_CHAR_TX_UUID16)
                 txChar.handle = c.handle.hasValue() ? c.handle.getValue() : 0;
-            else if (uuid16 == recvUuid)
+            else if (uuid16 == SENSOR_GATT_CHAR_RX_UUID16)
                 rxChar.handle = c.handle.hasValue() ? c.handle.getValue() : 0;
         }
 
@@ -509,23 +499,16 @@ void GattService::configGattSvc()
     WB_RES::GattSvc offlineSvc;
     WB_RES::GattChar offlineChars[CHARACTERISTICS_COUNT];
 
-    WB_RES::GattChar& rx = offlineChars[0];
-    WB_RES::GattProperty rxProps[] = {
-        WB_RES::GattProperty::WRITE
-    };
+    WB_RES::GattProperty rxProps[] = { WB_RES::GattProperty::WRITE };
+    WB_RES::GattProperty txProps[] = { WB_RES::GattProperty::NOTIFY };
 
-    WB_RES::GattChar& tx = offlineChars[1];
-    WB_RES::GattProperty txProps[] = {
-        WB_RES::GattProperty::NOTIFY
-    };
+    offlineChars[0].props = wb::MakeArray<WB_RES::GattProperty>(rxProps, 1);
+    offlineChars[0].uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_CHAR_RX_UUID, sizeof(SENSOR_GATT_CHAR_RX_UUID));
 
-    rx.props = wb::MakeArray<WB_RES::GattProperty>(rxProps, 1);
-    rx.uuid = wb::MakeArray<uint8_t>(rxUuid, sizeof(rxUuid));
+    offlineChars[1].props = wb::MakeArray<WB_RES::GattProperty>(txProps, 1);
+    offlineChars[1].uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_CHAR_TX_UUID, sizeof(SENSOR_GATT_CHAR_TX_UUID));
 
-    tx.props = wb::MakeArray<WB_RES::GattProperty>(txProps, 1);
-    tx.uuid = wb::MakeArray<uint8_t>(txUuid, sizeof(txUuid));
-
-    offlineSvc.uuid = wb::MakeArray<uint8_t>(OfflineGattServiceUuid, sizeof(OfflineGattServiceUuid));
+    offlineSvc.uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_SERVICE_UUID, sizeof(SENSOR_GATT_SERVICE_UUID));
     offlineSvc.chars = wb::MakeArray<WB_RES::GattChar>(offlineChars, CHARACTERISTICS_COUNT);
 
     asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
