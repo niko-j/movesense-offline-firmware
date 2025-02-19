@@ -14,7 +14,7 @@
 
 using namespace gatt_svc;
 
-const char* const GattService::LAUNCHABLE_NAME = "GattSvc";
+const char* const GattService::LAUNCHABLE_NAME = "GattService";
 
 GattService::GattService()
     : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
