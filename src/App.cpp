@@ -29,6 +29,8 @@ OPTIONAL_CORE_MODULE(SystemMemoryService, false)
 OPTIONAL_CORE_MODULE(BypassService, false)
 OPTIONAL_CORE_MODULE(BleNordicUART, false)
 
+OFFLINE_CONFIG_EEPROM_AREA(0, 1024)
+
 #ifdef NDEBUG
 OPTIONAL_CORE_MODULE(DebugService, false)
 OPTIONAL_CORE_MODULE(BleStandardHRS, true) // Standard HR service enabled in release

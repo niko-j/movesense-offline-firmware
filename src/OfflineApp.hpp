@@ -9,6 +9,23 @@
 #include "comm_ble/resources.h"
 #include "system_states/resources.h"
 
+extern const size_t g_OfflineConfigEepromAddr;
+extern const size_t g_OfflineConfigEepromLen;
+
+struct OfflineConfigData
+{
+    uint8_t wakeUp = WB_RES::OfflineWakeup::CONNECTOR;
+    uint16_t params[WB_RES::OfflineMeasurement::COUNT] = {};
+    uint16_t sleepDelay = 60;
+    uint8_t options = WB_RES::OfflineOptionsFlags::SHAKETOCONNECT;
+};
+
+#define OFFLINE_CONFIG_EEPROM_SIZE (1 + sizeof(OfflineConfigData))
+#define OFFLINE_CONFIG_EEPROM_AREA(addr, len) \
+    static_assert(len >= OFFLINE_CONFIG_EEPROM_SIZE && "Insufficient offline config EEPROM data area size."); \
+    const size_t g_OfflineConfigEepromAddr = addr; \
+    const size_t g_OfflineConfigEepromLen = len;
+
 class OfflineApp FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
 public:
@@ -77,13 +94,7 @@ private: /* wb::ResourceClient */
     virtual void onTimer(whiteboard::TimerId timerId) OVERRIDE;
 
 private:
-    struct Config
-    {
-        uint8_t wakeUp = WB_RES::OfflineWakeup::CONNECTOR;
-        uint16_t params[WB_RES::OfflineMeasurement::COUNT] = {};
-        uint16_t sleepDelay = 60;
-        uint8_t options = WB_RES::OfflineOptionsFlags::SHAKETOCONNECT;
-    } m_config;
+    OfflineConfigData m_config;
 
     struct State
     {

@@ -19,9 +19,6 @@
 #include "DebugLogger.hpp"
 
 const char* const OfflineApp::LAUNCHABLE_NAME = "OfflineApp";
-
-constexpr uint8_t EEPROM_CONFIG_INDEX = 0;
-constexpr uint32_t EEPROM_CONFIG_ADDR = 0;
 constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0x42; // Change this for breaking changes
 
 constexpr uint32_t TIMER_TICK_SLEEP = 1000;
@@ -237,8 +234,8 @@ void OfflineApp::onGetResult(
 
             if (data.bytes[0] == EEPROM_CONFIG_INIT_MAGIC)
             {
-                ASSERT(data.bytes.size() == 1 + sizeof(Config));
-                memcpy(&m_config, &data.bytes[1], sizeof(Config));
+                ASSERT(data.bytes.size() == OFFLINE_CONFIG_EEPROM_SIZE);
+                memcpy(&m_config, &data.bytes[1], sizeof(OfflineConfigData));
 
                 DebugLogger::info("%s: Offline mode configuration restored",
                     LAUNCHABLE_NAME);
@@ -483,7 +480,7 @@ void OfflineApp::asyncReadConfigFromEEPROM()
     asyncGet(
         WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(),
         AsyncRequestOptions::ForceAsync,
-        EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, 1 + sizeof(m_config));
+        0, g_OfflineConfigEepromAddr, OFFLINE_CONFIG_EEPROM_SIZE);
 }
 
 void OfflineApp::asyncSaveConfigToEEPROM()
@@ -502,7 +499,7 @@ void OfflineApp::asyncSaveConfigToEEPROM()
     WB_RES::EepromData eepromData = { .bytes = wb::MakeArray(data) };
 
     asyncPut(WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), AsyncRequestOptions::ForceAsync,
-        EEPROM_CONFIG_INDEX, EEPROM_CONFIG_ADDR, eepromData);
+        0, g_OfflineConfigEepromAddr, eepromData);
 }
 
 WB_RES::OfflineConfig OfflineApp::getConfig() const
