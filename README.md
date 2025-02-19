@@ -11,41 +11,13 @@ This project implements several firmware modules that are useful for offline use
 
 ## Firmware Modules
 
-The design aims at being modular. One could pick and choose the modules relevant for each use case. For example, if using MDS to communicate with the device, the GATT service module could be disabled.
+The application uses the following custom modules:
 
-Custom modules are under the [modules directory](./modules/).
-
-- `OfflineMeasurements` is a middle-man API that takes samples from the core measurement API and, using different compression techniques, optimizes the samples to take as little storage space as possible, without meaningfully impacting the usefulness of the measurements. It also implements actigraphy measurement that is derived from acceleration samples.
-- `GattService` implements a custom BLE GATT service for interacting with the offline app, which can be used instead of the MDS library.
-- `GestureService` offers custom gesture detection for tapping and shaking.
+- [OfflineMeasurements](./modules/OfflineMeasurements/README.md) is a middle-man API that takes samples from the core measurement API and, using different compression techniques, optimizes the samples to take as little storage space as possible, without meaningfully impacting the usefulness of the measurements. It also implements actigraphy measurement that is derived from acceleration samples.
+- [GattService](./modules/GattService/README.md) implements a custom BLE GATT service for interacting with the offline app, which can be used instead of the MDS library.
+- [GestureService](./modules/GestureService/README.md) offers custom gesture detection for tapping and shaking.
 
 The `OfflineApp` application module that brings everything together can be found in the [source directory](./src/).
-
-## APIs
-
-Summary of Whiteboard APIs of each firmware module. You can find detailed API definitions [here](./src/wbresources/).
-
-### OfflineApp
-
-- `/Offline/State` Read, write, and subscribe to offline mode's state.
-- `/Offline/Config` Read, write, and subscribe to offline mode configuration.
-
-### OfflineMeasurements
-
-- `/Offline/Meas/ECG/{SampleRate}` Subscribe to receive 16-bit ECG data.
-- `/Offline/Meas/ECG/Compressed/{SampleRate}` Subscribe to receive compressed ECG data.
-- `/Offline/Meas/Acc/{SampleRate}` Subscribe to receive acceleration data in Q12.12 fixed-point format.
-- `/Offline/Meas/Gyro/{SampleRate}` Subscribe to receive anglular velocity data in Q12.12 fixed-point format.
-- `/Offline/Meas/Magn/{SampleRate}` Subscribe to receive magnetic flux density data in Q10.6 fixed-point format.
-- `/Offline/Meas/HR` Subscribe to receive average heart rate in 8-bit unsigned integers.
-- `/Offline/Meas/RR` Subscribe to receive R-to-R interval data in 12-bit (bit packed) format.
-- `/Offline/Meas/Temp` Subscribe to receive temperature (°C) in signed 8-bit integers.
-- `/Offline/Meas/Activity/{Interval}` Subscribe to receive (relative) activity measurements in set intervals (as seconds).
-
-### GestureService
-
-- `/Gesture/Tap` Subscribe to detect and count tapping. Tapping at least twice on Z axis will be recognized.
-- `/Gesture/Shake` Subscribe to detect shaking. Counts the duration.
 
 ## Getting Started
 
@@ -58,9 +30,14 @@ This chapter describes the build and flashing process.
 
 ### Repository Structure
 
-- `movesense-device-lib` submodule contains the Movesense device library containing resources for building the firmware.
-- `scripts` contains convenient scripts for building, dumping, and flashing the firmware. It also contains scripts for pulling and running the Docker image for building.
-- `src` contains the firmware project files and source code.
+- [movesense-device-lib](./movesense-device-lib/)
+  - is the Movesense device library submodule containing resources for building the firmware.
+- [modules](./modules/)
+  - contains the source code of the custom firmware modules.
+- [scripts](./scripts/) 
+  - contains convenient scripts for building and flashing the firmware.
+- [src](./src/)
+  - contains the main firmware application files and source code.
 
 ### Pull the docker image
 
@@ -78,7 +55,7 @@ docker run -it --rm -v `pwd`:/movesense:delegated --name movesense-build-env mov
 
 ### Building the Firmware
 
-Either use the VSCode task `Build (debug)` or run the build script `/movesense/scripts/build.sh debug` in the container.
+Either use the VSCode task `Build (debug)` or run the build script `./scripts/build.sh debug` in the container.
 
 ### Flash the Firmware
 
