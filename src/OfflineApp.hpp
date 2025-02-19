@@ -95,6 +95,7 @@ private:
         bool bleAdvertising = true;
         bool createNewLog = false;
         bool resetRequired = false;
+        bool restartLogger = false;
         int ledOverride = 0;
     } m_state;
 
@@ -137,6 +138,7 @@ private:
 
     void startLogging();
     void stopLogging();
+    void restartLogging();
     uint8_t configureLogger(const WB_RES::OfflineConfig& config);
 
     void setState(WB_RES::OfflineState state);
@@ -150,6 +152,7 @@ private:
 
     void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);
+    void handleTapGesture(const WB_RES::TapGestureData& data);
     void setBleAdv(bool enabled);
     void setBleAdvTimeout(uint32_t timeout);
 };

@@ -306,6 +306,15 @@ void OfflineApp::onPutResult(
             {
                 m_state.createNewLog = false;
                 asyncPost(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::Empty);
+
+                // Should the logger be restarted immediately?
+                if (m_state.restartLogger)
+                {
+                    m_state.restartLogger = false;
+                    asyncPut(
+                        WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
+                        WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+                }
             }
         }
         else
@@ -422,8 +431,8 @@ void OfflineApp::onNotify(
     }
     case WB_RES::LOCAL::GESTURE_TAP::LID:
     {
-        if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES)
-            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
+        auto tap = value.convertTo<const WB_RES::TapGestureData&>();
+        handleTapGesture(tap);
         break;
     }
     case WB_RES::LOCAL::GESTURE_SHAKE::LID:
@@ -538,7 +547,8 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
                 // these will result in false positive DOUBLETAP events
                 config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES ||
                 config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES ||
-                config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT
+                config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT ||
+                config.options & WB_RES::OfflineOptionsFlags::TRIPLETAPTOSTARTLOG
                 )
             {
                 return false;
@@ -678,7 +688,8 @@ void OfflineApp::startLogging()
 
     // Subscribe to gestures to show LED confirmation on successful detection
     {
-        if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES)
+        if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES ||
+            m_config.options & WB_RES::OfflineOptionsFlags::TRIPLETAPTOSTARTLOG)
         {
             asyncSubscribe(WB_RES::LOCAL::GESTURE_TAP());
         }
@@ -710,7 +721,8 @@ void OfflineApp::stopLogging()
             WB_RES::DataLoggerState::DATALOGGER_READY);
     }
 
-    if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES)
+    if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES ||
+        m_config.options & WB_RES::OfflineOptionsFlags::TRIPLETAPTOSTARTLOG)
     {
         asyncUnsubscribe(WB_RES::LOCAL::GESTURE_TAP());
     }
@@ -720,6 +732,21 @@ void OfflineApp::stopLogging()
     {
         asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
     }
+}
+
+void OfflineApp::restartLogging()
+{
+    ASSERT(m_state.id.getValue() == WB_RES::OfflineState::RUNNING);
+    if (m_state.measurements == 0)
+        return;
+
+    DebugLogger::info("%s: Restarting Data Logger...", LAUNCHABLE_NAME);
+    m_state.createNewLog = true;
+    m_state.restartLogger = true;
+
+    asyncPut(
+        WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
+        WB_RES::DataLoggerState::DATALOGGER_READY);
 }
 
 void OfflineApp::onEnterSleep()
@@ -1083,6 +1110,28 @@ void OfflineApp::handleSystemStateChange(const WB_RES::StateChange& stateChange)
     }
     default:
         break;
+    }
+}
+
+void OfflineApp::handleTapGesture(const WB_RES::TapGestureData& data)
+{
+    switch (m_state.id.getValue())
+    {
+    case WB_RES::OfflineState::RUNNING:
+    {
+        if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES)
+            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
+
+        if (m_config.options & WB_RES::OfflineOptionsFlags::TRIPLETAPTOSTARTLOG
+            && data.count == 3)
+        {
+            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
+            restartLogging();
+        }
+
+        break;
+    }
+    default: break;
     }
 }
 

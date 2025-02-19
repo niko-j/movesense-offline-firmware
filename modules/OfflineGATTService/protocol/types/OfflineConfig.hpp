@@ -26,10 +26,11 @@ struct OfflineConfig
 
     enum OptionsFlags : uint8_t
     {
-        OptionsLogTapGestures   = (1 << 0),
-        OptionsLogShakeGestures = (1 << 1),
-        OptionsCompressECG      = (1 << 2),
-        OptionsShakeToConnect   = (1 << 3),
+        OptionsLogTapGestures       = (1 << 0),
+        OptionsLogShakeGestures     = (1 << 1),
+        OptionsCompressECG          = (1 << 2),
+        OptionsShakeToConnect       = (1 << 3),
+        OptionsTripleTapToStartLog  = (1 << 4),
     };
 
     uint16_t sleepDelay = 0;

@@ -179,6 +179,9 @@ definitions:
     - name: 'ShakeToConnect'
       description: Set to enable BLE advertising when shaking the device
       value: 8
+    - name: 'TripleTapToStartLog'
+      description: Start a new log by tapping the device three times
+      value: 16
 
 datalogger:
   version: "1.0"
