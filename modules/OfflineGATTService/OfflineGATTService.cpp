@@ -398,7 +398,7 @@ void OfflineGATTService::onNotify(
         case Packet::TypeHandshake:
         {
             HandshakePacket handshake(ref);
-            if(!handshake.Read(bytes))
+            if (!handshake.Read(bytes))
             {
                 DebugLogger::error("%s: Corrupted handshake packet (ref %u)", LAUNCHABLE_NAME, ref);
                 sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
@@ -406,18 +406,22 @@ void OfflineGATTService::onNotify(
             }
 
             // Major version mismatch means breaking changes.
-            if(handshake.version_major != SENSOR_PROTOCOL_VERSION_MAJOR)
+            if (handshake.version_major != SENSOR_PROTOCOL_VERSION_MAJOR)
             {
-                DebugLogger::error("%s: Handshake failed, version mismatch. Server: %u. Client: %u", 
+                DebugLogger::error("%s: Handshake failed, version mismatch. Server: %u. Client: %u",
                     LAUNCHABLE_NAME, SENSOR_PROTOCOL_VERSION_MAJOR, handshake.version_major);
-                sendStatusResponse(ref, wb::HTTP_CODE_BAD_VERSION);
+
+                if (handshake.version_major < SENSOR_PROTOCOL_VERSION_MAJOR)
+                    sendStatusResponse(ref, wb::HTTP_CODE_UPGRADE_REQUIRED);
+                else
+                    sendStatusResponse(ref, wb::HTTP_CODE_BAD_VERSION);
                 return;
             }
 
             HandshakePacket response(ref); // Shake back
             sendPacket(response);
             pendingRequestId = Packet::INVALID_REF;
-            
+
             break;
         }
         case Packet::TypeCommand:
@@ -429,7 +433,7 @@ void OfflineGATTService::onNotify(
                 sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
                 return;
             }
-            
+
             handleCommand(cmd);
             break;
         }
