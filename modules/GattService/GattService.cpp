@@ -138,7 +138,7 @@ void GattService::onGetResult(
         auto entries = result.convertTo<const WB_RES::LogEntries&>();
         if (entries.elements.size() == 0)
         {
-            sendStatusResponse(pendingRequestId, wb::HTTP_CODE_NOT_FOUND);
+            sendStatusResponse(pendingRequestId, wb::HTTP_CODE_NO_CONTENT);
             return;
         }
 
@@ -200,7 +200,7 @@ void GattService::onGetResult(
             else
             {
                 logDownload = {};
-                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_NOT_FOUND);
+                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_NO_CONTENT);
             }
         }
 
