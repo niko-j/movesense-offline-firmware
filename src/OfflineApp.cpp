@@ -66,12 +66,13 @@ bool OfflineApp::startModule()
     mModuleState = WB_RES::ModuleStateValues::STARTED;
 
 #ifndef NDEBUG
-    // Setup debugging
     WB_RES::DebugLogConfig logConfig = {
         .minimalLevel = WB_RES::DebugLevel::VERBOSE
     };
     asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG(), AsyncRequestOptions::Empty, logConfig);
     asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, true);
+#else
+    asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, false);
 #endif
 
     asyncReadConfigFromEEPROM();
