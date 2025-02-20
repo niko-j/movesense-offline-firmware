@@ -19,12 +19,12 @@ paths:
     put:
       description: Request state change
       parameters:
-          - name: state
-            in: body
-            description: New state
-            required: true
-            schema:
-              $ref: '#/definitions/OfflineState'
+        - name: state
+          in: body
+          description: New state
+          required: true
+          schema:
+            $ref: '#/definitions/OfflineState'
       responses:
         200:
           description: State change accepted
@@ -58,12 +58,12 @@ paths:
     put:
       description: Set offline mode settings
       parameters:
-          - name: config
-            in: body
-            description: New configuration for offline mode
-            required: true
-            schema:
-              $ref: '#/definitions/OfflineConfig'
+        - name: config
+          in: body
+          description: New configuration for offline mode
+          required: true
+          schema:
+            $ref: '#/definitions/OfflineConfig'
       responses:
         200:
           description: Configuration changed succesfully
