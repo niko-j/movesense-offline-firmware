@@ -277,7 +277,10 @@ void OfflineApp::onPostResult(
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_ADV::LID:
-        m_state.bleAdvertising = true;
+        if (resultCode == wb::HTTP_CODE_CREATED)
+        {
+            m_state.bleAdvertising = true;
+        }
         break;
     default:
         break;
@@ -374,7 +377,10 @@ void OfflineApp::onDeleteResult(
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_ADV::LID:
-        m_state.bleAdvertising = false;
+        if (resultCode == wb::HTTP_CODE_OK)
+        {
+            m_state.bleAdvertising = false;
+        }
         break;
     default:
         break;
@@ -564,8 +570,10 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
         }
     }
 
+    bool init = (m_state.id.getValue() == WB_RES::OfflineState::INIT);
+
     // Check the need to reconfigure the sleep condition
-    if (m_state.id.getValue() == WB_RES::OfflineState::INIT)
+    if (init)
     {
         if (config.sleepDelay > 0)
         {
@@ -592,11 +600,11 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
     bool blePowerSave = !!(m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT);
     bool prevPowerSave = !!(m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT);
 
-    if (blePowerSave != prevPowerSave)
+    if (blePowerSave != prevPowerSave || init)
     {
         if (blePowerSave)
             asyncSubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
-        else
+        else if (!init)
             asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
     }
 
