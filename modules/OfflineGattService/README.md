@@ -1,4 +1,4 @@
-# GattService
+# OfflineGattService
 
 This is a custom GATT service module intended to be used with the Offline App for Movesense sensor.
 
@@ -19,11 +19,11 @@ To add the module into you firmware project, you need to add it to your CMakeLis
 if(NOT DEFINED MOVESENSE_MODULES)
     ...
 
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/GattService)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/GattService/protocol)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/GattService/protocol/types)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/GattService/protocol/packets)
-    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/GattService/protocol/utils)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/OfflineGattService)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/OfflineGattService/protocol)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/OfflineGattService/protocol/types)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/OfflineGattService/protocol/packets)
+    list(APPEND MOVESENSE_MODULES ${CMAKE_CURRENT_LIST_DIR}/path/to/OfflineGattService/protocol/utils)
 
     ...
 endif()
@@ -32,11 +32,11 @@ endif()
 You also have to add the module into your `App.cpp` and enable `CustomGattService` core module:
 
 ```cpp
-#include "path/to/GattService/GattService.hpp"
+#include "path/to/OfflineGattService/OfflineGattService.hpp"
 
 MOVESENSE_PROVIDERS_BEGIN(...)
 ...
-MOVESENSE_PROVIDER_DEF(GestureService)
+MOVESENSE_PROVIDER_DEF(OfflineGattService)
 ...
 MOVESENSE_PROVIDERS_END(...)
 

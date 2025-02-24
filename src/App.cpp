@@ -1,6 +1,6 @@
 #include "OfflineApp.hpp"
 #include "../modules/OfflineMeasurements/OfflineMeasurements.hpp"
-#include "../modules/GattService/GattService.hpp"
+#include "../modules/OfflineGattService/OfflineGattService.hpp"
 #include "../modules/GestureService/GestureService.hpp"
 #include "movesense.h"
 
@@ -9,7 +9,7 @@ MOVESENSE_APPLICATION_STACKSIZE(1024)
 MOVESENSE_PROVIDERS_BEGIN(4)
 MOVESENSE_PROVIDER_DEF(OfflineApp)
 MOVESENSE_PROVIDER_DEF(OfflineMeasurements)
-MOVESENSE_PROVIDER_DEF(GattService)
+MOVESENSE_PROVIDER_DEF(OfflineGattService)
 MOVESENSE_PROVIDER_DEF(GestureService)
 MOVESENSE_PROVIDERS_END(4)
 
