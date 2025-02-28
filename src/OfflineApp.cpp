@@ -25,6 +25,7 @@ constexpr uint32_t TIMER_TICK_SLEEP = 1000;
 constexpr uint32_t TIMER_TICK_LED = 250;
 constexpr uint32_t TIMER_BLE_ADV_TIMEOUT = 30 * 1000;
 constexpr uint32_t TIMER_GESTURE_LED_OVERRIDE_DURATION = 1000;
+constexpr uint32_t TIMER_START_LOG_DELAY = 3000;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_CONFIG::LID,
@@ -66,10 +67,6 @@ bool OfflineApp::startModule()
     mModuleState = WB_RES::ModuleStateValues::STARTED;
 
 #ifndef NDEBUG
-    WB_RES::DebugLogConfig logConfig = {
-        .minimalLevel = WB_RES::DebugLevel::VERBOSE
-    };
-    asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG(), AsyncRequestOptions::Empty, logConfig);
     asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, true);
 #else
     asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, false);
@@ -480,6 +477,12 @@ void OfflineApp::onTimer(whiteboard::TimerId timerId)
         setBleAdv(false);
         return;
     }
+
+    if (timerId == m_timers.start_log_delay.id)
+    {
+        onStartLogging();
+        return;
+    }
 }
 
 void OfflineApp::asyncReadConfigFromEEPROM()
@@ -707,9 +710,11 @@ void OfflineApp::startLogging()
         }
     }
 
-    asyncPut(
-        WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::ForceAsync,
-        WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+    // Start logging in 2 seconds
+    {
+        m_state.ledOverride = TIMER_START_LOG_DELAY;
+        m_timers.start_log_delay.id = ResourceClient::startTimer(TIMER_START_LOG_DELAY, false);
+    }
 
     return;
 }
@@ -802,6 +807,16 @@ void OfflineApp::onWakeUp()
     }
 }
 
+void OfflineApp::onStartLogging()
+{
+    if(m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
+    {
+        asyncPut(
+            WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::ForceAsync,
+            WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+    }
+}
+
 void OfflineApp::setState(WB_RES::OfflineState state)
 {
     if (state == m_state.id)
@@ -813,16 +828,24 @@ void OfflineApp::setState(WB_RES::OfflineState state)
 
     // On exit
 
-    switch (m_state.id.getValue())
+    bool isErrorState = (
+        state == state.ERROR_SYSTEM_FAILURE ||
+        state == state.ERROR_INVALID_CONFIG
+        );
+
+    if (!isErrorState)
     {
-    case WB_RES::OfflineState::SLEEP:
-        onWakeUp();
-        break;
-    case WB_RES::OfflineState::RUNNING:
-        stopLogging();
-        break;
-    default:
-        break;
+        switch (m_state.id.getValue())
+        {
+        case WB_RES::OfflineState::SLEEP:
+            onWakeUp();
+            break;
+        case WB_RES::OfflineState::RUNNING:
+            stopLogging();
+            break;
+        default:
+            break;
+        }
     }
 
     m_state.id = state;

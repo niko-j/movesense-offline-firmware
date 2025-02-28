@@ -129,6 +129,11 @@ private:
         {
             wb::TimerId id = wb::ID_INVALID_TIMER;
         } ble_adv_off;
+
+        struct StartLogDelay
+        {
+            wb::TimerId id = wb::ID_INVALID_TIMER;
+        } start_log_delay;
     } m_timers;
 
     struct Logger
@@ -157,6 +162,7 @@ private:
     bool onConnected();
     void onEnterSleep();
     void onWakeUp();
+    void onStartLogging();
 
     void sleepTimerTick();
     void ledTimerTick();
