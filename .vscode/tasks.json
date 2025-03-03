@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Flash firmware",
+            "label": "Flash Firmware",
             "type": "shell",
             "command": "${workspaceFolder}/scripts/flash.sh",
             "problemMatcher": []
@@ -42,7 +42,7 @@
             }
         },
         {
-            "label": "Docker build env",
+            "label": "Start Docker Build Environment",
             "type": "shell",
             "command": "docker",
             "args": [
@@ -56,6 +56,34 @@
                 "movesense/sensor-build-env:2.2"
             ],
             "problemMatcher": []
+        },
+        {
+            "label": "Debug (verbose)",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/debug.sh",
+            "args": [
+                "4",
+                "/dev/cu.usbserial-B002JL5D"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Debug (info)",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/debug.sh",
+            "args": [
+                "3",
+                "/dev/cu.usbserial-B002JL5D"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
         }
     ]
 }
