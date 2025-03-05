@@ -167,61 +167,17 @@ void GestureService::onUnsubscribe(
     returnResult(request, wb::HTTP_CODE_OK);
 }
 
-void GestureService::onGetResult(
-    whiteboard::RequestId requestId,
-    whiteboard::ResourceId resourceId,
-    whiteboard::Result resultCode,
-    const whiteboard::Value& result)
-{
-    DebugLogger::verbose("%s: onGetResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-}
-
-void GestureService::onPostResult(
-    whiteboard::RequestId requestId,
-    whiteboard::ResourceId resourceId,
-    whiteboard::Result resultCode,
-    const whiteboard::Value& result)
-{
-    DebugLogger::verbose("%s: onPostResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-}
-
-void GestureService::onPutResult(
-    whiteboard::RequestId requestId,
-    whiteboard::ResourceId resourceId,
-    whiteboard::Result resultCode,
-    const whiteboard::Value& result)
-{
-    DebugLogger::verbose("%s: onPutResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-}
-
 void GestureService::onSubscribeResult(
     wb::RequestId requestId,
     wb::ResourceId resourceId,
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onSubscribeResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-
-    switch (resourceId.localResourceId)
+    if (resultCode >= 400)
     {
-    case WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::LID:
-    {
-        if (resultCode != wb::HTTP_CODE_OK)
-        {
-            DebugLogger::error("%s: Failed to subscribe to resource %d",
-                LAUNCHABLE_NAME, resourceId.localResourceId);
-        }
-        ASSERT(resultCode == wb::HTTP_CODE_OK);
-        break;
+        DebugLogger::error("%s: onSubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
     }
-    default:
-        break;
-    }
-
 }
 
 void GestureService::onUnsubscribeResult(
@@ -230,8 +186,11 @@ void GestureService::onUnsubscribeResult(
     wb::Result resultCode,
     const wb::Value& rResultData)
 {
-    DebugLogger::verbose("%s: onUnsubscribeResult (res: %d), status %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onUnsubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 }
 
 void GestureService::onNotify(

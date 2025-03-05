@@ -14,12 +14,13 @@
 #include "comm_ble/resources.h"
 #include "mem_datalogger/resources.h"
 #include "mem_logbook/resources.h"
+#include "movesense_time/resources.h"
 
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
 
 const char* const OfflineApp::LAUNCHABLE_NAME = "OfflineApp";
-constexpr uint8_t EEPROM_CONFIG_INIT_MAGIC = 0x42; // Change this for breaking changes
+constexpr uint8_t EEPROM_INIT_MAGIC = 0x42; // Change this for breaking changes
 
 constexpr uint32_t TIMER_TICK_SLEEP = 1000;
 constexpr uint32_t TIMER_TICK_LED = 250;
@@ -66,13 +67,22 @@ bool OfflineApp::startModule()
 {
     mModuleState = WB_RES::ModuleStateValues::STARTED;
 
-#ifndef NDEBUG
-    asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, true);
-#else
+    char buf[40];
+    if (faultcom_GetLastFaultStr(false, buf, sizeof(buf))) {
+        DebugLogger::error("Last reset reason: %s", buf);
+        m_state.resetOnRunning = true;
+    }
+
+#ifdef NDEBUG
     asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, false);
 #endif
 
-    asyncReadConfigFromEEPROM();
+    WB_RES::DebugLogConfig logConfig = {
+        .minimalLevel = WB_RES::DebugLevel::WARNING
+    };
+    asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG(), AsyncRequestOptions::Empty, logConfig);
+
+    asyncReadDataFromEEPROM();
 
     // Subscribe to BLE peers (Halt offline recording when connected)
     asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::Empty);
@@ -170,7 +180,7 @@ void OfflineApp::onPutRequest(
         if (applyConfig(conf))
         {
             setConfig(conf);
-            asyncSaveConfigToEEPROM();
+            asyncSaveDataToEEPROM(m_config, 0);
             returnResult(request, wb::HTTP_CODE_OK);
         }
         else
@@ -219,8 +229,11 @@ void OfflineApp::onGetResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onGetResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onGetResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 
     switch (resourceId.localResourceId)
     {
@@ -230,13 +243,20 @@ void OfflineApp::onGetResult(
         {
             auto data = result.convertTo<const WB_RES::EepromData&>();
 
-            if (data.bytes[0] == EEPROM_CONFIG_INIT_MAGIC)
+            if (data.bytes[0] == EEPROM_INIT_MAGIC)
             {
-                ASSERT(data.bytes.size() == OFFLINE_CONFIG_EEPROM_SIZE);
-                memcpy(&m_config, &data.bytes[1], sizeof(OfflineConfigData));
+                ASSERT(data.bytes.size() == OFFLINE_DATA_EEPROM_SIZE);
 
-                DebugLogger::info("%s: Offline mode configuration restored",
-                    LAUNCHABLE_NAME);
+                memcpy(&m_config, &data.bytes[1], sizeof(OfflineConfigData));
+                DebugLogger::info("%s: Offline mode configuration restored", LAUNCHABLE_NAME);
+
+                WbTime resetTime = 0;
+                memcpy(&resetTime, &data.bytes[1 + sizeof(OfflineConfigData)], sizeof(resetTime));
+                if (resetTime > 0)
+                {
+                    DebugLogger::info("%s: Restoring reset time %u", LAUNCHABLE_NAME, resetTime);
+                    asyncPut(WB_RES::LOCAL::TIME(), AsyncRequestOptions::Empty, resetTime);
+                }
             }
             else
             {
@@ -268,8 +288,11 @@ void OfflineApp::onPostResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPostResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onPostResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 
     switch (resourceId.localResourceId)
     {
@@ -290,8 +313,11 @@ void OfflineApp::onPutResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onPutResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onPutResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 
     switch (resourceId.localResourceId)
     {
@@ -368,8 +394,11 @@ void OfflineApp::onDeleteResult(
     whiteboard::Result resultCode,
     const whiteboard::Value& result)
 {
-    DebugLogger::info("%s: onDeleteResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onDeleteResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 
     switch (resourceId.localResourceId)
     {
@@ -390,8 +419,11 @@ void OfflineApp::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::info("%s: onSubscribeResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onSubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 }
 
 void OfflineApp::onUnsubscribeResult(
@@ -400,8 +432,11 @@ void OfflineApp::onUnsubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::info("%s: onUnsubscribeResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onUnsubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 }
 
 void OfflineApp::onNotify(
@@ -485,15 +520,15 @@ void OfflineApp::onTimer(whiteboard::TimerId timerId)
     }
 }
 
-void OfflineApp::asyncReadConfigFromEEPROM()
+void OfflineApp::asyncReadDataFromEEPROM()
 {
     asyncGet(
         WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(),
         AsyncRequestOptions::ForceAsync,
-        0, g_OfflineConfigEepromAddr, OFFLINE_CONFIG_EEPROM_SIZE);
+        0, g_OfflineDataEepromAddr, OFFLINE_DATA_EEPROM_SIZE);
 }
 
-void OfflineApp::asyncSaveConfigToEEPROM()
+void OfflineApp::asyncSaveDataToEEPROM(const OfflineConfigData& config, WbTime resetTime)
 {
     // Guarding that we don't end up in an endless loop.
     {
@@ -502,14 +537,15 @@ void OfflineApp::asyncSaveConfigToEEPROM()
         ASSERT(failsave < 100);
     }
 
-    uint8_t data[1 + sizeof(m_config)] = {};
-    data[0] = EEPROM_CONFIG_INIT_MAGIC;
-    memcpy(data + 1, &m_config, sizeof(m_config));
+    uint8_t data[OFFLINE_DATA_EEPROM_SIZE] = {};
+    data[0] = EEPROM_INIT_MAGIC;
+    memcpy(data + 1, &config, sizeof(config));
+    memcpy(data + 1 + sizeof(config), &resetTime, sizeof(resetTime));
 
     WB_RES::EepromData eepromData = { .bytes = wb::MakeArray(data) };
 
     asyncPut(WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), AsyncRequestOptions::ForceAsync,
-        0, g_OfflineConfigEepromAddr, eepromData);
+        0, g_OfflineDataEepromAddr, eepromData);
 }
 
 WB_RES::OfflineConfig OfflineApp::getConfig() const
@@ -687,6 +723,13 @@ uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
 
 void OfflineApp::startLogging()
 {
+    if (m_state.resetOnRunning)
+    {
+        DebugLogger::info("%s: The device needs a hard reset now.", LAUNCHABLE_NAME);
+        powerOff(true);
+        return;
+    }
+
     if (m_state.measurements == 0)
     {
         DebugLogger::info("%s: No configured measurements.", LAUNCHABLE_NAME);
@@ -809,7 +852,7 @@ void OfflineApp::onWakeUp()
 
 void OfflineApp::onStartLogging()
 {
-    if(m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
+    if (m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
     {
         asyncPut(
             WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::ForceAsync,
@@ -871,9 +914,9 @@ void OfflineApp::setState(WB_RES::OfflineState state)
     updateResource(WB_RES::LOCAL::OFFLINE_STATE(), ResponseOptions::Empty, m_state.id);
 }
 
-void OfflineApp::powerOff()
+void OfflineApp::powerOff(bool reset)
 {
-    DebugLogger::info("%s: powerOff()", LAUNCHABLE_NAME);
+    DebugLogger::info("%s: powerOff() reset: %s", LAUNCHABLE_NAME, reset ? "true" : "false");
 
     // Stop LED timer and turn the LED on
     {
@@ -885,13 +928,15 @@ void OfflineApp::powerOff()
     }
 
     // Check if this is a reset
-    if (m_state.resetRequired)
+    if (reset)
     {
-        DebugLogger::warning(
-            "%s: Device is being reset! Touch the connectors to turn on the device.",
-            LAUNCHABLE_NAME);
+        DebugLogger::warning("%s: Device is being reset!", LAUNCHABLE_NAME);
+        asyncSaveDataToEEPROM(m_config, WbTimeGet());
 
         asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
+
+        WB_RES::WakeUpState wakeup = { .state = 1, .level = 1 };
+        asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
 
         asyncPut(
             WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync,
@@ -991,7 +1036,7 @@ void OfflineApp::sleepTimerTick()
             m_timers.sleep.elapsed += TIMER_TICK_SLEEP;
 
         if (m_timers.sleep.elapsed >= 30000)
-            powerOff();
+            powerOff(false);
 
         break;
     }
@@ -1066,7 +1111,7 @@ void OfflineApp::ledTimerTick()
 
 void OfflineApp::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
 {
-    DebugLogger::info("%s: BLE PeerChange", LAUNCHABLE_NAME);
+    DebugLogger::verbose("%s: BLE PeerChange", LAUNCHABLE_NAME);
     if (peerChange.state == WB_RES::PeerStateValues::DISCONNECTED)
     {
         m_state.connections--;
@@ -1079,7 +1124,7 @@ void OfflineApp::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
     if (m_state.connections == 0)
     {
         if (m_state.resetRequired)
-            powerOff();
+            powerOff(true);
         else if (m_state.id.getValue() == WB_RES::OfflineState::CONNECTED)
             setState(WB_RES::OfflineState::RUNNING);
     }

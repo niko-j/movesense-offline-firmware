@@ -1,10 +1,13 @@
 #include "OfflineGattService.hpp"
+#include "movesense.h"
 
 #include "app-resources/resources.h"
+#include "comm_ble/resources.h"
 #include "comm_ble_gattsvc/resources.h"
 #include "sbem_types.h"
 #include "mem_logbook/resources.h"
 #include "movesense_time/resources.h"
+#include "system_debug/resources.h"
 
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
@@ -19,9 +22,10 @@ const char* const OfflineGattService::LAUNCHABLE_NAME = "OfflineGatt";
 OfflineGattService::OfflineGattService()
     : ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
     , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
-    , logDownload({})
+    , m_download({})
+    , m_debugLogStream({})
     , serviceHandle(0)
-    , pendingRequestId(0)
+    , pendingRequestId(Packet::INVALID_REF)
 {
 
 }
@@ -44,13 +48,42 @@ void OfflineGattService::deinitModule()
 
 bool OfflineGattService::startModule()
 {
-    configGattSvc();
+    constexpr uint8_t CHARACTERISTICS_COUNT = 2;
+    WB_RES::GattSvc offlineSvc;
+    WB_RES::GattChar offlineChars[CHARACTERISTICS_COUNT];
+
+    WB_RES::GattProperty rxProps[] = { WB_RES::GattProperty::WRITE };
+    WB_RES::GattProperty txProps[] = { WB_RES::GattProperty::NOTIFY };
+
+    offlineChars[0].props = wb::MakeArray<WB_RES::GattProperty>(rxProps, 1);
+    offlineChars[0].uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_CHAR_RX_UUID, sizeof(SENSOR_GATT_CHAR_RX_UUID));
+
+    offlineChars[1].props = wb::MakeArray<WB_RES::GattProperty>(txProps, 1);
+    offlineChars[1].uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_CHAR_TX_UUID, sizeof(SENSOR_GATT_CHAR_TX_UUID));
+
+    offlineSvc.uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_SERVICE_UUID, sizeof(SENSOR_GATT_SERVICE_UUID));
+    offlineSvc.chars = wb::MakeArray<WB_RES::GattChar>(offlineChars, CHARACTERISTICS_COUNT);
+
+    asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
+
+    WB_RES::DebugMessageConfig config = {
+        .systemMessages = true,
+        .userMessages = true,
+    };
+
+    asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_CONFIG(), AsyncRequestOptions::ForceAsync, config);
+    asyncSubscribe(WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL(), AsyncRequestOptions::ForceAsync, WB_RES::DebugLevel::INFO);
+    asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::ForceAsync);
+
     mModuleState = WB_RES::ModuleStateValues::STARTED;
     return true;
 }
 
 void OfflineGattService::stopModule()
 {
+    asyncUnsubscribe(WB_RES::LOCAL::COMM_BLE_PEERS());
+    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL::ID);
+
     asyncUnsubscribe(txChar.resourceId);
     asyncUnsubscribe(rxChar.resourceId);
 
@@ -67,6 +100,12 @@ void OfflineGattService::onGetResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onGetResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
+
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE::LID:
@@ -143,7 +182,7 @@ void OfflineGattService::onGetResult(
         }
 
         // Are we are looking for a particular log?
-        bool log_download = (logDownload.index > 0);
+        bool log_download = (m_download.index > 0);
         bool list_complete = (resultCode == wb::HTTP_CODE_OK);
         uint32_t logCount = entries.elements.size();
 
@@ -154,9 +193,9 @@ void OfflineGattService::onGetResult(
             const auto& el = entries.elements[i];
             if (log_download)
             {
-                if (el.id == logDownload.index)
+                if (el.id == m_download.index)
                 {
-                    logDownload.size = el.size.hasValue() ? el.size.getValue() : 0;
+                    m_download.size = el.size.hasValue() ? el.size.getValue() : 0;
                 }
             }
             else // Send entries
@@ -190,16 +229,16 @@ void OfflineGattService::onGetResult(
 
         if (list_complete && log_download)
         {
-            if (logDownload.size > 0) // Get data
+            if (m_download.size > 0) // Get data
             {
                 asyncSubscribe(
                     WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(),
                     AsyncRequestOptions::ForceAsync,
-                    logDownload.index);
+                    m_download.index);
             }
             else
             {
-                logDownload = {};
+                m_download = {};
                 sendStatusResponse(pendingRequestId, wb::HTTP_CODE_NO_CONTENT);
             }
         }
@@ -207,12 +246,8 @@ void OfflineGattService::onGetResult(
         break;
     }
     default:
-        DebugLogger::warning("%s: Unhandled GET result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineGattService::onPutResult(
@@ -221,6 +256,12 @@ void OfflineGattService::onPutResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onPutResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
+
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
@@ -233,18 +274,7 @@ void OfflineGattService::onPutResult(
         sendStatusResponse(pendingRequestId, resultCode);
         break;
     }
-    case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
-    {
-        if (resultCode != wb::HTTP_CODE_OK)
-        {
-            DebugLogger::error("%s: Characteristics PUT failed: %d",
-                LAUNCHABLE_NAME, resultCode);
-        }
-        break;
-    }
     default:
-        DebugLogger::warning("%s: Unhandled PUT result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
 }
@@ -255,6 +285,12 @@ void OfflineGattService::onPostResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onPostResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
+
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::COMM_BLE_GATTSVC::LID:
@@ -271,16 +307,9 @@ void OfflineGattService::onPostResult(
                 AsyncRequestOptions::ForceAsync,
                 serviceHandle);
         }
-        else
-        {
-            DebugLogger::error("%s: Failed to create Offline GATT service: %d",
-                LAUNCHABLE_NAME, resultCode);
-        }
         break;
     }
     default:
-        DebugLogger::warning("%s: Unhandled POST result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
 }
@@ -291,6 +320,12 @@ void OfflineGattService::onDeleteResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onDeleteResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
+
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES::LID:
@@ -299,12 +334,8 @@ void OfflineGattService::onDeleteResult(
         break;
     }
     default:
-        DebugLogger::warning("%s: Unhandled DELETE result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
-
-    ASSERT(resultCode < 400)
 }
 
 void OfflineGattService::onSubscribeResult(
@@ -313,27 +344,21 @@ void OfflineGattService::onSubscribeResult(
     wb::Result resultCode,
     const wb::Value& result)
 {
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onSubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
+
     switch (resourceId.localResourceId)
     {
     case WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::LID:
     {
         if (resultCode != wb::HTTP_CODE_OK)
-        {
-            DebugLogger::error("%s: Failed to subscribe logbook data, status: %d",
-                LAUNCHABLE_NAME, resultCode);
             sendStatusResponse(pendingRequestId, resultCode);
-            return;
-        }
-        break;
-    }
-    case WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::LID:
-    {
-        DebugLogger::info("%s: Subscribed to characteristic handle", LAUNCHABLE_NAME);
         break;
     }
     default:
-        DebugLogger::warning("%s: Unhandled SUBSCRIBE result - res: %d, status: %d",
-            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
         break;
     }
 }
@@ -349,10 +374,17 @@ void OfflineGattService::onNotify(
     {
         WB_RES::LOCAL::COMM_BLE_GATTSVC_SVCHANDLE_CHARHANDLE::SUBSCRIBE::ParameterListRef parameterRef(parameters);
         const auto& ch = value.convertTo<const WB_RES::Characteristic&>();
+        if (ch.bytes.size() == 0 && ch.notifications.hasValue())
+        {
+            DebugLogger::info("%s: Notifications set to %s",
+                LAUNCHABLE_NAME,
+                ch.notifications.getValue() ? "'true'" : "'false'");
+            return;
+        }
 
         auto bytes = arrayToBuffer(ch.bytes);
         Packet::Type type;
-        uint8_t ref;
+        uint8_t ref = Packet::INVALID_REF;
         bool valid = (
             bytes.read(&type, sizeof(Packet::Type)) &&
             bytes.read(&ref, sizeof(ref)) &&
@@ -361,11 +393,12 @@ void OfflineGattService::onNotify(
 
         if (!valid || ref == Packet::INVALID_REF)
         {
-            DebugLogger::warning("%s, Received invalid packet", LAUNCHABLE_NAME);
+            DebugLogger::warning("%s: Received invalid packet", LAUNCHABLE_NAME);
+            sendStatusResponse(ref, wb::HTTP_CODE_BAD_REQUEST);
             return;
         }
 
-        DebugLogger::info("%s, Received packet ref: %u type: %u size: %u",
+        DebugLogger::info("%s: Received packet ref: %u type: %u size: %u",
             LAUNCHABLE_NAME, ref, type, ch.bytes.size());
 
         if (pendingRequestId != Packet::INVALID_REF)
@@ -465,7 +498,7 @@ void OfflineGattService::onNotify(
     }
     case WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::LID:
     {
-        if (logDownload.index == 0)
+        if (m_download.index == 0)
             break; // Ignore
 
         const auto& params = WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA::EVENT::ParameterListRef(parameters);
@@ -475,14 +508,52 @@ void OfflineGattService::onNotify(
         if (data.bytes.size() > 0)
         {
             DebugLogger::info("%s: Sending log data %u of %u bytes, offset %u",
-                LAUNCHABLE_NAME, data.bytes.size(), logDownload.size, data.offset);
+                LAUNCHABLE_NAME, data.bytes.size(), m_download.size, data.offset);
 
-            sendPartialData(&data.bytes[0], data.bytes.size(), logDownload.size, data.offset);
+            sendPartialData(&data.bytes[0], data.bytes.size(), m_download.size, data.offset);
         }
         else
         {
             // completed 
-            logDownload = {};
+            m_download = {};
+        }
+        break;
+    }
+    case WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL::LID:
+    {
+        if (m_debugLogStream.packetRef == Packet::INVALID_REF)
+            return;
+
+        auto msg = value.convertTo<const WB_RES::DebugMessage&>();
+        if (m_debugLogStream.logLevel > msg.level.getValue())
+            return;
+
+        DebugMessagePacket packet(m_debugLogStream.packetRef);
+        const char* message_str = msg.message;
+        size_t message_len = strnlen(msg.message, packet.MAX_MESSAGE_LEN);
+
+        packet.level = msg.level.getValue();
+        packet.timestamp = msg.timestamp;
+        packet.message = ReadableBuffer((const uint8_t*)message_str, message_len);
+        sendPacket(packet);
+        break;
+    }
+    case WB_RES::LOCAL::COMM_BLE_PEERS::LID:
+    {
+        auto peerChange = value.convertTo<const WB_RES::PeerChange&>();
+        if (peerChange.state == peerChange.state.CONNECTED)
+        {
+            DebugLogger::info("%s: Peer connected", LAUNCHABLE_NAME);
+        }
+        else if (peerChange.state == peerChange.state.DISCONNECTED)
+        {
+            DebugLogger::info("%s: Peer disconnected", LAUNCHABLE_NAME);
+            pendingRequestId = Packet::INVALID_REF;
+
+            if (m_debugLogStream.packetRef != Packet::INVALID_REF)
+            {
+                m_debugLogStream.packetRef = Packet::INVALID_REF;
+            }
         }
         break;
     }
@@ -493,30 +564,9 @@ void OfflineGattService::onNotify(
     }
 }
 
-void OfflineGattService::configGattSvc()
-{
-    constexpr uint8_t CHARACTERISTICS_COUNT = 2;
-    WB_RES::GattSvc offlineSvc;
-    WB_RES::GattChar offlineChars[CHARACTERISTICS_COUNT];
-
-    WB_RES::GattProperty rxProps[] = { WB_RES::GattProperty::WRITE };
-    WB_RES::GattProperty txProps[] = { WB_RES::GattProperty::NOTIFY };
-
-    offlineChars[0].props = wb::MakeArray<WB_RES::GattProperty>(rxProps, 1);
-    offlineChars[0].uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_CHAR_RX_UUID, sizeof(SENSOR_GATT_CHAR_RX_UUID));
-
-    offlineChars[1].props = wb::MakeArray<WB_RES::GattProperty>(txProps, 1);
-    offlineChars[1].uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_CHAR_TX_UUID, sizeof(SENSOR_GATT_CHAR_TX_UUID));
-
-    offlineSvc.uuid = wb::MakeArray<uint8_t>(SENSOR_GATT_SERVICE_UUID, sizeof(SENSOR_GATT_SERVICE_UUID));
-    offlineSvc.chars = wb::MakeArray<WB_RES::GattChar>(offlineChars, CHARACTERISTICS_COUNT);
-
-    asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
-}
-
 void OfflineGattService::handleCommand(const CommandPacket& packet)
 {
-    DebugLogger::info("Received command: %u", packet.command);
+    DebugLogger::info("%s: Received command: %u", LAUNCHABLE_NAME, packet.command);
 
     switch (packet.command)
     {
@@ -532,10 +582,10 @@ void OfflineGattService::handleCommand(const CommandPacket& packet)
     }
     case CommandPacket::CmdReadLog:
     {
-        uint16_t id = packet.params.ReadLogParams.logIndex;
+        uint16_t id = packet.params.readLog.logIndex;
         DebugLogger::info("%s: Requested log (ref: %u) (id: %u)",
             LAUNCHABLE_NAME, pendingRequestId, id);
-        asyncSendLog(id);
+        sendLog(id);
         break;
     }
     case CommandPacket::CmdClearLogs:
@@ -543,11 +593,45 @@ void OfflineGattService::handleCommand(const CommandPacket& packet)
         asyncDelete(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
         break;
     }
+    case CommandPacket::CmdDebugLastFault:
+    {
+        char buf[40];
+        if (faultcom_GetLastFaultStr(false, buf, sizeof(buf)))
+            sendData((const uint8_t*)buf, strnlen(buf, sizeof(buf)));
+        else
+            sendStatusResponse(packet.reference, wb::HTTP_CODE_NO_CONTENT);
+        break;
+    }
+    case CommandPacket::CmdStartDebugLogStream:
+    {
+        if (m_debugLogStream.packetRef != Packet::INVALID_REF)
+        {
+            sendStatusResponse(packet.reference, wb::HTTP_CODE_ALREADY_REPORTED);
+            break;
+        }
+
+        m_debugLogStream.packetRef = packet.reference;
+        m_debugLogStream.logLevel = packet.params.debugLog.logLevel;
+
+        WB_RES::DebugMessageConfig config = {
+            .systemMessages = (packet.params.debugLog.sources & packet.params.debugLog.System),
+            .userMessages = (packet.params.debugLog.sources & packet.params.debugLog.User)
+        };
+        asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_CONFIG(), AsyncRequestOptions::ForceAsync, config);
+
+        sendStatusResponse(packet.reference, wb::HTTP_CODE_ACCEPTED);
+        break;
+    }
+    case CommandPacket::CmdStopDebugLogStream:
+    {
+        m_debugLogStream.packetRef = Packet::INVALID_REF;
+        sendStatusResponse(packet.reference, wb::HTTP_CODE_OK);
+        break;
+    }
     default:
         DebugLogger::warning("%s: Unknown command: %u",
             LAUNCHABLE_NAME, packet.command);
         sendStatusResponse(packet.reference, wb::HTTP_CODE_BAD_REQUEST);
-        pendingRequestId = Packet::INVALID_REF;
         break;
     }
 }
@@ -573,7 +657,6 @@ bool OfflineGattService::asyncSubsribeHandleResource(int16_t charHandle, whitebo
 
 void OfflineGattService::sendData(const uint8_t* data, uint32_t size)
 {
-    ASSERT(pendingRequestId != Packet::INVALID_REF);
     uint32_t sent = 0;
     do
     {
@@ -593,7 +676,6 @@ void OfflineGattService::sendData(const uint8_t* data, uint32_t size)
 
 void OfflineGattService::sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset)
 {
-    ASSERT(pendingRequestId != Packet::INVALID_REF);
     uint32_t sent = 0;
     do
     {
@@ -614,8 +696,6 @@ void OfflineGattService::sendPartialData(const uint8_t* data, uint32_t partSize,
 
 void OfflineGattService::sendStatusResponse(uint8_t requestRef, uint16_t status)
 {
-    ASSERT(requestRef != Packet::INVALID_REF);
-
     StatusPacket packet(requestRef, status);
     sendPacket(packet);
 
@@ -639,13 +719,13 @@ void OfflineGattService::sendPacket(Packet& packet)
     asyncPut(txChar.resourceId, AsyncRequestOptions::Empty, value);
 }
 
-bool OfflineGattService::asyncSendLog(uint32_t id)
+bool OfflineGattService::sendLog(uint32_t id)
 {
-    if (logDownload.index > 0) // Transmission in progress
+    if (m_download.index > 0) // Transmission in progress
         return false;
 
-    logDownload.index = id;
-    logDownload.size = 0;
+    m_download.index = id;
+    m_download.size = 0;
 
     asyncGet(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
     return true;

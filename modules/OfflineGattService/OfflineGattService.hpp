@@ -59,26 +59,26 @@ private: /* wb::ResourceClient */
         const wb::ParameterList& rParameters) OVERRIDE;
 
 private:
-    void configGattSvc();
-
     void handleCommand(const CommandPacket& packet);
-
     bool asyncSubsribeHandleResource(int16_t charHandle, wb::ResourceId& resourceOut);
 
     void sendData(const uint8_t* data, uint32_t size);
     void sendPartialData(const uint8_t* data, uint32_t partSize, uint32_t totalSize, uint32_t offset);
     void sendStatusResponse(uint8_t requestRef, uint16_t status);
-
     void sendPacket(Packet& packet);
+    bool sendLog(uint32_t id);
 
-    bool asyncSendLog(uint32_t id);
-    void asyncClearLogs();
-
-    struct LogDownload
+    struct LogEntry
     {
         uint32_t index = 0;
         uint32_t size = 0;
-    } logDownload;
+    } m_download;
+
+    struct DebugLogStream
+    {
+        uint8_t packetRef = Packet::INVALID_REF;
+        uint8_t logLevel = 0;
+    } m_debugLogStream;
 
     struct Characteristic
     {

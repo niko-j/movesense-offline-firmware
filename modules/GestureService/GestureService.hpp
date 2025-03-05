@@ -38,24 +38,6 @@ private: /* wb::ResourceProvider */
         const wb::ParameterList& parameters) OVERRIDE;
 
 private: /* wb::ResourceClient */
-    virtual void onGetResult(
-        wb::RequestId requestId,
-        wb::ResourceId resourceId,
-        wb::Result resultCode,
-        const wb::Value& result) OVERRIDE;
-
-    virtual void onPostResult(
-        wb::RequestId requestId,
-        wb::ResourceId resourceId,
-        wb::Result resultCode,
-        const wb::Value& result) OVERRIDE;
-
-    virtual void onPutResult(
-        wb::RequestId requestId,
-        wb::ResourceId resourceId,
-        wb::Result resultCode,
-        const wb::Value& result) OVERRIDE;
-
     virtual void onSubscribeResult(
         wb::RequestId requestId,
         wb::ResourceId resourceId,

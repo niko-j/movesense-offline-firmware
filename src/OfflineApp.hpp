@@ -9,8 +9,8 @@
 #include "comm_ble/resources.h"
 #include "system_states/resources.h"
 
-extern const size_t g_OfflineConfigEepromAddr;
-extern const size_t g_OfflineConfigEepromLen;
+extern const size_t g_OfflineDataEepromAddr;
+extern const size_t g_OfflineDataEepromLen;
 
 struct OfflineConfigData
 {
@@ -20,11 +20,11 @@ struct OfflineConfigData
     uint8_t options = WB_RES::OfflineOptionsFlags::SHAKETOCONNECT;
 };
 
-#define OFFLINE_CONFIG_EEPROM_SIZE (1 + sizeof(OfflineConfigData))
-#define OFFLINE_CONFIG_EEPROM_AREA(addr, len) \
-    static_assert(len >= OFFLINE_CONFIG_EEPROM_SIZE && "Insufficient offline config EEPROM data area size."); \
-    const size_t g_OfflineConfigEepromAddr = addr; \
-    const size_t g_OfflineConfigEepromLen = len;
+#define OFFLINE_DATA_EEPROM_SIZE (1 + sizeof(OfflineConfigData) + sizeof(WbTime))
+#define OFFLINE_DATA_EEPROM_AREA(addr, len) \
+    static_assert(len >= OFFLINE_DATA_EEPROM_SIZE && "Insufficient offline config EEPROM data area size."); \
+    const size_t g_OfflineDataEepromAddr = addr; \
+    const size_t g_OfflineDataEepromLen = len;
 
 class OfflineApp FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -107,6 +107,7 @@ private:
         bool createNewLog = false;
         bool resetRequired = false;
         bool restartLogger = false;
+        bool resetOnRunning = false;
         int ledOverride = 0;
     } m_state;
 
@@ -145,8 +146,8 @@ private:
         char paths[MAX_LOGGED_PATHS][MAX_PATH_LEN];
     } m_logger;
 
-    void asyncReadConfigFromEEPROM();
-    void asyncSaveConfigToEEPROM();
+    void asyncReadDataFromEEPROM();
+    void asyncSaveDataToEEPROM(const OfflineConfigData& config, WbTime resetTime);
 
     WB_RES::OfflineConfig getConfig() const;
     void setConfig(const WB_RES::OfflineConfig& config);
@@ -158,7 +159,7 @@ private:
     uint8_t configureLogger(const WB_RES::OfflineConfig& config);
 
     void setState(WB_RES::OfflineState state);
-    void powerOff();
+    void powerOff(bool reset);
     bool onConnected();
     void onEnterSleep();
     void onWakeUp();

@@ -283,44 +283,17 @@ void OfflineMeasurements::onUnsubscribe(
     returnResult(request, wb::HTTP_CODE_OK);
 }
 
-void OfflineMeasurements::onGetResult(
-    whiteboard::RequestId requestId,
-    whiteboard::ResourceId resourceId,
-    whiteboard::Result resultCode,
-    const whiteboard::Value& result)
-{
-    DebugLogger::verbose("%s: onGetResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-}
-
-void OfflineMeasurements::onPostResult(
-    whiteboard::RequestId requestId,
-    whiteboard::ResourceId resourceId,
-    whiteboard::Result resultCode,
-    const whiteboard::Value& result)
-{
-    DebugLogger::verbose("%s: onPostResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-}
-
-void OfflineMeasurements::onPutResult(
-    whiteboard::RequestId requestId,
-    whiteboard::ResourceId resourceId,
-    whiteboard::Result resultCode,
-    const whiteboard::Value& result)
-{
-    DebugLogger::verbose("%s: onPutResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
-}
-
 void OfflineMeasurements::onSubscribeResult(
     wb::RequestId requestId,
     wb::ResourceId resourceId,
     wb::Result resultCode,
     const wb::Value& result)
 {
-    DebugLogger::verbose("%s: onSubscribeResult (res: %d), status: %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onSubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 
     switch (resourceId.localResourceId)
     {
@@ -351,8 +324,11 @@ void OfflineMeasurements::onUnsubscribeResult(
     wb::Result resultCode,
     const wb::Value& rResultData)
 {
-    DebugLogger::verbose("%s: onUnsubscribeResult (res: %d), status %d",
-        LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onUnsubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
 }
 
 void OfflineMeasurements::onNotify(
