@@ -53,6 +53,12 @@ private: /* wb::ResourceClient */
         wb::Result resultCode,
         const wb::Value& result) OVERRIDE;
 
+    virtual void onUnsubscribeResult(
+        wb::RequestId requestId,
+        wb::ResourceId resourceId,
+        wb::Result resultCode,
+        const wb::Value& result) OVERRIDE;
+
     virtual void onNotify(
         wb::ResourceId resourceId,
         const wb::Value& rValue,

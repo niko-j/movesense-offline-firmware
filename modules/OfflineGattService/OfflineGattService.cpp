@@ -173,7 +173,7 @@ void OfflineGattService::onGetResult(
 
             size_t size = info.lastFault.size() + sizeof(info.resetTime);
             uint8_t data[50] = {};
-            if(size > 50)
+            if (size > 50)
             {
                 sendStatusResponse(pendingRequestId, wb::HTTP_CODE_INTERNAL_SERVER_ERROR);
                 return;
@@ -387,6 +387,19 @@ void OfflineGattService::onSubscribeResult(
     }
 }
 
+void OfflineGattService::onUnsubscribeResult(
+    wb::RequestId requestId,
+    wb::ResourceId resourceId,
+    wb::Result resultCode,
+    const wb::Value& result)
+{
+    if (resultCode >= 400)
+    {
+        DebugLogger::error("%s: onUnsubscribeResult resource: %d, status: %d",
+            LAUNCHABLE_NAME, resourceId.localResourceId, resultCode);
+    }
+}
+
 void OfflineGattService::onNotify(
     wb::ResourceId resourceId,
     const wb::Value& value,
@@ -538,7 +551,9 @@ void OfflineGattService::onNotify(
         }
         else
         {
-            // completed 
+            DebugLogger::info("%s: Finished sending log %u", LAUNCHABLE_NAME, m_download.index);
+            asyncUnsubscribe(WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(), AsyncRequestOptions::Empty, m_download.index);
+            pendingRequestId = Packet::INVALID_REF;
             m_download = {};
         }
         break;
