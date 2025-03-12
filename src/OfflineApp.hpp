@@ -20,7 +20,19 @@ struct OfflineConfigData
     uint8_t options = WB_RES::OfflineOptionsFlags::SHAKETOCONNECT;
 };
 
-#define OFFLINE_DATA_EEPROM_SIZE (1 + sizeof(OfflineConfigData) + sizeof(WbTime))
+struct OfflineDebugData
+{
+    WbTime resetTime = 0;
+    uint8_t lastFault[42] = {};
+};
+
+struct OfflineEepromData
+{
+    OfflineConfigData config = {};
+    OfflineDebugData debug = {};
+};
+
+#define OFFLINE_DATA_EEPROM_SIZE (1 + sizeof(OfflineEepromData))
 #define OFFLINE_DATA_EEPROM_AREA(addr, len) \
     static_assert(len >= OFFLINE_DATA_EEPROM_SIZE && "Insufficient offline config EEPROM data area size."); \
     const size_t g_OfflineDataEepromAddr = addr; \
@@ -95,6 +107,7 @@ private: /* wb::ResourceClient */
 
 private:
     OfflineConfigData m_config;
+    OfflineDebugData m_debug;
 
     struct State
     {
@@ -146,8 +159,7 @@ private:
         char paths[MAX_LOGGED_PATHS][MAX_PATH_LEN];
     } m_logger;
 
-    void asyncReadDataFromEEPROM();
-    void asyncSaveDataToEEPROM(const OfflineConfigData& config, WbTime resetTime);
+    void asyncSaveDataToEEPROM();
 
     WB_RES::OfflineConfig getConfig() const;
     void setConfig(const WB_RES::OfflineConfig& config);

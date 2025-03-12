@@ -10,7 +10,7 @@
 #include "meas_gyro/resources.h"
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
-#include "internal/LowPassFilter.hpp"
+#include "internal/Filter.hpp"
 #include "internal/compression/DeltaCompression.hpp"
 
 class OfflineMeasurements FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
@@ -120,7 +120,7 @@ private:
             uint32_t activity_start = 0;
             uint32_t accumulated_count = 0;
             float accumulated_average = 0;
-            offline_meas::LowPassFilter lpf;
+            offline_meas::SimpleFilter<offline_meas::FilterType::LowPass> lpf;
             void reset();
         } activity;
 

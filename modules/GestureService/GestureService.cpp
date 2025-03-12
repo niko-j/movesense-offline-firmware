@@ -4,16 +4,15 @@
 #include "common/core/dbgassert.h"
 #include "DebugLogger.hpp"
 
-#define GESTURE_SVC_LOW_PASS_FILTER_IMPL
-#include "internal/LowPassFilter.hpp"
-
 const char* const GestureService::LAUNCHABLE_NAME = "GestureSvc";
 constexpr uint16_t DEFAULT_TAP_DETECTION_ACC_SAMPLE_RATE = 104;
 constexpr uint16_t DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE = 13;
+constexpr uint16_t DEFAULT_ORIENTATION_ACC_SAMPLE_RATE = 13;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::GESTURE_TAP::LID,
     WB_RES::LOCAL::GESTURE_SHAKE::LID,
+    WB_RES::LOCAL::GESTURE_ORIENTATION::LID
 };
 
 GestureService::GestureService()
@@ -119,6 +118,7 @@ void GestureService::onSubscribe(
     {
     case WB_RES::LOCAL::GESTURE_TAP::LID:
     case WB_RES::LOCAL::GESTURE_SHAKE::LID:
+    case WB_RES::LOCAL::GESTURE_ORIENTATION::LID:
     {
         if (handleSubscribe(lid))
             result = wb::HTTP_CODE_OK;
@@ -153,6 +153,7 @@ void GestureService::onUnsubscribe(
     {
     case WB_RES::LOCAL::GESTURE_SHAKE::LID:
     case WB_RES::LOCAL::GESTURE_TAP::LID:
+    case WB_RES::LOCAL::GESTURE_ORIENTATION::LID:
     {
         handleUnsubscribe(lid);
         break;
@@ -210,6 +211,9 @@ void GestureService::onNotify(
         if (m_state.shakeSubscribers)
             shakeDetection(data);
 
+        if (m_state.orientationSubscribers)
+            orientationDetection(data);
+
         break;
     }
     default:
@@ -233,6 +237,11 @@ bool GestureService::handleSubscribe(wb::LocalResourceId resourceId)
         m_state.shakeSubscribers += 1;
         m_shake.reset();
     }
+    else if (resourceId == WB_RES::LOCAL::GESTURE_ORIENTATION::LID)
+    {
+        m_state.orientationSubscribers += 1;
+        m_orientation.reset();
+    }
 
     uint16_t requiredSampleRate = getAccSampleRate();
 
@@ -242,7 +251,8 @@ bool GestureService::handleSubscribe(wb::LocalResourceId resourceId)
             asyncUnsubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID);
 
         DebugLogger::info("%s: Subscribing to /Meas/Acc/%u", LAUNCHABLE_NAME, requiredSampleRate);
-        asyncSubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), AsyncRequestOptions::Empty, requiredSampleRate);
+        asyncSubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), 
+            AsyncRequestOptions::NotCriticalSubscription, requiredSampleRate);
     }
 
     return true;
@@ -256,6 +266,8 @@ void GestureService::handleUnsubscribe(wb::LocalResourceId resourceId)
         m_state.tapSubscribers -= 1;
     else if (resourceId == WB_RES::LOCAL::GESTURE_SHAKE::LID && m_state.shakeSubscribers > 0)
         m_state.shakeSubscribers -= 1;
+    else if (resourceId == WB_RES::LOCAL::GESTURE_ORIENTATION::LID && m_state.orientationSubscribers > 0)
+        m_state.orientationSubscribers -= 1;
 
     uint16_t requiredSampleRate = getAccSampleRate();
 
@@ -269,8 +281,8 @@ void GestureService::handleUnsubscribe(wb::LocalResourceId resourceId)
 
         if (requiredSampleRate)
             asyncSubscribe(
-                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), AsyncRequestOptions::Empty,
-                requiredSampleRate);
+                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), 
+                AsyncRequestOptions::NotCriticalSubscription, requiredSampleRate);
     }
 }
 
@@ -394,6 +406,58 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
     }
 }
 
+void GestureService::orientationDetection(const WB_RES::AccData& data)
+{
+    float interval = 1000.0f / getAccSampleRate();
+    constexpr uint32_t LATENCY = 1000; // Time to hold (ms) the same orientation before committing
+
+    for (size_t i = 0; i < data.arrayAcc.size(); i++)
+    {
+        auto v = m_orientation.hpf.filter(data.arrayAcc[i]);
+        float x = abs(v.x), y = abs(v.y), z = abs(v.z);
+        WB_RES::Orientation orientation = m_orientation.pending;
+
+        if (x > y && x > z) // LEFT or RIGHT
+        {
+            if (v.x > 0.0)
+                orientation = WB_RES::Orientation::RIGHT;
+            else
+                orientation = WB_RES::Orientation::LEFT;
+        }
+        else if (z > x && z > y) // UP or DOWN
+        {
+            if (v.z > 0.0)
+                orientation = WB_RES::Orientation::UP;
+            else
+                orientation = WB_RES::Orientation::DOWN;
+        }
+        else // STANDING
+        {
+            if(v.y > 0.0)
+                orientation = WB_RES::Orientation::UPRIGHT;
+            else
+                orientation = WB_RES::Orientation::UPSIDEDOWN;
+        }
+
+        uint32_t t = data.timestamp + i * interval;
+        if (orientation != m_orientation.pending) // Changed, start measuring time
+        {
+            m_orientation.t_changed = t;
+            m_orientation.pending = orientation;
+        }
+
+        if (t - m_orientation.t_changed > LATENCY && m_orientation.current != orientation)
+        {
+            WB_RES::OrientationData orientationData;
+            orientationData.timestamp = t;
+            orientationData.orientation = orientation;
+            updateResource(WB_RES::LOCAL::GESTURE_ORIENTATION(), ResponseOptions::ForceAsync, orientationData);
+
+            m_orientation.current = orientation;
+        }
+    }
+}
+
 uint16_t GestureService::getAccSampleRate()
 {
     if (m_state.tapSubscribers > 0)
@@ -401,6 +465,9 @@ uint16_t GestureService::getAccSampleRate()
 
     if (m_state.shakeSubscribers > 0)
         return DEFAULT_SHAKE_DETECTION_ACC_SAMPLE_RATE;
+
+    if (m_state.orientationSubscribers > 0)
+        return DEFAULT_ORIENTATION_ACC_SAMPLE_RATE;
 
     return 0;
 }
@@ -422,4 +489,10 @@ void GestureService::ShakeDetection::reset()
     cycles = 0;
     phase = 0;
     lpf.reset();
+}
+
+void GestureService::Orientation::reset()
+{
+    current = WB_RES::Orientation::UP;
+    hpf.reset();
 }

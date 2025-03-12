@@ -31,6 +31,7 @@ struct OfflineConfig
         OptionsCompressECG          = (1 << 2),
         OptionsShakeToConnect       = (1 << 3),
         OptionsTripleTapToStartLog  = (1 << 4),
+        OptionsLogOrientation       = (1 << 5),
     };
 
     uint16_t sleepDelay = 0;

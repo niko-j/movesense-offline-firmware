@@ -40,6 +40,23 @@ paths:
         200:
           description: Operation completed successfully
 
+  /Gesture/Orientation/Subscription:
+    post:
+      description: |
+        Subscribe to orientation events.
+      responses:
+        200:
+          description: Operation completed successfully
+        x-notification:
+          description: Orientation of the device.
+          schema:
+            $ref: '#/definitions/OrientationData'
+    delete:
+      description: Unsubscribe from orientation events.
+      responses:
+        200:
+          description: Operation completed successfully
+
 definitions:
   GestureTimestamp:
     type: integer
@@ -56,9 +73,12 @@ definitions:
     - name: 'SHAKE'
       description: Shaking gesture
       value: 1
+    - name: 'ORIENTATION'
+      description: Device orientation
+      value: 2
     - name: 'COUNT'
       description: Number of gesture types
-      value: 2
+      value: 3
 
   TapGestureData:
     required:
@@ -66,7 +86,7 @@ definitions:
       - Count
     properties:
       Timestamp:
-        description: Local timestamp of the measurement
+        description: Local timestamp
         $ref: "#/definitions/GestureTimestamp"
       Count:
         type: integer
@@ -79,10 +99,49 @@ definitions:
       - Duration
     properties:
       Timestamp:
-        description: Local timestamp of the measurement
+        description: Local timestamp
         $ref: "#/definitions/GestureTimestamp"
       Duration:
         type: integer
         format: uint32
         description: Duration in milliseconds
         x-unit: millisecond
+
+  OrientationData:
+    required:
+      - Timestamp
+      - Orientation
+    properties:
+      Timestamp:
+        description: Local timestamp
+        $ref: "#/definitions/GestureTimestamp"
+      Orientation:
+        description: |
+          Orientation of the device, 
+          assuming the device is attached to a heart rate belt,
+          and the sensor is positioned on the user's chest.
+        $ref: "#/definitions/Orientation"
+
+  Orientation:
+    type: integer
+    format: uint8
+    enum:
+    - name: 'UP'
+      description: The device is facing up
+      value: 0
+    - name: 'DOWN'
+      description: The device is facing down
+      value: 1
+    - name: 'LEFT'
+      descrioton: The device is facing to the left
+      value: 2
+    - name: 'RIGHT'
+      description: The device is facing to the right
+      value: 3
+    - name: 'UPRIGHT'
+      description: The device is upright and facing front
+      value: 4
+    - name: 'UPSIDEDOWN'
+      description: The device is upside down.
+      value: 5
+      

@@ -17,9 +17,6 @@
 #include "compression/BitPack.hpp"
 #include "compression/FixedPoint.hpp"
 
-#define OFFLINE_MEAS_LOW_PASS_FILTER_IMPL
-#include "internal/LowPassFilter.hpp"
-
 #include <functional>
 
 using namespace offline_meas;

@@ -1,5 +1,4 @@
 #include "OfflineGattService.hpp"
-#include "movesense.h"
 
 #include "app-resources/resources.h"
 #include "comm_ble/resources.h"
@@ -164,6 +163,31 @@ void OfflineGattService::onGetResult(
             return;
         }
 
+        break;
+    }
+    case WB_RES::LOCAL::OFFLINE_DEBUG::LID:
+    {
+        if (resultCode == wb::HTTP_CODE_OK)
+        {
+            auto info = result.convertTo<const WB_RES::OfflineDebugInfo&>();
+
+            size_t size = info.lastFault.size() + sizeof(info.resetTime);
+            uint8_t data[50] = {};
+            if(size > 50)
+            {
+                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_INTERNAL_SERVER_ERROR);
+                return;
+            }
+
+            memcpy(data, &info.resetTime, sizeof(info.resetTime));
+            memcpy(data + sizeof(info.resetTime), info.lastFault.begin(), info.lastFault.size());
+            sendData(data, size);
+        }
+        else
+        {
+            sendStatusResponse(pendingRequestId, resultCode);
+            return;
+        }
         break;
     }
     case WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES::LID:
@@ -549,11 +573,7 @@ void OfflineGattService::onNotify(
         {
             DebugLogger::info("%s: Peer disconnected", LAUNCHABLE_NAME);
             pendingRequestId = Packet::INVALID_REF;
-
-            if (m_debugLogStream.packetRef != Packet::INVALID_REF)
-            {
-                m_debugLogStream.packetRef = Packet::INVALID_REF;
-            }
+            m_debugLogStream.packetRef = Packet::INVALID_REF;
         }
         break;
     }
@@ -595,11 +615,7 @@ void OfflineGattService::handleCommand(const CommandPacket& packet)
     }
     case CommandPacket::CmdDebugLastFault:
     {
-        char buf[40];
-        if (faultcom_GetLastFaultStr(false, buf, sizeof(buf)))
-            sendData((const uint8_t*)buf, strnlen(buf, sizeof(buf)));
-        else
-            sendStatusResponse(packet.reference, wb::HTTP_CODE_NO_CONTENT);
+        asyncGet(WB_RES::LOCAL::OFFLINE_DEBUG(), AsyncRequestOptions::ForceAsync);
         break;
     }
     case CommandPacket::CmdStartDebugLogStream:

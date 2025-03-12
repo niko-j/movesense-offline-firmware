@@ -3,8 +3,9 @@
 #include <whiteboard/ResourceClient.h>
 #include <whiteboard/ResourceProvider.h>
 
+#include "modules-resources/resources.h"
 #include "meas_acc/resources.h"
-#include "internal/LowPassFilter.hpp"
+#include "internal/Filter.hpp"
 
 class GestureService FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -62,11 +63,13 @@ private:
 
     void tapDetection(const WB_RES::AccData& data);
     void shakeDetection(const WB_RES::AccData& data);
+    void orientationDetection(const WB_RES::AccData& data);
 
     struct State
     {
         uint8_t tapSubscribers = 0;
         uint8_t shakeSubscribers = 0;
+        uint8_t orientationSubscribers = 0;
     } m_state;
 
     struct TapDetection
@@ -81,7 +84,7 @@ private:
 
     struct ShakeDetection
     {
-        gesture_svc::LowPassFilter lpf;
+        gesture_svc::SimpleFilter<gesture_svc::FilterType::LowPass> lpf;
         wb::FloatVector3D max;
         uint32_t t_begin = 0;
         uint32_t t_cycle = 0;
@@ -89,4 +92,13 @@ private:
         uint8_t phase = 0;
         void reset();
     } m_shake;
+
+    struct Orientation
+    {
+        gesture_svc::SimpleFilter<gesture_svc::FilterType::HighPass> hpf;
+        WB_RES::Orientation current = WB_RES::Orientation::UP;
+        WB_RES::Orientation pending = WB_RES::Orientation::UP;
+        uint32_t t_changed = 0;
+        void reset();
+    } m_orientation;
 };

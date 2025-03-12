@@ -86,6 +86,15 @@ paths:
         200:
           description: Operation completed successfully
 
+  /Offline/Debug:
+    get:
+      description: Get recorded debug data
+      responses:
+        200:
+          description: Debug information
+          schema:
+            $ref: '#/definitions/OfflineDebugInfo'
+
 definitions:
   OfflineConfig:
     required:
@@ -106,7 +115,6 @@ definitions:
         items:
           type: integer
           format: uint16
-          x-unit: Hz
       SleepDelay:
         description: Enter sleep mode automatically after set amount of time with no input
         type: integer
@@ -182,6 +190,27 @@ definitions:
     - name: 'TripleTapToStartLog'
       description: Start a new log by tapping the device three times
       value: 16
+    - name: 'LogOrientation'
+      description: Set to log orientation changes
+      value: 32
+
+  OfflineDebugInfo:
+    required:
+      - ResetTime
+      - LastFault
+    properties:
+      ResetTime:
+        description: Timestamp of the last detected reset
+        type: integer
+        format: int64
+      LastFault:
+        description: Reason of the last reset
+        type: array
+        minItems: 42
+        maxItems: 42
+        items:
+          type: integer
+          format: uint8
 
 datalogger:
   version: "1.0"

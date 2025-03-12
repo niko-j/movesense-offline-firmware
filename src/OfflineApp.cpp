@@ -30,7 +30,8 @@ constexpr uint32_t TIMER_START_LOG_DELAY = 3000;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_CONFIG::LID,
-    WB_RES::LOCAL::OFFLINE_STATE::LID
+    WB_RES::LOCAL::OFFLINE_STATE::LID,
+    WB_RES::LOCAL::OFFLINE_DEBUG::LID
 };
 
 OfflineApp::OfflineApp()
@@ -38,6 +39,7 @@ OfflineApp::OfflineApp()
     , ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
     , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
     , m_config({})
+    , m_debug({})
     , m_state({})
     , m_timers({})
 {
@@ -67,22 +69,29 @@ bool OfflineApp::startModule()
 {
     mModuleState = WB_RES::ModuleStateValues::STARTED;
 
-    char buf[40];
-    if (faultcom_GetLastFaultStr(false, buf, sizeof(buf))) {
-        DebugLogger::error("Last reset reason: %s", buf);
+    // Check and store reset reason
+    if (faultcom_GetLastFaultStr(false, (char*)m_debug.lastFault, sizeof(m_debug.lastFault)))
+    {
+        m_debug.resetTime = WbTimeGet();
         m_state.resetOnRunning = true;
     }
 
+    // Automatically toggle UART off in release builds
 #ifdef NDEBUG
     asyncPut(WB_RES::LOCAL::SYSTEM_SETTINGS_UARTON(), AsyncRequestOptions::Empty, false);
 #endif
 
+    // Setup logging
     WB_RES::DebugLogConfig logConfig = {
         .minimalLevel = WB_RES::DebugLevel::WARNING
     };
     asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_LOG_CONFIG(), AsyncRequestOptions::Empty, logConfig);
 
-    asyncReadDataFromEEPROM();
+    // Read data from EEPROM
+    asyncGet(
+        WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(),
+        AsyncRequestOptions::ForceAsync,
+        0, g_OfflineDataEepromAddr, OFFLINE_DATA_EEPROM_SIZE);
 
     // Subscribe to BLE peers (Halt offline recording when connected)
     asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::Empty);
@@ -151,6 +160,15 @@ void OfflineApp::onGetRequest(
         returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, data);
         break;
     }
+    case WB_RES::LOCAL::OFFLINE_DEBUG::LID:
+    {
+        WB_RES::OfflineDebugInfo data = {
+            .resetTime = m_debug.resetTime,
+            .lastFault = wb::MakeArray(m_debug.lastFault),
+        };
+        returnResult(request, wb::HTTP_CODE_OK, ResponseOptions::Empty, data);
+        break;
+    }
     default:
         DebugLogger::warning("%s: Unimplemented GET for resource %d",
             LAUNCHABLE_NAME, request.getResourceId().localResourceId);
@@ -180,7 +198,7 @@ void OfflineApp::onPutRequest(
         if (applyConfig(conf))
         {
             setConfig(conf);
-            asyncSaveDataToEEPROM(m_config, 0);
+            asyncSaveDataToEEPROM();
             returnResult(request, wb::HTTP_CODE_OK);
         }
         else
@@ -247,15 +265,17 @@ void OfflineApp::onGetResult(
             {
                 ASSERT(data.bytes.size() == OFFLINE_DATA_EEPROM_SIZE);
 
-                memcpy(&m_config, &data.bytes[1], sizeof(OfflineConfigData));
+                memcpy(&m_config, &data.bytes[1], sizeof(m_config));
                 DebugLogger::info("%s: Offline mode configuration restored", LAUNCHABLE_NAME);
 
-                WbTime resetTime = 0;
-                memcpy(&resetTime, &data.bytes[1 + sizeof(OfflineConfigData)], sizeof(resetTime));
-                if (resetTime > 0)
+                if (m_debug.resetTime == 0)
                 {
-                    DebugLogger::info("%s: Restoring reset time %u", LAUNCHABLE_NAME, resetTime);
-                    asyncPut(WB_RES::LOCAL::TIME(), AsyncRequestOptions::Empty, resetTime);
+                    memcpy(&m_debug, &data.bytes[1 + sizeof(m_config)], sizeof(m_debug));
+                    if (m_debug.resetTime > 0)
+                    {
+                        DebugLogger::warning("%s: Restoring reset time %u", LAUNCHABLE_NAME, m_debug.resetTime);
+                        asyncPut(WB_RES::LOCAL::TIME(), AsyncRequestOptions::Empty, m_debug.resetTime);
+                    }
                 }
             }
             else
@@ -520,15 +540,7 @@ void OfflineApp::onTimer(whiteboard::TimerId timerId)
     }
 }
 
-void OfflineApp::asyncReadDataFromEEPROM()
-{
-    asyncGet(
-        WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(),
-        AsyncRequestOptions::ForceAsync,
-        0, g_OfflineDataEepromAddr, OFFLINE_DATA_EEPROM_SIZE);
-}
-
-void OfflineApp::asyncSaveDataToEEPROM(const OfflineConfigData& config, WbTime resetTime)
+void OfflineApp::asyncSaveDataToEEPROM()
 {
     // Guarding that we don't end up in an endless loop.
     {
@@ -537,12 +549,14 @@ void OfflineApp::asyncSaveDataToEEPROM(const OfflineConfigData& config, WbTime r
         ASSERT(failsave < 100);
     }
 
-    uint8_t data[OFFLINE_DATA_EEPROM_SIZE] = {};
-    data[0] = EEPROM_INIT_MAGIC;
-    memcpy(data + 1, &config, sizeof(config));
-    memcpy(data + 1 + sizeof(config), &resetTime, sizeof(resetTime));
+    OfflineEepromData data;
+    data.config = m_config;
+    data.debug = m_debug;
 
-    WB_RES::EepromData eepromData = { .bytes = wb::MakeArray(data) };
+    uint8_t buffer[OFFLINE_DATA_EEPROM_SIZE] = {};
+    buffer[0] = EEPROM_INIT_MAGIC;
+    memcpy(buffer + 1, &data, sizeof(data));
+    WB_RES::EepromData eepromData = { .bytes = wb::MakeArray(buffer) };
 
     asyncPut(WB_RES::LOCAL::COMPONENT_EEPROM_EEPROMINDEX(), AsyncRequestOptions::ForceAsync,
         0, g_OfflineDataEepromAddr, eepromData);
@@ -659,6 +673,7 @@ uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
     bool ecgCompression = !!(config.options & WB_RES::OfflineOptionsFlags::COMPRESSECGSAMPLES);
     bool logTapGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES);
     bool logShakeGestures = !!(config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES);
+    bool logOrientation = !!(config.options & WB_RES::OfflineOptionsFlags::LOGORIENTATION);
 
     WB_RES::DataEntry entries[Logger::MAX_LOGGED_PATHS] = {};
     for (auto i = 0; i < WB_RES::OfflineMeasurement::COUNT; i++)
@@ -715,6 +730,13 @@ uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
         count++;
     }
 
+    if (logOrientation)
+    {
+        strcpy(m_logger.paths[count], "/Gesture/Orientation");
+        entries[count].path = m_logger.paths[count];
+        count++;
+    }
+
     WB_RES::DataLoggerConfig logConfig = {};
     logConfig.dataEntries.dataEntry = wb::MakeArray(entries, count);
     asyncPut(WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(), AsyncRequestOptions::Empty, logConfig);
@@ -743,13 +765,13 @@ void OfflineApp::startLogging()
         if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES ||
             m_config.options & WB_RES::OfflineOptionsFlags::TRIPLETAPTOSTARTLOG)
         {
-            asyncSubscribe(WB_RES::LOCAL::GESTURE_TAP());
+            asyncSubscribe(WB_RES::LOCAL::GESTURE_TAP(), AsyncRequestOptions::NotCriticalSubscription);
         }
 
         if (m_config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES &&
             !(m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT))
         {
-            asyncSubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
+            asyncSubscribe(WB_RES::LOCAL::GESTURE_SHAKE(), AsyncRequestOptions::NotCriticalSubscription);
         }
     }
 
@@ -931,7 +953,7 @@ void OfflineApp::powerOff(bool reset)
     if (reset)
     {
         DebugLogger::warning("%s: Device is being reset!", LAUNCHABLE_NAME);
-        asyncSaveDataToEEPROM(m_config, WbTimeGet());
+        asyncSaveDataToEEPROM();
 
         asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
 

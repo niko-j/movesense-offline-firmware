@@ -1,6 +1,6 @@
 # GestureService
 
-This is service implements detection of taps and shakes based on acceleration data.
+This service implements detection algorithms for various gestures based on acceleration samples. 
 
 ## APIs
 
@@ -8,6 +8,7 @@ The service provides the following APIs:
 
 - `/Gesture/Tap` for tap events.
 - `/Gesture/Shake` for shake events.
+- `/Gesture/Orientation` for device orientation events.
 
 Please refer to the [API definition](./wbresources/Gesture.yaml) for more information.
 
