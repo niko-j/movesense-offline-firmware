@@ -78,6 +78,7 @@ private:
     {
         uint32_t index = 0;
         uint32_t size = 0;
+        uint32_t progress = 0;
     } m_download;
 
     struct DebugLogStream

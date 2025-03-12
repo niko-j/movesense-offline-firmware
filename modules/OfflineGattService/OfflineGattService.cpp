@@ -545,15 +545,21 @@ void OfflineGattService::onNotify(
         if (data.bytes.size() > 0)
         {
             DebugLogger::info("%s: Sending log data %u of %u bytes, offset %u",
-                LAUNCHABLE_NAME, data.bytes.size(), m_download.size, data.offset);
+                LAUNCHABLE_NAME, data.bytes.size(), m_download.size, m_download.progress);
 
-            sendPartialData(&data.bytes[0], data.bytes.size(), m_download.size, data.offset);
+            sendPartialData(&data.bytes[0], data.bytes.size(), m_download.size, m_download.progress);
+            m_download.progress += data.bytes.size();
         }
         else
         {
             DebugLogger::info("%s: Finished sending log %u", LAUNCHABLE_NAME, m_download.index);
             asyncUnsubscribe(WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(), AsyncRequestOptions::Empty, m_download.index);
-            pendingRequestId = Packet::INVALID_REF;
+
+            if (m_download.size == m_download.progress)
+                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_OK);
+            else
+                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_INTERNAL_SERVER_ERROR);
+
             m_download = {};
         }
         break;
@@ -720,9 +726,6 @@ void OfflineGattService::sendPartialData(const uint8_t* data, uint32_t partSize,
         sendPacket(packet);
         sent += len;
     } while (sent < partSize);
-
-    if (partSize + offset == totalSize)
-        pendingRequestId = Packet::INVALID_REF;
 }
 
 void OfflineGattService::sendStatusResponse(uint8_t requestRef, uint16_t status)
@@ -756,6 +759,7 @@ bool OfflineGattService::sendLog(uint32_t id)
         return false;
 
     m_download.index = id;
+    m_download.progress = 0;
     m_download.size = 0;
 
     asyncGet(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::ForceAsync);
