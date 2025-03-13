@@ -248,10 +248,14 @@ bool GestureService::handleSubscribe(wb::LocalResourceId resourceId)
     if (currentSampleRate != requiredSampleRate)
     {
         if (currentSampleRate > 0)
-            asyncUnsubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID);
+        {
+            asyncUnsubscribe(
+                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(),
+                AsyncRequestOptions::Empty, currentSampleRate);
+        }
 
         DebugLogger::info("%s: Subscribing to /Meas/Acc/%u", LAUNCHABLE_NAME, requiredSampleRate);
-        asyncSubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), 
+        asyncSubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(),
             AsyncRequestOptions::NotCriticalSubscription, requiredSampleRate);
     }
 
@@ -277,12 +281,18 @@ void GestureService::handleUnsubscribe(wb::LocalResourceId resourceId)
             LAUNCHABLE_NAME, currentSampleRate, requiredSampleRate);
 
         if (currentSampleRate > 0)
-            asyncUnsubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID);
+        {
+            asyncUnsubscribe(
+                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(),
+                AsyncRequestOptions::Empty, currentSampleRate);
+        }
 
         if (requiredSampleRate)
+        {
             asyncSubscribe(
-                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), 
+                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(),
                 AsyncRequestOptions::NotCriticalSubscription, requiredSampleRate);
+        }
     }
 }
 
@@ -433,7 +443,7 @@ void GestureService::orientationDetection(const WB_RES::AccData& data)
         }
         else // STANDING
         {
-            if(v.y > 0.0)
+            if (v.y > 0.0)
                 orientation = WB_RES::Orientation::UPRIGHT;
             else
                 orientation = WB_RES::Orientation::UPSIDEDOWN;

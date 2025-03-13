@@ -81,7 +81,9 @@ bool OfflineGattService::startModule()
 void OfflineGattService::stopModule()
 {
     asyncUnsubscribe(WB_RES::LOCAL::COMM_BLE_PEERS());
-    asyncUnsubscribe(WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL::ID);
+    asyncUnsubscribe(
+        WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL(),
+        AsyncRequestOptions::Empty, WB_RES::DebugLevel::INFO);
 
     asyncUnsubscribe(txChar.resourceId);
     asyncUnsubscribe(rxChar.resourceId);
@@ -553,7 +555,9 @@ void OfflineGattService::onNotify(
         else
         {
             DebugLogger::info("%s: Finished sending log %u", LAUNCHABLE_NAME, m_download.index);
-            asyncUnsubscribe(WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(), AsyncRequestOptions::Empty, m_download.index);
+            asyncUnsubscribe(
+                WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(),
+                AsyncRequestOptions::Empty, m_download.index);
             sendStatusResponse(pendingRequestId, wb::HTTP_CODE_OK);
             m_download = {};
         }

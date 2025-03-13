@@ -417,10 +417,16 @@ bool OfflineMeasurements::subscribeAcc(wb::LocalResourceId resourceId, int32_t p
     if (currentSampleRate != requiredSampleRate)
     {
         if (currentSampleRate > 0)
-            asyncUnsubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID);
+        {
+            asyncUnsubscribe(
+                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(),
+                AsyncRequestOptions::Empty, currentSampleRate);
+        }
 
         DebugLogger::info("%s: Subscribing to /Meas/Acc/%u", LAUNCHABLE_NAME, requiredSampleRate);
-        asyncSubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), AsyncRequestOptions::Empty, requiredSampleRate);
+        asyncSubscribe(
+            WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(),
+            AsyncRequestOptions::Empty, requiredSampleRate);
     }
 
     return true;
@@ -433,7 +439,7 @@ bool OfflineMeasurements::subscribeGyro(wb::LocalResourceId resourceId, int32_t 
         return false; // Only one subscriber allowed at a time
 
     subscribers += 1;
-    m_state.params[WB_RES::OfflineMeasurement::MAGN] = param;
+    m_state.params[WB_RES::OfflineMeasurement::GYRO] = param;
 
     if (subscribers == 1)
     {
@@ -547,12 +553,18 @@ void OfflineMeasurements::dropAccSubscription(wb::LocalResourceId resourceId)
             LAUNCHABLE_NAME, currentSampleRate, requiredSampleRate);
 
         if (currentSampleRate > 0)
-            asyncUnsubscribe(WB_RES::LOCAL::MEAS_ACC_SAMPLERATE::ID);
+        {
+            asyncUnsubscribe(
+                WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), AsyncRequestOptions::Empty,
+                currentSampleRate);
+        }
 
         if (requiredSampleRate)
+        {
             asyncSubscribe(
                 WB_RES::LOCAL::MEAS_ACC_SAMPLERATE(), AsyncRequestOptions::Empty,
                 requiredSampleRate);
+        }
     }
 }
 
@@ -563,8 +575,11 @@ void OfflineMeasurements::dropGyroSubscription(wb::LocalResourceId resourceId)
 
     if (subscribers == 0)
     {
+        uint16_t sampleRate = m_state.params[WB_RES::OfflineMeasurement::GYRO];
         DebugLogger::info("%s: Unsubscribing from gyro", LAUNCHABLE_NAME);
-        asyncUnsubscribe(WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE::ID);
+        asyncUnsubscribe(
+            WB_RES::LOCAL::MEAS_GYRO_SAMPLERATE(),
+            AsyncRequestOptions::Empty, sampleRate);
     }
 }
 
@@ -575,8 +590,11 @@ void OfflineMeasurements::dropMagnSubscription(wb::LocalResourceId resourceId)
 
     if (subscribers == 0)
     {
+        uint16_t sampleRate = m_state.params[WB_RES::OfflineMeasurement::MAGN];
         DebugLogger::info("%s: Unsubscribing from magn", LAUNCHABLE_NAME);
-        asyncUnsubscribe(WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE::ID);
+        asyncUnsubscribe(
+            WB_RES::LOCAL::MEAS_MAGN_SAMPLERATE(),
+            AsyncRequestOptions::Empty, sampleRate);
     }
 }
 
@@ -595,7 +613,7 @@ void OfflineMeasurements::dropHRSubscription(wb::LocalResourceId resourceId)
     if (hrSubs == 0 && rrSubs == 0)
     {
         DebugLogger::info("%s: Unsubscribing from HR", LAUNCHABLE_NAME);
-        asyncUnsubscribe(WB_RES::LOCAL::MEAS_HR::ID);
+        asyncUnsubscribe(WB_RES::LOCAL::MEAS_HR());
     }
 }
 
@@ -606,8 +624,11 @@ void OfflineMeasurements::dropECGSubscription(wb::LocalResourceId resourceId)
 
     if (subscribers == 0)
     {
+        uint16_t sampleRate = m_state.params[WB_RES::OfflineMeasurement::ECG];
         DebugLogger::info("%s: Unsubscribing from ECG", LAUNCHABLE_NAME);
-        asyncUnsubscribe(WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE::ID);
+        asyncUnsubscribe(
+            WB_RES::LOCAL::MEAS_ECG_REQUIREDSAMPLERATE(),
+            AsyncRequestOptions::Empty, sampleRate);
     }
 }
 
@@ -619,7 +640,7 @@ void OfflineMeasurements::dropTempSubscription(wb::LocalResourceId resourceId)
     if (subscribers == 0)
     {
         DebugLogger::info("%s: Unsubscribing from temperature", LAUNCHABLE_NAME);
-        asyncSubscribe(WB_RES::LOCAL::MEAS_TEMP::ID);
+        asyncSubscribe(WB_RES::LOCAL::MEAS_TEMP());
     }
 }
 
