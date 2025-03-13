@@ -650,7 +650,7 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
         m_state.resetRequired |= ((m_config.sleepDelay > 0) != (config.sleepDelay > 0));
     }
 
-    bool blePowerSave = !!(m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT);
+    bool blePowerSave = !!(config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT);
     bool prevPowerSave = !!(m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT);
 
     if (blePowerSave != prevPowerSave || init)
