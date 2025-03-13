@@ -554,12 +554,7 @@ void OfflineGattService::onNotify(
         {
             DebugLogger::info("%s: Finished sending log %u", LAUNCHABLE_NAME, m_download.index);
             asyncUnsubscribe(WB_RES::LOCAL::MEM_LOGBOOK_BYID_LOGID_DATA(), AsyncRequestOptions::Empty, m_download.index);
-
-            if (m_download.size == m_download.progress)
-                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_OK);
-            else
-                sendStatusResponse(pendingRequestId, wb::HTTP_CODE_INTERNAL_SERVER_ERROR);
-
+            sendStatusResponse(pendingRequestId, wb::HTTP_CODE_OK);
             m_download = {};
         }
         break;
