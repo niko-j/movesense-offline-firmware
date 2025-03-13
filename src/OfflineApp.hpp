@@ -122,6 +122,7 @@ private:
         bool restartLogger = false;
         bool resetOnRunning = false;
         int ledOverride = 0;
+        WbTimestamp stateEnterTimestamp = 0;
     } m_state;
 
     struct Timers

@@ -891,6 +891,8 @@ void OfflineApp::setState(WB_RES::OfflineState state)
         return;
     }
 
+    m_state.stateEnterTimestamp = WbTimestampGet();
+
     // On exit
 
     bool isErrorState = (
@@ -982,7 +984,7 @@ void OfflineApp::powerOff(bool reset)
     }
     case WB_RES::OfflineWakeup::DOUBLETAP:
     {
-        WB_RES::WakeUpState wakeup = { .state = 2, .level = 5 }; // Level = delay between taps [0,7]
+        WB_RES::WakeUpState wakeup = { .state = 2, .level = 0 }; // Level = delay between taps [0,7]
         asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
         break;
     }
@@ -1197,10 +1199,15 @@ void OfflineApp::handleSystemStateChange(const WB_RES::StateChange& stateChange)
         // If sleep delay is set, the device will enter sleep after a period of not moving.
         m_state.deviceMoving = (stateChange.newState == 1);
 
-        if (sleeping)
+        if (sleeping && m_state.deviceMoving)
         {
             if (m_config.wakeUp == WB_RES::OfflineWakeup::MOVEMENT)
-                setState(WB_RES::OfflineState::RUNNING);
+            {
+                // Check that enough time has passed since state change
+                int diff = WbTimestampDifferenceMs(m_state.stateEnterTimestamp, stateChange.timestamp);
+                if (diff > 2000)
+                    setState(WB_RES::OfflineState::RUNNING);
+            }
         }
         break;
     }
