@@ -196,11 +196,7 @@ void OfflineApp::onPutRequest(
     {
         const auto& conf = WB_RES::LOCAL::OFFLINE_CONFIG::PUT::ParameterListRef(parameters).getConfig();
         m_state.configRequest = &request;
-        if (applyConfig(conf))
-        {
-            setConfig(conf);
-        }
-        else
+        if (!applyConfig(conf))
         {
             m_state.configRequest = nullptr;
             returnResult(request, wb::HTTP_CODE_BAD_REQUEST);
@@ -545,6 +541,8 @@ void OfflineApp::asyncSaveDataToEEPROM()
         ASSERT(failsave < 100);
     }
 
+    DebugLogger::info("%s: Saving configuration in EEPROM", LAUNCHABLE_NAME);
+
     OfflineEepromData data;
     data.config = m_config;
     data.debug = m_debug;
@@ -566,14 +564,6 @@ WB_RES::OfflineConfig OfflineApp::getConfig() const
         .sleepDelay = m_config.sleepDelay,
         .options = m_config.options,
     };
-}
-
-void OfflineApp::setConfig(const WB_RES::OfflineConfig& config)
-{
-    m_config.wakeUp = config.wakeUpBehavior;
-    m_config.sleepDelay = config.sleepDelay;
-    m_config.options = config.options;
-    memcpy(m_config.params, config.measurementParams.begin(), sizeof(m_config.params));
 }
 
 bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
@@ -660,7 +650,14 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
             asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
     }
 
+    m_config.wakeUp = config.wakeUpBehavior;
+    m_config.sleepDelay = config.sleepDelay;
+    m_config.options = config.options;
+    memcpy(m_config.params, config.measurementParams.begin(), sizeof(m_config.params));
+
     configureLogger(config);
+
+    DebugLogger::info("%s: Configuration changed!", LAUNCHABLE_NAME);
     return true;
 }
 

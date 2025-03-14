@@ -165,7 +165,6 @@ private:
     void asyncSaveDataToEEPROM();
 
     WB_RES::OfflineConfig getConfig() const;
-    void setConfig(const WB_RES::OfflineConfig& config);
     bool applyConfig(const WB_RES::OfflineConfig& config);
 
     void startLogging();
