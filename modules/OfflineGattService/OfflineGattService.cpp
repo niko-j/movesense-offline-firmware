@@ -64,14 +64,6 @@ bool OfflineGattService::startModule()
     offlineSvc.chars = wb::MakeArray<WB_RES::GattChar>(offlineChars, CHARACTERISTICS_COUNT);
 
     asyncPost(WB_RES::LOCAL::COMM_BLE_GATTSVC(), AsyncRequestOptions::ForceAsync, offlineSvc);
-
-    WB_RES::DebugMessageConfig config = {
-        .systemMessages = true,
-        .userMessages = true,
-    };
-
-    asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_CONFIG(), AsyncRequestOptions::ForceAsync, config);
-    asyncSubscribe(WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL(), AsyncRequestOptions::ForceAsync, WB_RES::DebugLevel::INFO);
     asyncSubscribe(WB_RES::LOCAL::COMM_BLE_PEERS(), AsyncRequestOptions::ForceAsync);
 
     mModuleState = WB_RES::ModuleStateValues::STARTED;
@@ -81,9 +73,6 @@ bool OfflineGattService::startModule()
 void OfflineGattService::stopModule()
 {
     asyncUnsubscribe(WB_RES::LOCAL::COMM_BLE_PEERS());
-    asyncUnsubscribe(
-        WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL(),
-        AsyncRequestOptions::Empty, WB_RES::DebugLevel::INFO);
 
     asyncUnsubscribe(txChar.resourceId);
     asyncUnsubscribe(rxChar.resourceId);
@@ -569,8 +558,6 @@ void OfflineGattService::onNotify(
             return;
 
         auto msg = value.convertTo<const WB_RES::DebugMessage&>();
-        if (m_debugLogStream.logLevel > msg.level.getValue())
-            return;
 
         DebugMessagePacket packet(m_debugLogStream.packetRef);
         const char* message_str = msg.message;
@@ -655,12 +642,22 @@ void OfflineGattService::handleCommand(const CommandPacket& packet)
         };
         asyncPut(WB_RES::LOCAL::SYSTEM_DEBUG_CONFIG(), AsyncRequestOptions::ForceAsync, config);
 
+        asyncSubscribe(
+            WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL(),
+            AsyncRequestOptions::NotCriticalSubscription,
+            (WB_RES::DebugLevel::Type)m_debugLogStream.logLevel);
+
         sendStatusResponse(packet.reference, wb::HTTP_CODE_ACCEPTED);
         break;
     }
     case CommandPacket::CmdStopDebugLogStream:
     {
         m_debugLogStream.packetRef = Packet::INVALID_REF;
+        asyncUnsubscribe(
+            WB_RES::LOCAL::SYSTEM_DEBUG_LEVEL(),
+            AsyncRequestOptions::Empty,
+            (WB_RES::DebugLevel::Type)m_debugLogStream.logLevel);
+
         sendStatusResponse(packet.reference, wb::HTTP_CODE_OK);
         break;
     }

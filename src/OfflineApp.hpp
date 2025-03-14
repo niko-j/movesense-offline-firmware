@@ -120,7 +120,6 @@ private:
         bool createNewLog = false;
         bool resetRequired = false;
         bool restartLogger = false;
-        bool resetOnRunning = false;
         int ledOverride = 0;
         WbTimestamp stateEnterTimestamp = 0;
         const wb::Request* configRequest = nullptr;

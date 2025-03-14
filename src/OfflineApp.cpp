@@ -73,7 +73,6 @@ bool OfflineApp::startModule()
     if (faultcom_GetLastFaultStr(false, (char*)m_debug.lastFault, sizeof(m_debug.lastFault)))
     {
         m_debug.resetTime = WbTimeGet();
-        m_state.resetOnRunning = true;
     }
 
     // Automatically toggle UART off in release builds
@@ -265,14 +264,9 @@ void OfflineApp::onGetResult(
                 DebugLogger::info("%s: Offline mode configuration restored", LAUNCHABLE_NAME);
 
                 if (m_debug.resetTime == 0)
-                {
                     memcpy(&m_debug, &data.bytes[1 + sizeof(m_config)], sizeof(m_debug));
-                    if (m_debug.resetTime > 0)
-                    {
-                        DebugLogger::warning("%s: Restoring reset time %u", LAUNCHABLE_NAME, m_debug.resetTime);
-                        asyncPut(WB_RES::LOCAL::TIME(), AsyncRequestOptions::Empty, m_debug.resetTime);
-                    }
-                }
+                else
+                    asyncSaveDataToEEPROM(); // New debug data to save
             }
             else
             {
@@ -498,7 +492,7 @@ void OfflineApp::onNotify(
         break;
     }
     default:
-        DebugLogger::warning("%s: Unhandled notification from resource: %d",
+        DebugLogger::warning("%s: Unhandled notification from resource: %d", 
             LAUNCHABLE_NAME, resourceId.localResourceId);
         break;
     }
@@ -541,7 +535,7 @@ void OfflineApp::asyncSaveDataToEEPROM()
         ASSERT(failsave < 100);
     }
 
-    DebugLogger::info("%s: Saving configuration in EEPROM", LAUNCHABLE_NAME);
+    DebugLogger::info("%s: Saving data in EEPROM", LAUNCHABLE_NAME);
 
     OfflineEepromData data;
     data.config = m_config;
@@ -571,10 +565,8 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
     m_state.validConfig = false; // Config is invalid until DataLogger accepts it
     m_logger.number_of_paths = 0;
 
-    // Verify state
-    if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
-        m_state.id.getValue() != WB_RES::OfflineState::CONNECTED &&
-        m_state.id.getValue() != WB_RES::OfflineState::ERROR_INVALID_CONFIG)
+    // Verify logging not running
+    if (m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
     {
         return false;
     }
@@ -742,13 +734,6 @@ void OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
 
 void OfflineApp::startLogging()
 {
-    if (m_state.resetOnRunning)
-    {
-        DebugLogger::info("%s: The device needs a hard reset now.", LAUNCHABLE_NAME);
-        powerOff(true);
-        return;
-    }
-
     if (!m_state.validConfig || m_logger.number_of_paths == 0)
     {
         DebugLogger::info("%s: No configured measurements.", LAUNCHABLE_NAME);
@@ -953,13 +938,10 @@ void OfflineApp::powerOff(bool reset)
     if (reset)
     {
         DebugLogger::warning("%s: Device is being reset!", LAUNCHABLE_NAME);
-        asyncSaveDataToEEPROM();
-
-        asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
 
         WB_RES::WakeUpState wakeup = { .state = 1, .level = 1 };
         asyncPut(WB_RES::LOCAL::COMPONENT_LSM6DS3_WAKEUP(), AsyncRequestOptions::Empty, wakeup);
-
+        asyncPut(WB_RES::LOCAL::COMPONENT_MAX3000X_WAKEUP(), AsyncRequestOptions::Empty, 1);
         asyncPut(
             WB_RES::LOCAL::SYSTEM_MODE(), AsyncRequestOptions::ForceAsync,
             WB_RES::SystemModeValues::FULLPOWEROFF);
@@ -1076,8 +1058,8 @@ void OfflineApp::ledTimerTick()
     constexpr uint16_t LED_BLINK_SERIES_RUN_ADV[] = { 4000, 250, 250, 250 };
 
     // Error modes
-    constexpr uint16_t LED_BLINK_SERIES_FULL_STORAGE[] = { 2000, 500 };
-    constexpr uint16_t LED_BLINK_SERIES_CONFIG_ERROR[] = { 2000, 500, 500, 500 };
+    constexpr uint16_t LED_BLINK_SERIES_FULL_STORAGE[] = { 500, 250 };
+    constexpr uint16_t LED_BLINK_SERIES_CONFIG_ERROR[] = { 500, 500, 500, 500 };
     constexpr uint16_t LED_BLINK_SERIES_SYSTEM_FAILURE[] = { 2000, 500, 500, 500, 500, 500 };
     constexpr uint16_t LED_BLINK_SERIES_LOW_BATTERY[] = { 2000, 2000 };
 
