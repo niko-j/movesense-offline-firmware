@@ -195,14 +195,14 @@ void OfflineApp::onPutRequest(
     case WB_RES::LOCAL::OFFLINE_CONFIG::LID:
     {
         const auto& conf = WB_RES::LOCAL::OFFLINE_CONFIG::PUT::ParameterListRef(parameters).getConfig();
+        m_state.configRequest = &request;
         if (applyConfig(conf))
         {
             setConfig(conf);
-            asyncSaveDataToEEPROM();
-            returnResult(request, wb::HTTP_CODE_OK);
         }
         else
         {
+            m_state.configRequest = nullptr;
             returnResult(request, wb::HTTP_CODE_BAD_REQUEST);
         }
 
@@ -284,9 +284,7 @@ void OfflineApp::onGetResult(
                     LAUNCHABLE_NAME);
             }
 
-            if (applyConfig(getConfig()))
-                setState(WB_RES::OfflineState::RUNNING);
-            else
+            if (!applyConfig(getConfig()))
                 setState(WB_RES::OfflineState::ERROR_INVALID_CONFIG);
         }
         else
@@ -377,31 +375,29 @@ void OfflineApp::onPutResult(
     }
     case WB_RES::LOCAL::MEM_DATALOGGER_CONFIG::LID:
     {
-        switch (resultCode)
+        if (resultCode == wb::HTTP_CODE_OK)
         {
-        case wb::HTTP_CODE_BAD_REQUEST:
+            m_state.validConfig = true;
+
+            if (m_state.configRequest)
+            {
+                asyncSaveDataToEEPROM();
+                returnResult(*m_state.configRequest, wb::HTTP_CODE_OK);
+                m_state.configRequest = nullptr;
+            }
+
+            if (m_state.id.getValue() == WB_RES::OfflineState::INIT)
+                setState(WB_RES::OfflineState::RUNNING);
+        }
+        else
         {
             setState(WB_RES::OfflineState::ERROR_INVALID_CONFIG);
-            break;
-        }
-        case wb::HTTP_CODE_OK:
-        {
-            if (m_state.id.getValue() == WB_RES::OfflineState::ERROR_INVALID_CONFIG)
+            if (m_state.configRequest)
             {
-                if (m_state.connections > 0)
-                    setState(WB_RES::OfflineState::CONNECTED);
-                else
-                    setState(WB_RES::OfflineState::RUNNING);
+                returnResult(*m_state.configRequest, wb::HTTP_CODE_BAD_REQUEST);
+                m_state.configRequest = nullptr;
             }
-            break;
         }
-        default:
-        {
-            setState(WB_RES::OfflineState::ERROR_SYSTEM_FAILURE);
-            break;
-        }
-        }
-        break;
     }
     default:
         break;
@@ -582,6 +578,9 @@ void OfflineApp::setConfig(const WB_RES::OfflineConfig& config)
 
 bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
 {
+    m_state.validConfig = false; // Config is invalid until DataLogger accepts it
+    m_logger.number_of_paths = 0;
+
     // Verify state
     if (m_state.id.getValue() != WB_RES::OfflineState::INIT &&
         m_state.id.getValue() != WB_RES::OfflineState::CONNECTED &&
@@ -661,11 +660,11 @@ bool OfflineApp::applyConfig(const WB_RES::OfflineConfig& config)
             asyncUnsubscribe(WB_RES::LOCAL::GESTURE_SHAKE());
     }
 
-    m_state.measurements = configureLogger(config);
+    configureLogger(config);
     return true;
 }
 
-uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
+void OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
 {
     uint8_t count = 0;
     memset(m_logger.paths, 0, sizeof(m_logger.paths));
@@ -737,10 +736,11 @@ uint8_t OfflineApp::configureLogger(const WB_RES::OfflineConfig& config)
         count++;
     }
 
+    m_logger.number_of_paths = count;
+
     WB_RES::DataLoggerConfig logConfig = {};
     logConfig.dataEntries.dataEntry = wb::MakeArray(entries, count);
     asyncPut(WB_RES::LOCAL::MEM_DATALOGGER_CONFIG(), AsyncRequestOptions::Empty, logConfig);
-    return count;
 }
 
 void OfflineApp::startLogging()
@@ -752,9 +752,10 @@ void OfflineApp::startLogging()
         return;
     }
 
-    if (m_state.measurements == 0)
+    if (!m_state.validConfig || m_logger.number_of_paths == 0)
     {
         DebugLogger::info("%s: No configured measurements.", LAUNCHABLE_NAME);
+        setState(WB_RES::OfflineState::ERROR_INVALID_CONFIG);
         return;
     }
 
@@ -788,7 +789,7 @@ void OfflineApp::stopLogging()
 {
     ASSERT(m_state.id.getValue() == WB_RES::OfflineState::RUNNING);
 
-    if (m_state.measurements > 0)
+    if (m_state.validConfig && m_logger.number_of_paths > 0)
     {
         DebugLogger::info("%s: Stopping Data Logger...", LAUNCHABLE_NAME);
         m_state.createNewLog = true; // Start a new entry
@@ -813,8 +814,6 @@ void OfflineApp::stopLogging()
 void OfflineApp::restartLogging()
 {
     ASSERT(m_state.id.getValue() == WB_RES::OfflineState::RUNNING);
-    if (m_state.measurements == 0)
-        return;
 
     DebugLogger::info("%s: Restarting Data Logger...", LAUNCHABLE_NAME);
     m_state.createNewLog = true;
@@ -870,6 +869,11 @@ void OfflineApp::onWakeUp()
         m_timers.sleep.id = ResourceClient::startTimer(TIMER_TICK_SLEEP, true);
         ASSERT(m_timers.sleep.id != wb::ID_INVALID_TIMER);
     }
+
+    if (m_state.validConfig)
+        setState(WB_RES::OfflineState::RUNNING);
+    else
+        setState(WB_RES::OfflineState::ERROR_INVALID_CONFIG);
 }
 
 void OfflineApp::onStartLogging()
@@ -904,9 +908,6 @@ void OfflineApp::setState(WB_RES::OfflineState state)
     {
         switch (m_state.id.getValue())
         {
-        case WB_RES::OfflineState::SLEEP:
-            onWakeUp();
-            break;
         case WB_RES::OfflineState::RUNNING:
             stopLogging();
             break;
@@ -1148,9 +1149,16 @@ void OfflineApp::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
     if (m_state.connections == 0)
     {
         if (m_state.resetRequired)
+        {
             powerOff(true);
+        }
         else if (m_state.id.getValue() == WB_RES::OfflineState::CONNECTED)
-            setState(WB_RES::OfflineState::RUNNING);
+        {
+            if (m_state.validConfig)
+                setState(WB_RES::OfflineState::RUNNING);
+            else
+                setState(WB_RES::OfflineState::ERROR_INVALID_CONFIG);
+        }
     }
     else if (m_state.connections == 1)
     {
@@ -1175,7 +1183,7 @@ void OfflineApp::handleSystemStateChange(const WB_RES::StateChange& stateChange)
         if (sleeping)
         {
             if (m_config.wakeUp == WB_RES::OfflineWakeup::CONNECTOR)
-                setState(WB_RES::OfflineState::RUNNING);
+                onWakeUp();
         }
         break;
     }
@@ -1184,7 +1192,7 @@ void OfflineApp::handleSystemStateChange(const WB_RES::StateChange& stateChange)
         if (sleeping)
         {
             if (m_config.wakeUp == WB_RES::OfflineWakeup::DOUBLETAP)
-                setState(WB_RES::OfflineState::RUNNING);
+                onWakeUp();
         }
         else
         {
@@ -1206,7 +1214,7 @@ void OfflineApp::handleSystemStateChange(const WB_RES::StateChange& stateChange)
                 // Check that enough time has passed since state change
                 int diff = WbTimestampDifferenceMs(m_state.stateEnterTimestamp, stateChange.timestamp);
                 if (diff > 2000)
-                    setState(WB_RES::OfflineState::RUNNING);
+                    onWakeUp();
             }
         }
         break;

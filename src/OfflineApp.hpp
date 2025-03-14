@@ -113,7 +113,7 @@ private:
     {
         WB_RES::OfflineState id = WB_RES::OfflineState::INIT;
         uint8_t connections = 0;
-        uint8_t measurements = 0;
+        bool validConfig = false;
         bool deviceMoving = true;
         bool connectorActive = false;
         bool bleAdvertising = true;
@@ -123,6 +123,7 @@ private:
         bool resetOnRunning = false;
         int ledOverride = 0;
         WbTimestamp stateEnterTimestamp = 0;
+        const wb::Request* configRequest = nullptr;
     } m_state;
 
     struct Timers
@@ -158,6 +159,7 @@ private:
             );
         static constexpr size_t MAX_PATH_LEN = 42;
         char paths[MAX_LOGGED_PATHS][MAX_PATH_LEN];
+        uint8_t number_of_paths = 0;
     } m_logger;
 
     void asyncSaveDataToEEPROM();
@@ -169,7 +171,7 @@ private:
     void startLogging();
     void stopLogging();
     void restartLogging();
-    uint8_t configureLogger(const WB_RES::OfflineConfig& config);
+    void configureLogger(const WB_RES::OfflineConfig& config);
 
     void setState(WB_RES::OfflineState state);
     void powerOff(bool reset);
