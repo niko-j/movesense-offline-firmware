@@ -180,6 +180,7 @@ private:
 
     void sleepTimerTick();
     void ledTimerTick();
+    void overrideLed(uint32_t duration);
 
     void handleBlePeerChange(const WB_RES::PeerChange& peerChange);
     void handleSystemStateChange(const WB_RES::StateChange& stateChange);

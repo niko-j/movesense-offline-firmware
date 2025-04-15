@@ -32,6 +32,7 @@ struct OfflineConfig
         OptionsShakeToConnect       = (1 << 3),
         OptionsTripleTapToStartLog  = (1 << 4),
         OptionsLogOrientation       = (1 << 5),
+        OptionsStudsToConnect       = (1 << 6),
     };
 
     uint16_t sleepDelay = 0;

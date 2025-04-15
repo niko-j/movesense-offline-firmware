@@ -4,11 +4,11 @@
 namespace offline_meas::compression::elias_gamma
 {
     template<typename T>
-    inline size_t count_bits(const T& value)
+    inline size_t count_bits_unsigned(const T& value)
     {
         T a = abs(value);
         float l = a > 0 ? log2f(a) : 0.0f;
-        return 1 + (size_t)floor(l);
+        return (size_t)floor(l);
     }
 
     inline void write_bits(uint8_t* c, uint8_t bits, size_t offset, size_t count)
@@ -22,7 +22,7 @@ namespace offline_meas::compression::elias_gamma
     inline size_t encode_value(const T& value, uint64_t& out)
     {
         out = (abs(value) << 1) + (value >= 0 ? 1 : 0);
-        int n = count_bits<T>(out) - 1;
+        int n = count_bits_unsigned<int64_t>(out);
         return n * 2 + 1;
     }
 

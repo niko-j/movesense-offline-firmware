@@ -8,24 +8,32 @@
             "problemMatcher": []
         },
         {
-            "label": "Build (debug)",
+            "label": "Flash Firmware (DFU)",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/dfu.sh",
+            "args": [
+                "${input:dfuTarget}"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "Build (SS2, debug)",
             "type": "shell",
             "command": "docker",
             "args": [
                 "exec",
                 "-it",
                 "movesense-build-env",
-                "/movesense/scripts/build.sh",
-                "debug"
+                "/movesense/scripts/build.sh"
             ],
             "problemMatcher": [],
             "group": {
                 "kind": "build",
-                "isDefault": true
+                "isDefault": false
             }
         },
         {
-            "label": "Build (release)",
+            "label": "Build (SS2, release)",
             "type": "shell",
             "command": "docker",
             "args": [
@@ -33,7 +41,42 @@
                 "-it",
                 "movesense-build-env",
                 "/movesense/scripts/build.sh",
-                "release"
+                "--release"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Build (SS2_NAND, debug)",
+            "type": "shell",
+            "command": "docker",
+            "args": [
+                "exec",
+                "-it",
+                "movesense-build-env",
+                "/movesense/scripts/build.sh",
+                "--SS2_NAND"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            }
+        },
+        {
+            "label": "Build (SS2_NAND, release)",
+            "type": "shell",
+            "command": "docker",
+            "args": [
+                "exec",
+                "-it",
+                "movesense-build-env",
+                "/movesense/scripts/build.sh",
+                "--release",
+                "--SS2_NAND"
             ],
             "problemMatcher": [],
             "group": {
@@ -58,32 +101,30 @@
             "problemMatcher": []
         },
         {
-            "label": "Debug (verbose)",
+            "label": "Stream Debug Log (verbose)",
             "type": "shell",
             "command": "${workspaceFolder}/scripts/debug.sh",
             "args": [
                 "4",
-                "/dev/cu.usbserial-B002JL5D"
+                "${input:serialPort}"
             ],
             "problemMatcher": [],
             "group": {
                 "kind": "test",
                 "isDefault": false
             }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "dfuTarget",
+            "type": "promptString",
+            "description": "Enter DFU target (Device Identifier)"
         },
         {
-            "label": "Debug (info)",
-            "type": "shell",
-            "command": "${workspaceFolder}/scripts/debug.sh",
-            "args": [
-                "3",
-                "/dev/cu.usbserial-B002JL5D"
-            ],
-            "problemMatcher": [],
-            "group": {
-                "kind": "test",
-                "isDefault": true
-            }
+            "id": "serialPort",
+            "type": "promptString",
+            "description": "Enter serial port (e.g., \"/dev/cu.usbserial-B123\", \"COM1\", \"/dev/ttyS001\")"
         }
     ]
 }

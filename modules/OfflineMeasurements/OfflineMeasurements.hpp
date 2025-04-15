@@ -97,7 +97,7 @@ private:
         struct ECG
         {
             static constexpr uint8_t COMPRESSOR_BLOCK_SIZE = 32;
-            int32_t sample_offset = 0;
+            uint32_t block_timestamp = 0;
             offline_meas::compression::DeltaCompression<int16_t, COMPRESSOR_BLOCK_SIZE> compressor;
             void reset();
         } ecg;

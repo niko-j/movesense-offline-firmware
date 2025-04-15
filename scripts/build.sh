@@ -5,15 +5,18 @@ SCRIPT_DIR=$(dirname "$0")
 BUILD_DIR=$SCRIPT_DIR/../build
 MOVESENSE_CORELIB_PATH=../movesense-device-lib/MovesenseCoreLib
 
-if [[ "$1" == "release" ]]
+if [[ $* == *--release* ]]
 then
     BUILD_TYPE=Release
-elif [[ "$1" == "debug" ]]
-then
-    BUILD_TYPE=Debug
 else
-    echo "Usage: $(basename -- $0) [debug|release]"
-    exit 1
+    BUILD_TYPE=Debug
+fi
+
+if [[ $* == *--SS2_NAND* ]]
+then
+    HW_VARIANT=SS2_NAND
+else
+    HW_VARIANT=SS2
 fi
 
 abort() {
@@ -30,7 +33,7 @@ cmake -G Ninja \
     -DMOVESENSE_CORE_LIBRARY=$MOVESENSE_CORELIB_PATH/ \
     -DCMAKE_TOOLCHAIN_FILE=$MOVESENSE_CORELIB_PATH/toolchain/gcc-nrf52.cmake \
     -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
-    -DHWCONFIG=SS2_NAND \
+    -DHWCONFIG=$HW_VARIANT \
     ../src || abort "cmake failed"
 
 echo "Building packages..."

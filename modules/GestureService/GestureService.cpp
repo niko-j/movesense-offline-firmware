@@ -302,7 +302,12 @@ void GestureService::tapDetection(const WB_RES::AccData& data)
     constexpr uint32_t LATENCY = 80; // ms, should work with the lowest sample rate
     constexpr uint32_t TIMEOUT = 2000;
 
-    float interval = 1000.0f / getAccSampleRate(); // delta between samples
+    uint16_t sampleRate = getAccSampleRate();
+
+    if (sampleRate == 0)
+        return;
+
+    float interval = 1000.0f / sampleRate; // delta between samples
 
     for (size_t i = 0; i < data.arrayAcc.size(); i++)
     {
@@ -367,7 +372,12 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
     constexpr float THRESHOLD = (9.81f * 1.5f);
     constexpr uint32_t LATENCY = 500; // ms
 
-    float interval = 1000.0f / getAccSampleRate();
+    uint16_t sampleRate = getAccSampleRate();
+
+    if (sampleRate == 0)
+        return;
+
+    float interval = 1000.0f / sampleRate;
 
     for (size_t i = 0; i < data.arrayAcc.size(); i++)
     {
@@ -418,8 +428,13 @@ void GestureService::shakeDetection(const WB_RES::AccData& data)
 
 void GestureService::orientationDetection(const WB_RES::AccData& data)
 {
-    float interval = 1000.0f / getAccSampleRate();
     constexpr uint32_t LATENCY = 1000; // Time to hold (ms) the same orientation before committing
+    uint16_t sampleRate = getAccSampleRate();
+    
+    if (sampleRate == 0)
+        return;
+
+    float interval = 1000.0f / sampleRate;
 
     for (size_t i = 0; i < data.arrayAcc.size(); i++)
     {

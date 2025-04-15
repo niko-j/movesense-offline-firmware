@@ -675,24 +675,39 @@ void OfflineMeasurements::compressECGSamples(const WB_RES::ECGData& data)
         buffer[i] = (data.samples[i] >> 2); // Discard 2 LSBs
     }
 
+    if (!m_state.ecg.block_timestamp) // init timestamp
+        m_state.ecg.block_timestamp = data.timestamp;
+
+    uint16_t sampleRate = m_state.params[WB_RES::OfflineMeasurement::ECG];
+    float interval = 1000.0f / sampleRate;
+
     // Callback to write blocks as they get completed
     static auto onWrite = [&](uint8_t block[State::ECG::COMPRESSOR_BLOCK_SIZE]) {
-        uint8_t blockSamples = block[0];
-        uint16_t sampleRate = m_state.params[WB_RES::OfflineMeasurement::ECG];
-        int32_t offset = int32_t((1000.0f / sampleRate) * m_state.ecg.sample_offset);
-
         WB_RES::OfflineECGCompressedData ecg;
-        ecg.timestamp = data.timestamp + offset;
+        ecg.timestamp = m_state.ecg.block_timestamp;
         ecg.bytes = wb::MakeArray(block, State::ECG::COMPRESSOR_BLOCK_SIZE);
         updateResource(WB_RES::LOCAL::OFFLINE_MEAS_ECG_COMPRESSED_SAMPLERATE(), ResponseOptions::ForceAsync, ecg);
 
-        m_state.ecg.sample_offset += blockSamples;
+        m_state.ecg.block_timestamp += block[0] * interval;
         };
+
+    // Check that timestamp is more or less accurate
+    if (m_state.ecg.block_timestamp)
+    {
+        // figure out if there was a pause
+        int32_t diff = data.timestamp - m_state.ecg.block_timestamp;
+        int maxDiff = ceil(16 * interval);
+        if (diff > maxDiff)
+        {
+            // Loss of data?
+            // Dump any buffered data and start new block
+            m_state.ecg.compressor.dump_buffer(onWrite);
+            m_state.ecg.block_timestamp = data.timestamp;
+        }
+    }
 
     size_t compressed = m_state.ecg.compressor.pack_continuous(wb::MakeArray(buffer), onWrite);
     ASSERT(compressed == samples);
-
-    m_state.ecg.sample_offset -= samples;
 }
 
 void OfflineMeasurements::recordHRAverages(const WB_RES::HRData& data)
@@ -869,7 +884,7 @@ uint16_t OfflineMeasurements::getAccSampleRate()
 void OfflineMeasurements::State::ECG::reset()
 {
     compressor.reset();
-    sample_offset = 0;
+    block_timestamp = 0;
 }
 
 void OfflineMeasurements::State::HR::reset()

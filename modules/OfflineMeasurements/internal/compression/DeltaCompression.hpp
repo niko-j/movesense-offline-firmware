@@ -35,8 +35,11 @@ namespace offline_meas::compression
 
         inline void write_block(write_callback callback)
         {
-            m_buffer[0] = m_bufferedSamples;
-            callback(m_buffer);
+            if (!m_initialize && m_bufferedSamples > 0)
+            {
+                m_buffer[0] = m_bufferedSamples;
+                callback(m_buffer);
+            }
         }
 
     public:
@@ -86,6 +89,12 @@ namespace offline_meas::compression
             }
 
             return processedSamples;
+        }
+
+        void dump_buffer(write_callback callback)
+        {
+            write_block(callback);
+            m_initialize = true;
         }
 
         void reset()

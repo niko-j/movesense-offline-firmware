@@ -193,6 +193,9 @@ definitions:
     - name: 'LogOrientation'
       description: Set to log orientation changes
       value: 32
+    - name: 'StudsToConnect'
+      description: Set to enable BLE advertising when studs are shorted
+      value: 64
 
   OfflineDebugInfo:
     required:

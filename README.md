@@ -55,7 +55,7 @@ docker run -it --rm -v `pwd`:/movesense:delegated --name movesense-build-env mov
 
 ### Building the Firmware
 
-Either use the VSCode task `Build (debug)` or run the build script `./scripts/build.sh debug` in the container.
+Either use the VSCode tasks or run the build script `./scripts/build.sh [--release] [--SS2_NAND]` in the container.
 
 ### Flash the Firmware
 

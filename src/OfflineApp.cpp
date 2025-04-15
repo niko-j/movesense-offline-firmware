@@ -25,8 +25,8 @@ constexpr uint8_t EEPROM_INIT_MAGIC = 0x42; // Change this for breaking changes
 constexpr uint32_t TIMER_TICK_SLEEP = 1000;
 constexpr uint32_t TIMER_TICK_LED = 250;
 constexpr uint32_t TIMER_BLE_ADV_TIMEOUT = 30 * 1000;
-constexpr uint32_t TIMER_GESTURE_LED_OVERRIDE_DURATION = 1000;
-constexpr uint32_t TIMER_START_LOG_DELAY = 3000;
+constexpr uint32_t TIMER_GESTURE_LED_OVERRIDE_DURATION = 2000;
+constexpr uint32_t TIMER_START_LOG_DELAY = 4000;
 
 static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::OFFLINE_CONFIG::LID,
@@ -487,7 +487,7 @@ void OfflineApp::onNotify(
         }
 
         if (m_config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES)
-            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
+            overrideLed(TIMER_GESTURE_LED_OVERRIDE_DURATION);
 
         break;
     }
@@ -748,19 +748,23 @@ void OfflineApp::startLogging()
         if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES ||
             m_config.options & WB_RES::OfflineOptionsFlags::TRIPLETAPTOSTARTLOG)
         {
-            asyncSubscribe(WB_RES::LOCAL::GESTURE_TAP(), AsyncRequestOptions::NotCriticalSubscription);
+            asyncSubscribe(
+                WB_RES::LOCAL::GESTURE_TAP(),
+                AsyncRequestOptions::NotCriticalSubscription);
         }
 
         if (m_config.options & WB_RES::OfflineOptionsFlags::LOGSHAKEGESTURES &&
             !(m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT))
         {
-            asyncSubscribe(WB_RES::LOCAL::GESTURE_SHAKE(), AsyncRequestOptions::NotCriticalSubscription);
+            asyncSubscribe(
+                WB_RES::LOCAL::GESTURE_SHAKE(),
+                AsyncRequestOptions::NotCriticalSubscription);
         }
     }
 
     // Start logging in 2 seconds
     {
-        m_state.ledOverride = TIMER_START_LOG_DELAY;
+        overrideLed(TIMER_START_LOG_DELAY);
         m_timers.start_log_delay.id = ResourceClient::startTimer(TIMER_START_LOG_DELAY, false);
     }
 
@@ -1065,13 +1069,23 @@ void OfflineApp::ledTimerTick()
 
     if (m_state.ledOverride > 0)
     {
-        m_timers.led.elapsed = 0;
-        m_timers.led.blinks = 0;
         m_state.ledOverride -= TIMER_TICK_LED;
+        if (m_state.ledOverride <= 0)
+        {
+            m_timers.led.blinks = 0;
 
-        WB_RES::LedState ledState = {};
-        ledState.isOn = true;
-        asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
+            WB_RES::LedState ledState = {};
+            ledState.isOn = false;
+            asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
+        }
+        else if (m_timers.led.blinks == 0)
+        {
+            m_timers.led.blinks = 1;
+
+            WB_RES::LedState ledState = {};
+            ledState.isOn = true;
+            asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
+        }
         return;
     }
 
@@ -1111,6 +1125,13 @@ void OfflineApp::ledTimerTick()
         ledState.isOn = !ledOn;
         asyncPut(WB_RES::LOCAL::COMPONENT_LEDS_LEDINDEX(), AsyncRequestOptions::Empty, 0, ledState);
     }
+}
+
+void OfflineApp::overrideLed(uint32_t duration)
+{
+    m_state.ledOverride = duration;
+    m_timers.led.elapsed = 0;
+    m_timers.led.blinks = 0;
 }
 
 void OfflineApp::handleBlePeerChange(const WB_RES::PeerChange& peerChange)
@@ -1164,6 +1185,16 @@ void OfflineApp::handleSystemStateChange(const WB_RES::StateChange& stateChange)
             if (m_config.wakeUp == WB_RES::OfflineWakeup::CONNECTOR)
                 onWakeUp();
         }
+
+        if (m_config.options & WB_RES::OfflineOptionsFlags::STUDSTOCONNECT)
+        {
+            if (!m_state.bleAdvertising &&
+                m_state.id.getValue() == WB_RES::OfflineState::RUNNING)
+            {
+                setBleAdv(true);
+                setBleAdvTimeout(TIMER_BLE_ADV_TIMEOUT);
+            }
+        }
         break;
     }
     case WB_RES::StateId::DOUBLETAP:
@@ -1210,12 +1241,12 @@ void OfflineApp::handleTapGesture(const WB_RES::TapGestureData& data)
     case WB_RES::OfflineState::RUNNING:
     {
         if (m_config.options & WB_RES::OfflineOptionsFlags::LOGTAPGESTURES)
-            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
+            overrideLed(TIMER_GESTURE_LED_OVERRIDE_DURATION);
 
         if (m_config.options & WB_RES::OfflineOptionsFlags::TRIPLETAPTOSTARTLOG
             && data.count == 3)
         {
-            m_state.ledOverride = TIMER_GESTURE_LED_OVERRIDE_DURATION;
+            overrideLed(TIMER_GESTURE_LED_OVERRIDE_DURATION);
             restartLogging();
         }
 
@@ -1233,21 +1264,29 @@ void OfflineApp::setBleAdv(bool enabled)
     if (enabled)
     {
         DebugLogger::info("%s: Turning on BLE advertising", LAUNCHABLE_NAME);
-        asyncPost(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::ForceAsync);
+        asyncPost(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::Empty);
     }
     else
     {
         DebugLogger::info("%s: Turning off BLE advertising", LAUNCHABLE_NAME);
-        asyncDelete(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::ForceAsync);
+        asyncDelete(WB_RES::LOCAL::COMM_BLE_ADV(), AsyncRequestOptions::Empty);
     }
 }
 
 void OfflineApp::setBleAdvTimeout(uint32_t timeout)
 {
+    // Reset timer
+    if (m_timers.ble_adv_off.id != wb::ID_INVALID_TIMER)
+    {
+        ResourceClient::stopTimer(m_timers.ble_adv_off.id);
+        m_timers.ble_adv_off.id = wb::ID_INVALID_TIMER;
+    }
+
+    // Set new timer if timeout set
     if (timeout > 0)
     {
-        bool enabled = !!(m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT);
-        if (m_timers.ble_adv_off.id == wb::ID_INVALID_TIMER && enabled)
+        if (m_config.options & WB_RES::OfflineOptionsFlags::SHAKETOCONNECT ||
+            m_config.options & WB_RES::OfflineOptionsFlags::STUDSTOCONNECT)
         {
             DebugLogger::verbose("%s: BLE ADV timeout set to %u ms", LAUNCHABLE_NAME, timeout);
             m_timers.ble_adv_off.id = ResourceClient::startTimer(timeout, false);
@@ -1255,11 +1294,6 @@ void OfflineApp::setBleAdvTimeout(uint32_t timeout)
     }
     else
     {
-        if (m_timers.ble_adv_off.id != wb::ID_INVALID_TIMER)
-        {
-            DebugLogger::verbose("%s: BLE ADV timeout disabled", LAUNCHABLE_NAME);
-            ResourceClient::stopTimer(m_timers.ble_adv_off.id);
-            m_timers.ble_adv_off.id = wb::ID_INVALID_TIMER;
-        }
+        DebugLogger::verbose("%s: BLE ADV timeout disabled");
     }
 }
