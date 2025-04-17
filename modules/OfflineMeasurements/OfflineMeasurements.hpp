@@ -10,8 +10,8 @@
 #include "meas_gyro/resources.h"
 #include "meas_magn/resources.h"
 #include "meas_temp/resources.h"
-#include "internal/Filter.hpp"
-#include "internal/compression/DeltaCompression.hpp"
+#include "utils/Filter.hpp"
+#include "compression/ECGCompression.hpp"
 
 class OfflineMeasurements FINAL : private wb::ResourceProvider, private wb::ResourceClient, public wb::LaunchableModule
 {
@@ -98,7 +98,7 @@ private:
         {
             static constexpr uint8_t COMPRESSOR_BLOCK_SIZE = 32;
             uint32_t block_timestamp = 0;
-            offline_meas::compression::DeltaCompression<int16_t, COMPRESSOR_BLOCK_SIZE> compressor;
+            ECGCompression<32, int16_t, int32_t> compressor;
             void reset();
         } ecg;
 
