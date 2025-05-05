@@ -333,20 +333,19 @@ void OfflineApp::onPutResult(
     {
         if (resultCode == wb::HTTP_CODE_OK)
         {
-            // Start new log after stopping data logger
-            if (m_state.createNewLog)
+            // Should the logger be restarted immediately?
+            if (m_state.restartLogger)
             {
-                m_state.createNewLog = false;
-                asyncPost(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::Empty);
-
-                // Should the logger be restarted immediately?
-                if (m_state.restartLogger)
+                if (m_state.createNewLog)
                 {
-                    m_state.restartLogger = false;
-                    asyncPut(
-                        WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
-                        WB_RES::DataLoggerState::DATALOGGER_LOGGING);
+                    m_state.createNewLog = false;
+                    asyncPost(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::Empty);
                 }
+
+                m_state.restartLogger = false;
+                asyncPut(
+                    WB_RES::LOCAL::MEM_DATALOGGER_STATE(), AsyncRequestOptions::Empty,
+                    WB_RES::DataLoggerState::DATALOGGER_LOGGING);
             }
         }
         else
@@ -742,6 +741,12 @@ void OfflineApp::startLogging()
     }
 
     DebugLogger::info("%s: Starting Data Logger...", LAUNCHABLE_NAME);
+
+    if (m_state.createNewLog)
+    {
+        m_state.createNewLog = false;
+        asyncPost(WB_RES::LOCAL::MEM_LOGBOOK_ENTRIES(), AsyncRequestOptions::Empty);
+    }
 
     // Subscribe to gestures to show LED confirmation on successful detection
     {

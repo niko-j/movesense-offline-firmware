@@ -15,10 +15,12 @@ static const wb::LocalResourceId sProviderResources[] = {
     WB_RES::LOCAL::GESTURE_ORIENTATION::LID
 };
 
+const wb::ExecutionContextId EXECUTION_CONTEXT = WB_RES::LOCAL::GESTURE_TAP::EXECUTION_CONTEXT;
+
 GestureService::GestureService()
-    : ResourceProvider(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
-    , ResourceClient(WBDEBUG_NAME(__FUNCTION__), WB_EXEC_CTX_APPLICATION)
-    , LaunchableModule(LAUNCHABLE_NAME, WB_EXEC_CTX_APPLICATION)
+    : ResourceProvider(WBDEBUG_NAME(__FUNCTION__), EXECUTION_CONTEXT)
+    , ResourceClient(WBDEBUG_NAME(__FUNCTION__), EXECUTION_CONTEXT)
+    , LaunchableModule(LAUNCHABLE_NAME, EXECUTION_CONTEXT)
     , m_state({})
 {
 

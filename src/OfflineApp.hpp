@@ -34,7 +34,7 @@ struct OfflineEepromData
 
 #define OFFLINE_DATA_EEPROM_SIZE (1 + sizeof(OfflineEepromData))
 #define OFFLINE_DATA_EEPROM_AREA(addr, len) \
-    static_assert(len >= OFFLINE_DATA_EEPROM_SIZE && "Insufficient offline config EEPROM data area size."); \
+    static_assert(len >= OFFLINE_DATA_EEPROM_SIZE, "Insufficient offline config EEPROM data area size."); \
     const size_t g_OfflineDataEepromAddr = addr; \
     const size_t g_OfflineDataEepromLen = len;
 
