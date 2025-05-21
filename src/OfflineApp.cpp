@@ -1188,7 +1188,11 @@ void OfflineApp::handleSystemStateChange(const WB_RES::StateChange& stateChange)
         if (sleeping)
         {
             if (m_config.wakeUp == WB_RES::OfflineWakeup::CONNECTOR)
-                onWakeUp();
+            {
+                int diff = WbTimestampDifferenceMs(m_state.stateEnterTimestamp, stateChange.timestamp);
+                if (diff > 2000)
+                    onWakeUp();
+            }
         }
 
         if (m_config.options & WB_RES::OfflineOptionsFlags::STUDSTOCONNECT)
